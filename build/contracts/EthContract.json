@@ -1,0 +1,41 @@
+{
+  "contract_name": "EthContract",
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "burn",
+      "outputs": [],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "publicDestructionKey",
+          "type": "string"
+        }
+      ],
+      "name": "burnRequest",
+      "outputs": [],
+      "payable": true,
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "payable": false,
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [],
+      "name": "TokenBurned",
+      "type": "event"
+    }
+  ],
+  "unlinked_binary": "0x6060604052341561000f57600080fd5b5b5b5b610128806100216000396000f300606060405263ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166344df8e7081146046578063996130ad146058575b600080fd5b3415605057600080fd5b6056609e565b005b605660046024813581810190830135806020601f8201819004810201604051908101604052818152929190602084018383808284375094965060cd95505050505050565b005b7f202d8ed16e3fd616e7659da511d9b9d73ad6bea6daada5de48b031194c9de15260405160405180910390a15b565b73ffffffffffffffffffffffffffffffffffffffff331660009081526020819052604090208054340190555b505600a165627a7a72305820f34a326a1003aae88d87318bc97a5898747828cd9f7544407c9608f2b1e3ab0d0029",
+  "networks": {},
+  "schema_version": "0.0.5",
+  "updated_at": 1506084864882
+}
