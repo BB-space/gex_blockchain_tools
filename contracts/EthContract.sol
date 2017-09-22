@@ -3,17 +3,56 @@ pragma solidity ^0.4.0;
 
 contract EthContract {
 
+    uint constant QUORUM_MINIMUM = 10;
+
+    struct NodeInfo {
+    address addr;
+    string ip;
+    string pubKey;
+    }
+
+    struct BurnRequest {
+    address addr;
+    uint amount;
+    NodeInfo[] nodes;
+    uint counter;
+    string publicDestructionKey;
+    }
+
     mapping (address => uint) balances;
 
-    event TokenBurned();
+    mapping (bytes32 => BurnRequest) requests;
+
+    event TokenBurned(bytes32 id);
 
     function EthContract(){}
 
-    function burnRequest(string publicDestructionKey) payable {
-        balances[msg.sender] += msg.value;
+    function burnRequest(string publicDestructionKey, uint amount)  {
+        bytes32 id = keccak256(msg.sender, amount, publicDestructionKey, block.timestamp);
+        BurnRequest storage br;
+        br.addr = msg.sender;
+        br.amount = amount;
+        br.publicDestructionKey = publicDestructionKey;
+        requests[id] = br;
+        //balances[msg.sender] += msg.value;
     }
 
-    function burn(){
-        TokenBurned();
+    function verifySign(string signedKey) private returns (bool){
+        return true;
+    }
+
+    function burn(bytes32 id, string signedKey) payable returns (bool){
+        require(requests[id].addr != address(0x0));
+        if (requests[id].counter < QUORUM_MINIMUM) {
+            if (verifySign(signedKey)) {
+                requests[id].counter++;
+                if (requests[id].counter == QUORUM_MINIMUM) {
+                    balances[requests[id].addr] -= requests[id].amount;
+                    TokenBurned(id);
+                }
+                return true;
+            }
+        }
+        return false;
     }
 }

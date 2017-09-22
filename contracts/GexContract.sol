@@ -15,7 +15,7 @@ contract GexContract {
     address addr;
     uint amount;
     NodeInfo[] nodes;
-    uint mintCount;
+    uint counter;
     }
 
     mapping (bytes32 => MintRequest) requests;
@@ -61,9 +61,9 @@ contract GexContract {
 
     function mint(bytes32 id){
         require(requests[id].addr != address(0x0));
-        if (requests[id].mintCount < QUORUM_MINIMUM) {
-            requests[id].mintCount++;
-            if (requests[id].mintCount == QUORUM_MINIMUM) {
+        if (requests[id].counter < QUORUM_MINIMUM) {
+            requests[id].counter++;
+            if (requests[id].counter == QUORUM_MINIMUM) {
                 //requests[id].addr.transfer(requests[id].amount);
                 // import "./SafeMath.sol";
                 //safeAdd(balances[requests[id].addr], requests[id].amount);
