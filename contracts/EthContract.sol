@@ -1,9 +1,14 @@
 pragma solidity ^0.4.0;
 
 
+import './GEXToken.sol';
+
+
 contract EthContract {
 
     uint constant QUORUM_MINIMUM = 10;
+
+    GEXToken token;
 
     struct NodeInfo {
     address addr;
@@ -25,7 +30,9 @@ contract EthContract {
 
     event TokenBurned(bytes32 id);
 
-    function EthContract(){}
+    function EthContract(GEXToken gexToken){
+        token = gexToken;
+    }
 
     function burnRequest(string publicDestructionKey, uint amount)  {
         bytes32 id = keccak256(msg.sender, amount, publicDestructionKey, block.timestamp);
@@ -34,10 +41,10 @@ contract EthContract {
         br.amount = amount;
         br.publicDestructionKey = publicDestructionKey;
         requests[id] = br;
-        //balances[msg.sender] += msg.value;
     }
 
     function verifySign(string signedKey) private returns (bool){
+        //todo
         return true;
     }
 

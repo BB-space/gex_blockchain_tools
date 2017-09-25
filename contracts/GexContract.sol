@@ -1,9 +1,14 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.9;
+
+
+import './GEXToken.sol';
 
 
 contract GexContract {
 
     uint constant QUORUM_MINIMUM = 10;
+
+    GEXToken token;
 
     struct NodeInfo {
     address addr;
@@ -26,7 +31,9 @@ contract GexContract {
 
     event NodesRegistrationFinished(bytes32 id);
 
-    function GexContract(){}
+    function GexContract(GEXToken gexToken){
+        token = gexToken;
+    }
 
     function mintRequest(uint amount){
         bytes32 id = keccak256(msg.sender, amount, block.timestamp);
@@ -56,6 +63,7 @@ contract GexContract {
     }
 
     function checkNode(bytes32 id, string pubKey) private returns (bool){
+        //todo
         return true;
     }
 
@@ -65,9 +73,9 @@ contract GexContract {
             requests[id].counter++;
             if (requests[id].counter == QUORUM_MINIMUM) {
                 //requests[id].addr.transfer(requests[id].amount);
-                // import "./SafeMath.sol";
                 //safeAdd(balances[requests[id].addr], requests[id].amount);
-                balances[requests[id].addr] += requests[id].amount;
+                //balances[requests[id].addr] += requests[id].amount;
+                token.mint(requests[id].addr, requests[id].amount);
             }
         }
     }
