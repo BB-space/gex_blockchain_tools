@@ -8,7 +8,9 @@ contract GexContract {
 
     uint constant QUORUM_MINIMUM = 10;
 
-    GEXToken token;
+    GEXToken gexToken;
+
+    address token;
 
     struct NodeInfo {
     address addr;
@@ -31,8 +33,9 @@ contract GexContract {
 
     event NodesRegistrationFinished(bytes32 id);
 
-    function GexContract(GEXToken gexToken){
-        token = gexToken;
+    function GexContract(address _token){
+        gexToken = GEXToken(_token);
+        token = _token;
     }
 
     function mintRequest(uint amount){
@@ -75,7 +78,10 @@ contract GexContract {
                 //requests[id].addr.transfer(requests[id].amount);
                 //safeAdd(balances[requests[id].addr], requests[id].amount);
                 //balances[requests[id].addr] += requests[id].amount;
-                token.mint(requests[id].addr, requests[id].amount);
+
+                //gexToken.mint(requests[id].addr, requests[id].amount);
+                token.call(bytes4(sha3("mint(address _to,uint256 _amount)")), requests[id].addr, requests[id].amount);
+            //if (!token.mint(_beneficiary, tokens)) revert();
             }
         }
     }

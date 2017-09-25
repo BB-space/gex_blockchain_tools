@@ -8,7 +8,9 @@ contract EthContract {
 
     uint constant QUORUM_MINIMUM = 10;
 
-    GEXToken token;
+    GEXToken gexToken;
+
+    address token;
 
     struct NodeInfo {
     address addr;
@@ -30,8 +32,10 @@ contract EthContract {
 
     event TokenBurned(bytes32 id);
 
-    function EthContract(GEXToken gexToken){
-        token = gexToken;
+    function EthContract(address _token){
+        //todo
+        gexToken = GEXToken(_token);
+        token = _token;
     }
 
     function burnRequest(string publicDestructionKey, uint amount)  {
@@ -54,7 +58,8 @@ contract EthContract {
             if (verifySign(signedKey)) {
                 requests[id].counter++;
                 if (requests[id].counter == QUORUM_MINIMUM) {
-                    balances[requests[id].addr] -= requests[id].amount;
+                    //balances[requests[id].addr] -= requests[id].amount;
+                    token.call(bytes4(sha3("burn(address _from,uint _amount)")), requests[id].addr, requests[id].amount);
                     TokenBurned(id);
                 }
                 return true;
