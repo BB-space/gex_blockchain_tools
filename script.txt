@@ -1,0 +1,12 @@
+personal.newAccount("123")
+miner.setEtherbase(eth.accounts[0])
+personal.unlockAccount(eth.accounts[0], '123')
+miner.start()
+miner.stop()
+
+solc --abi contracts/ExampleContract.sol
+loadScript("/media/khotkevych/594caf8b-ae44-489c-a7f2-b2633048db85/projects/cross-chain/test.js")
+
+
+geth --dev --rpc --rpcaddr "0.0.0.0" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" console
+ethereumwallet --rpc http://localhost:8545

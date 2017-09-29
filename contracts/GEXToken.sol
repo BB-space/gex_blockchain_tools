@@ -8,7 +8,7 @@ import './Ownable.sol';
 contract GEXToken is StandardToken, Ownable {
 
     //todo
-    uint cap; // the maximum amount of tokens that can ever be created
+    uint cap = 10000; // the maximum amount of tokens that can ever be created
 
     event Mint(address indexed to, uint256 amount);
 

@@ -1,14 +1,14 @@
 pragma solidity ^0.4.9;
 
 
-import './GEXToken.sol';
+//import './GEXToken.sol';
 
 
 contract GexContract {
 
     uint constant QUORUM_MINIMUM = 10;
 
-    GEXToken gexToken;
+    //GEXToken gexToken;
 
     address token;
 
@@ -34,7 +34,7 @@ contract GexContract {
     event NodesRegistrationFinished(bytes32 id);
 
     function GexContract(address _token){
-        gexToken = GEXToken(_token);
+        //gexToken = GEXToken(_token);
         token = _token;
     }
 
