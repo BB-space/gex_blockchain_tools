@@ -7,17 +7,19 @@ import './Ownable.sol';
 
 contract GEXToken is StandardToken, Ownable {
 
-    //todo
-    uint cap = 10000; // the maximum amount of tokens that can ever be created
+    string public constant name = "Galactic Exchange Token";
+
+    string public constant symbol = "GEX";
+
+    uint8 public constant decimals = 18;
+
+    uint public constant cap = 100000 * decimals; // the maximum amount of tokens that can ever be created
 
     event Mint(address indexed to, uint256 amount);
 
     event Burn(address indexed from, uint256 amount);
 
     function GEXToken(){
-        //if (_cap == 0) throw;
-        //todo decimals
-        //cap = _cap;
     }
 
     function mint(address _to, uint256 _amount) onlyOwner returns (bool) {
