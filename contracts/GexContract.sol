@@ -38,6 +38,11 @@ contract GexContract {
         token = _token;
     }
 
+    function balanceOf(address _owner) constant returns (uint256 balance) {
+        return balances[_owner];
+    }
+
+    // todo visa versa
     function mintRequest(uint amount){
         bytes32 id = keccak256(msg.sender, amount, block.timestamp);
         MintRequest storage mr;
@@ -81,7 +86,7 @@ contract GexContract {
 
                 //gexToken.mint(requests[id].addr, requests[id].amount);
                 token.call(bytes4(sha3("mint(address _to,uint256 _amount)")), requests[id].addr, requests[id].amount);
-            //if (!token.mint(_beneficiary, tokens)) revert();
+                //if (!token.mint(_beneficiary, tokens)) revert();
             }
         }
     }

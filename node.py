@@ -96,10 +96,12 @@ class Node:
                     print "Contracts identity verification is failed"
             else:
                 print "Registration for event", event_id, "is failed"
-
                 # .mint(self.web3gex.eth.accounts[0], 100)
                 # tokenContract = web3.eth.contract(contract_name='GEXToken', address=data['GEXToken'], abi=data['GEXToken_abi'])
                 # print tokenContract.call().balanceOf(web3.eth.accounts[0])
                 # tokenContract.transact({'from': web3.eth.accounts[0]}).mint(web3.eth.accounts[0], 100)
-                # while True:
-                #    pass
+
+
+node = Node()
+while True:
+    pass
