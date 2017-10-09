@@ -2,6 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./Token/Token.sol";
 import "./lib/ECVerify.sol";
+import "../../contracts/NodeContract.sol";
 
 /// @title Raiden MicroTransfer Channels Contract.
 contract RaidenMicroTransferChannels {
