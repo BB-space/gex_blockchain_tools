@@ -1,7 +1,7 @@
 pragma solidity ^0.4.11;
 
-import "./Token/Token.sol";
-import "./lib/ECVerify.sol";
+import "../../contracts/token_223/Token.sol";
+import "../../contracts/lib/ECVerify.sol";
 import "../../contracts/NodeContract.sol";
 
 /// @title Raiden MicroTransfer Channels Contract.
@@ -23,15 +23,20 @@ contract RaidenMicroTransferChannels {
     mapping (bytes32 => Channel) channels;
     mapping (bytes32 => ClosingRequest) closing_requests;
 
-    // 28 (deposit) + 4 (block no settlement)
+
     struct Channel {
-        uint192 deposit; // mAX 2^192 == 2^6 * 2^18
-        uint32 open_block_number; // UNIQUE for participants to prevent replay of messages in later channels
+        uint192 deposit; // amount of the coins (tokens) in the channel
+        uint32 open_block; // number of the block when the channel was opened
+        uint32 collateral; // the amount of coins to be paid out to the person who proved that the sender is cheating
+        uint32 channel_fee; // fee the sender pays to the nodes that maintain the channel
+        address[] maintaining_nodes; // nodes that maintain the channel
+        address topic_holder_node; // the node that hosts the payment kafka topic
     }
 
-    struct ClosingRequest {         // TODO CHANGE EVERYTHING THAT USES THIS
-        uint32 settle_block_number;
-        uint256[] closing_balances_data;
+    struct ClosingRequest {
+        uint32 settle_block_number; // the block when the channel can be settled
+        ClosingStatus closing_status; // the closing status of the channel
+        uint256[] closing_balances_data; // the data, which will be used to settle the channel
     }
 
     /*
@@ -77,7 +82,7 @@ contract RaidenMicroTransferChannels {
      */
 
     /// @dev Constructor for creating the Raiden microtransfer channels contract.
-    /// @param _token The address of the Token used by the channels.
+    /// @param _token The address of the token_223 used by the channels.
     /// @param _challenge_period A fixed number of blocks representing the challenge period after a sender requests the closing of the channel without the receivers's signature.
     function RaidenMicroTransferChannels(address _token, uint8 _challenge_period) {
         require(_token != 0x0);
@@ -180,7 +185,7 @@ contract RaidenMicroTransferChannels {
      *  External functions
      */
 
-    /// @dev Calls createChannel, compatibility with ERC 223; msg.sender is Token contract.
+    /// @dev Calls createChannel, compatibility with ERC 223; msg.sender is token_223 contract.
     /// @param _sender The address that sends the tokens.
     /// @param _deposit The amount of tokens that the sender escrows.
     /// @param _data uint32 open_block_number
@@ -285,7 +290,7 @@ contract RaidenMicroTransferChannels {
      *  Private functions
      */
 
-    /// @dev Creates a new channel between a sender and a receivers, only callable by the Token contract.
+    /// @dev Creates a new channel between a sender and a receivers, only callable by the token_223 contract.
     /// @param _sender The address that receives tokens.
     /// @param _deposit The amount of tokens that the sender escrows.
     function createChannelPrivate(
@@ -310,7 +315,7 @@ contract RaidenMicroTransferChannels {
     }
 
     // TODO (WIP)
-    /// @dev Funds channel with an additional deposit of tokens, only callable by the Token contract.
+    /// @dev Funds channel with an additional deposit of tokens, only callable by the token_223 contract.
     /// @param _sender The address that sends tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     /// @param _added_deposit The added token deposit with which the current deposit is increased.
