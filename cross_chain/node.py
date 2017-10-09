@@ -83,12 +83,10 @@ class Node:
         print(result['args'])
         event_id = result['args']['event_id']
         if self.is_validator(event_id):
-            # todo get pubKey and ip
-            public_key = "lala"
-            ip = "10.1.0.11"
+            # todo add nose to list
             self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,
                                                 self.password_unlock_duration)  # todo unsecure
-            if self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).register(event_id, public_key, ip):
+            if self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).register(event_id):
                 print "Registered for event", event_id
                 if self.validate_contracts_identity(event_id):
                     print "Contracts identity is verified"

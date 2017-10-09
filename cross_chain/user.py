@@ -29,6 +29,8 @@ class User:
                                                      abi=data['GexContract_abi'])
         self.ethContract = self.web3eth.eth.contract(contract_name='EthContract', address=data['EthContract'],
                                                      abi=data['EthContract_abi'])
+        self.nodeContract = self.web3eth.eth.contract(contract_name='NodeContract', address=data['NodeContract'],
+                                                      abi=data['NodeContract_abi'])
         # event listeners
         node_registration_finished_event = self.gexContrac.on('NodesRegistrationFinished')
         node_registration_finished_event.watch(self.node_registration_finished_callback)
@@ -56,9 +58,13 @@ class User:
         transfer_id = result['args']['event_id']
         if transfer_id in self.transfers:
             transfer = self.transfers[transfer_id]
-            # todo get public_keys and ip
-            self.gexContract.call()
-
+            validators = self.gexContract.call().getValidators()
+            # todo rewrite
+            ips = []
+            pubKeys = []
+            for validator in validators:
+                ips.append(self.nodeContract.call().getIp(validator))
+                pubKeys.append(self.nodeContract.call().getPublicKey(validator))
 
 user = User()
 while True:
