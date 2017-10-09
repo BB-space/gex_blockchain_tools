@@ -1,3 +1,11 @@
+# general
 .idea
-build/
-data.json
+
+#cross_chain
+cross_chain/build/
+cross_chain/data.json
+
+# micro_payments
+micro_payments/env
+micro_payments/*.egg-info
+micro_payments/__pycache__
