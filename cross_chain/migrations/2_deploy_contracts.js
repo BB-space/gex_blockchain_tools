@@ -1,5 +1,5 @@
 var GEXToken = artifacts.require("./GEXToken.sol");
-var NodeContract = artifacts.require("./GEXToken.sol");
+var NodeContract = artifacts.require("./NodeContract.sol");
 var GexContract = artifacts.require("./GexContract.sol");
 var EthContract = artifacts.require("./EthContract.sol");
 module.exports = function (deployer) {
