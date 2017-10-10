@@ -47,7 +47,7 @@ class Node:
         self.ethContract = self.web3eth.eth.contract(contract_name='EthContract', address=data['EthContract'],
                                                      abi=data['EthContract_abi'])
         # event listeners
-        search_nodes_event = self.gexContrac.on('SearchNodes')
+        search_nodes_event = self.gexContract.on('SearchNodes')
         search_nodes_event.watch(self.search_nodes_callback)
         token_burned_event = self.ethContract.on('TokenBurned')
         token_burned_event.watch(self.token_burned_callback)
