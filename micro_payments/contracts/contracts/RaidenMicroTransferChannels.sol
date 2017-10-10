@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.18;
 
 import "../../contracts/token_223/Token.sol";
 import "../../contracts/lib/ECVerify.sol";
@@ -15,8 +15,9 @@ contract RaidenMicroTransferChannels {
     address public owner;
     address public token_address;
     uint8 public challenge_period;
+    uint8 public channel_lifetime;
     string constant prefix = "\x19Ethereum Signed Message:\n";
-
+    uint constant D160 = 0x10000000000000000000000000000000000000000;
 
     Token token;
 
@@ -26,11 +27,12 @@ contract RaidenMicroTransferChannels {
 
     struct Channel {
         uint192 deposit; // amount of the coins (tokens) in the channel
-        uint32 open_block; // number of the block when the channel was opened
+        uint32 open_block_number; // number of the block when the channel was opened
         uint32 collateral; // the amount of coins to be paid out to the person who proved that the sender is cheating
         uint32 channel_fee; // fee the sender pays to the nodes that maintain the channel
-        address[] maintaining_nodes; // nodes that maintain the channel
+        address[] maintaining_nodes; // nodes that maintain the channel  TODO decide on the number of maintainers
         address topic_holder_node; // the node that hosts the payment kafka topic
+        bytes32 random_n;
     }
 
     struct ClosingRequest {
@@ -54,7 +56,9 @@ contract RaidenMicroTransferChannels {
 
     event ChannelCreated(
         address indexed _sender,
-        uint192 _deposit);
+        uint192 _deposit,
+        uint32 _channel_fee,
+        bytes32 _random_n);
 
     event ChannelToppedUp (
         address indexed _sender,
@@ -64,13 +68,23 @@ contract RaidenMicroTransferChannels {
 
     event ChannelCloseRequested(
         address indexed _sender,
-        uint256[] payment_data,
+        uint256[] _payment_data,
         uint32 indexed _open_block_number);
 
     event ChannelSettled(
         address indexed _sender,
-        uint256[] payment_data,
+        uint256[] _payment_data,
         uint32 indexed _open_block_number);
+
+    event MaintainerRegistered(
+        address indexed _sender,
+        address indexed _open_block_number,
+        address indexed _maintainer);
+
+    event ChannelTopicCreated(
+        address indexed _sender,
+        address indexed _open_block_number,
+        address indexed _topic_holder);
 
     event GasCost(
         string _function_name,
@@ -84,15 +98,17 @@ contract RaidenMicroTransferChannels {
     /// @dev Constructor for creating the Raiden microtransfer channels contract.
     /// @param _token The address of the token_223 used by the channels.
     /// @param _challenge_period A fixed number of blocks representing the challenge period after a sender requests the closing of the channel without the receivers's signature.
-    function RaidenMicroTransferChannels(address _token, uint8 _challenge_period) {
+    function RaidenMicroTransferChannels(address _token, uint8 _challenge_period, uint8 _channel_lifetime) {
         require(_token != 0x0);
         require(_challenge_period > 0);
+        require(_channel_lifetime > 0);
 
         owner = msg.sender;
         token_address = _token;
         token = Token(_token);
 
         challenge_period = _challenge_period;
+        channel_lifetime = _channel_lifetime;
     }
 
     /*
@@ -104,7 +120,7 @@ contract RaidenMicroTransferChannels {
     /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     /// @return Unique channel identifier.
-    function getKey(            // TODO check for possible collisions ?
+    function getKey(
         address _sender,
         uint32 _open_block_number)
         public
@@ -157,8 +173,7 @@ contract RaidenMicroTransferChannels {
 
         //GasCost('close verifyBalanceProof length start', block.gaslimit, msg.gas);
         // 2446 gas cost
-        // TODO: improve length calc
-        uint message_length = bytes(message).length;
+        uint256 message_length = bytes(message).length;
         //GasCost('close verifyBalanceProof length end', block.gaslimit, msg.gas);
 
         //GasCost('close verifyBalanceProof uintToString start', block.gaslimit, msg.gas);
@@ -188,7 +203,7 @@ contract RaidenMicroTransferChannels {
     /// @dev Calls createChannel, compatibility with ERC 223; msg.sender is token_223 contract.
     /// @param _sender The address that sends the tokens.
     /// @param _deposit The amount of tokens that the sender escrows.
-    /// @param _data uint32 open_block_number
+    /// @param _data flag_byte + uint32 open_block_number / uint32 channel_fee
     function tokenFallback(
         address _sender,
         uint256 _deposit,
@@ -200,20 +215,21 @@ contract RaidenMicroTransferChannels {
         //GasCost('tokenFallback start0', block.gaslimit, msg.gas);
         uint length = _data.length;
 
-        // createChannel - no info
-        // topUp - open_block_number (4 bytes + padding = 32 bytes)
-        require(length == 0 || length == 4);  // TODO check that length can be == 0
+        // data - flag_byte (1 byte) + open_block_number (4 bytes) or flag_byte (1 byte) + channel_fee (4 bytes)
+        require(length == 5);
+        bytes1 flag_byte;
+        uint32 number;
 
-        if(length == 0) {
-            createChannelPrivate(_sender, uint192(_deposit));
+        (flag_byte, number) = fallbackDataConvert(data);
+
+        if (flag_byte == x00){
+            createChannelPrivate(_sender, number, uint192(_deposit));
+        } else if (flag_byte == x01) {
+            topUpPrivate(_sender, number, uint192(_deposit));
+        } else {
+            throw;
         }
-        else {
-            //GasCost('tokenFallback blockNumberFromData start', block.gaslimit, msg.gas);
-            uint32 open_block_number = blockNumberFromData(_data);
-            //GasCost('tokenFallback blockNumberFromData end', block.gaslimit, msg.gas);
-            topUpPrivate(_sender, open_block_number, uint192(_deposit));
-        }
-        //GasCost('tokenFallback end', block.gaslimit, msg.gas);
+
     }
 
     /// @dev Function called when any of the parties wants to close the channel and settle; any receiver needs a balance proof to immediately settle, sender triggers a challenge period.
@@ -230,16 +246,41 @@ contract RaidenMicroTransferChannels {
         bytes32 key = getKey(_sender, _open_block_number);
 
         require(closing_requests[key].settle_block_number != 0);
-        require(uint32(block.number) - _open_block_number > 3000);
+        require(uint32(block.number) - _open_block_number >= channel_lifetime);
         require(_balance_msg_sig.length == 65);
-
-        // TODO decode payment_data to get receivers
 
         //GasCost('close verifyBalanceProof start', block.gaslimit, msg.gas);
         address sender = verifyBalanceProof(_receiver, _open_block_number, _balance, _balance_msg_sig);
+        require(sender == _sender);
         //GasCost('close verifyBalanceProof end', block.gaslimit, msg.gas);
 
         initChallengePeriod(_receiver, _open_block_number, _balance);
+    }
+
+    // costly
+    function report_contradiction(
+        address _sender,
+        uint32 _open_block_number,
+        uint256[] _right_payment_data,
+        bytes _right_balance_msg_sig,
+        uint256[] _wrong_payment_data,
+        bytes _wrong_balance_msg_sig)
+        external
+    {
+        // TODO implement
+    }
+
+    // costly
+    function report_overspend(  // TODO maybe make one function report_cheating instead of two?
+        address _sender,
+        uint32 _open_block_number,
+        uint256[] _right_payment_data,
+        bytes _right_balance_msg_sig,
+        uint256[] _wrong_payment_data,
+        bytes _wrong_balance_msg_sig)
+        external
+    {
+        // TODO implement
     }
 
     function decodePaymentData(
@@ -248,7 +289,16 @@ contract RaidenMicroTransferChannels {
         constant
         returns()
     {
+        // TODO test this
+        address[] memory receivers;
+        uint[] memory balances;
 
+        for (uint i=0; i<_payment_data.length; i++) {
+            receivers.append(address( _payment_data[i] & (D160-1) ));
+            balances.append(_payment_data[i] / D160);
+        }
+
+        return(receivers, balances);
     }
 
     /// @dev Function for getting information about a channel.
@@ -261,18 +311,18 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
         constant
-        returns (bytes32, uint192, uint32, uint256[])
+        returns (bytes32, uint192, uint32, uint32, uint32, uint256[])
     {
         bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
 
-        return (key, channels[key].deposit, closing_requests[key].settle_block_number, closing_requests[key].closing_balances_data);
+        return (key, channels[key].deposit, channels[key].collateral, channels[key].channel_fee, closing_requests[key].settle_block_number, closing_requests[key].closing_balances_data);
     }
 
     /// @dev Function called by the sender after the challenge period has ended, in case the receiver has not closed the channel.
     /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
-    function settle(    // TODO change dis !
+    function settle(    // TODO change this !
         address _sender,
         uint32 _open_block_number,
         uint256[] _payment_data)
@@ -286,6 +336,26 @@ contract RaidenMicroTransferChannels {
         settleChannel(_sender, _open_block_number, _payment_data);
     }
 
+    function registerMaintainer(
+        address _sender,
+        uint32 _open_block_number)
+        external
+    {
+        bytes32 key = getKey(_sender, _open_block_number);
+        require(channels[key].open_block_number != 0);
+        require(channels[key].maintaining_nodes.length < 3);
+
+        //todo check for eligibility using the random_n in the channel
+
+        channels[key].maintaining_nodes.append(msg.sender);
+        if (channels[key].maintaining_nodes.length == 1){
+            channels[key].topic_holder_node = msg.sender;
+            ChannelTopicCreated(_sender, _open_block_number, msg.sender);
+        }
+
+        MaintainerRegistered(_sender, _open_block_number, msg.sender);
+    }
+
     /*
      *  Private functions
      */
@@ -295,6 +365,7 @@ contract RaidenMicroTransferChannels {
     /// @param _deposit The amount of tokens that the sender escrows.
     function createChannelPrivate(
         address _sender,
+        uint32 _channel_fee,
         uint192 _deposit)
         private
     {
@@ -308,13 +379,28 @@ contract RaidenMicroTransferChannels {
         require(channels[key].open_block_number == 0);
         require(closing_requests[key].settle_block_number == 0);
 
-        // Store channel information
-        channels[key] = Channel({deposit: _deposit, open_block_number: open_block_number});
-        //GasCost('createChannel end', block.gaslimit, msg.gas);
-        ChannelCreated(_sender, _deposit);
+        uint192 memory deposit = ((_deposit - _channel_fee) / 100) * 85;
+        uint32 memory collateral = (_deposit - _channel_fee) - deposit;
+
+        if (deposit + collateral + _channel_fee == _deposit){   // temporary structure, will probably delete this after some tests
+            ChannelCreated(0, 0, 0, 0);
+        } else {
+            bytes32 memory random_n = bytes32(0);
+            Channel channel;
+
+            channel.deposit = deposit;
+            channel.open_block_number = open_block_number;
+            channel.collateral = collateral;
+            channel.channel_fee = _channel_fee;
+            channel.random_n = random_n;
+
+            channels[key] = channel;
+            //GasCost('createChannel end', block.gaslimit, msg.gas);
+
+            ChannelCreated(_sender, deposit, _channel_fee, random_n);
+        }
     }
 
-    // TODO (WIP)
     /// @dev Funds channel with an additional deposit of tokens, only callable by the token_223 contract.
     /// @param _sender The address that sends tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
@@ -334,8 +420,12 @@ contract RaidenMicroTransferChannels {
         require(channels[key].deposit != 0);
         require(closing_requests[key].settle_block_number == 0);
 
-        channels[key].deposit += _added_deposit;
-        ChannelToppedUp(_sender, _open_block_number, _added_deposit, channels[key].deposit);
+        uint192 memory deposit = (_added_deposit  / 100) * 85;
+        uint32 memory collateral = _added_deposit - deposit;
+
+        channels[key].deposit += deposit;
+        channels[key].collateral += collateral;
+        ChannelToppedUp(_sender, _open_block_number, deposit, channels[key].deposit);
         //GasCost('topUp end', block.gaslimit, msg.gas);
     }
 
@@ -442,22 +532,22 @@ contract RaidenMicroTransferChannels {
 
 
     // 2662 gas cost
-    /// @dev Internal function for getting the block number from tokenFallback data bytes.
+    /// @dev Internal function for getting the block number or channel fee from tokenFallback data bytes.
     /// @param b Bytes received.
     /// @return Block number.
-    function blockNumberFromData(
+    function fallbackDataConvert(
         bytes b)
         internal
         constant
         returns (uint32)
     {
-        bytes4 block_number;
+        bytes1 flag_byte;
+        bytes4 number;
         assembly {
-            // Read block number bytes
-            // Offset of 32 bytes (b.length)
-            block_number := mload(add(b, 0x20))
+            flag_byte := mload(add(b, 0x20))
+            number := mload(add(b, 0x21))
         }
-        return uint32(block_number);
+        return (flag_byte, uint32(number));
     }
 
     function memcpy(
