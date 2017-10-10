@@ -14,6 +14,7 @@ contract GexContract {
     uint mintCounter;
     }
 
+    // todo delete(requests[event_id])
     mapping (bytes32 => MintRequest) requests;
 
     event SearchNodes(bytes32 event_id);
