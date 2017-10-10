@@ -35,7 +35,7 @@ contract GexContract {
     // todo visa versa
     function mintRequest(uint amount){
         bytes32 event_id = keccak256(msg.sender, amount, block.timestamp);
-        MintRequest storage mr; // todo do we need storage?
+        MintRequest mr; // todo do we need storage or memory?
         mr.to = msg.sender;
         mr.amount = amount;
         requests[event_id] = mr;
