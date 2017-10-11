@@ -21,8 +21,8 @@ contract RaidenMicroTransferChannels {
 
     Token token;
 
-    mapping (bytes32 => Channel) channels;
-    mapping (bytes32 => ClosingRequest) closing_requests;
+    mapping (byte32 => Channel) channels;
+    mapping (byte32 => ClosingRequest) closing_requests;
 
 
     struct Channel {
@@ -32,7 +32,7 @@ contract RaidenMicroTransferChannels {
         uint32 channel_fee; // fee the sender pays to the nodes that maintain the channel
         address[] maintaining_nodes; // nodes that maintain the channel, currently 3 is required
         address topic_holder_node; // the node that hosts the payment kafka topic
-        bytes32 random_n;
+        byte32 random_n;
     }
 
     struct ClosingRequest {
@@ -58,7 +58,7 @@ contract RaidenMicroTransferChannels {
         address indexed _sender,
         uint192 _deposit,
         uint32 _channel_fee,
-        bytes32 _random_n);
+        byte32 _random_n);
 
     event ChannelToppedUp (
         address indexed _sender,
@@ -130,7 +130,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         public
         constant
-        returns (bytes32 data)
+        returns (byte32 data)
     {
         return sha3(_sender, _open_block_number);
     }
@@ -147,7 +147,7 @@ contract RaidenMicroTransferChannels {
         constant
         returns (string)
     {
-        string memory str = concat("Key: ", bytes32ToString(getKey(_sender, _open_block_number)));
+        string memory str = concat("Key: ", byte32ToString(getKey(_sender, _open_block_number)));
         str = concat(str, ", Data: ");
         for (i = 0; i < data.length; i++){
             str = concat(str, uintToString(uint256(data[i])));
@@ -194,7 +194,7 @@ contract RaidenMicroTransferChannels {
 
 
         // Hash the prefixed message string
-        bytes32 prefixed_message_hash = sha3(prefixed_message);
+        byte32 prefixed_message_hash = sha3(prefixed_message);
 
         // Derive address from signature
         address signer = ECVerify.ecverify(prefixed_message_hash, _balance_msg_sig);
@@ -248,7 +248,7 @@ contract RaidenMicroTransferChannels {
         bytes _balance_msg_sig)
         external
     {
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
 
         require(closing_requests[key].settle_block_number == 0);  // can only call this method once per channel
         require(uint32(block.number) - _open_block_number >= channel_lifetime);
@@ -273,7 +273,7 @@ contract RaidenMicroTransferChannels {
         external
     {
         require(msg.sender != _sender); // user cannot report himself
-        bytes32 memory key = getKey(_sender, _open_block_number);
+        byte32 memory key = getKey(_sender, _open_block_number);
 
         // check that both transactions were signed by the _sender
         address sender = verifyBalanceProof(_sender, _open_block_number, _right_payment_data, _right_balance_msg_sig);
@@ -381,9 +381,9 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
         constant
-        returns (bytes32, uint192, uint32, uint32, uint32, uint256[])
+        returns (byte32, uint192, uint32, uint32, uint32, uint256[])
     {
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
 
         return (key, channels[key].deposit, channels[key].collateral, channels[key].channel_fee, closing_requests[key].settle_block_number, closing_requests[key].closing_balances_data);
@@ -398,7 +398,7 @@ contract RaidenMicroTransferChannels {
         uint256[] _payment_data)
         external
     {
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
 
         require(closing_requests[key].settle_block_number != 0);
 	    require(block.number > closing_requests[key].settle_block_number);
@@ -411,7 +411,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
     {
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
         require(channels[key].maintaining_nodes.length < 3);
 
@@ -443,7 +443,7 @@ contract RaidenMicroTransferChannels {
         uint32 open_block_number = uint32(block.number);
 
         // Create unique identifier from sender and current block number
-        bytes32 key = getKey(_sender, open_block_number);
+        byte32 key = getKey(_sender, open_block_number);
 
         require(channels[key].deposit == 0);
         require(channels[key].open_block_number == 0);
@@ -455,7 +455,7 @@ contract RaidenMicroTransferChannels {
         if (deposit + collateral + _channel_fee == _deposit){   // temporary structure, will probably delete this after some tests
             ChannelCreated(0, 0, 0, 0);
         } else {
-            bytes32 memory random_n = bytes32(0);
+            byte32 memory random_n = byte32(0);
             Channel channel;
 
             channel.deposit = deposit;
@@ -485,7 +485,7 @@ contract RaidenMicroTransferChannels {
         require(_added_deposit != 0);
         require(_open_block_number != 0);
 
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
 
         require(channels[key].deposit != 0);
         require(closing_requests[key].settle_block_number == 0);
@@ -512,7 +512,7 @@ contract RaidenMicroTransferChannels {
         private
     {
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
 
         require(closing_requests[key].settle_block_number == 0);
         require(_balance <= channels[key].deposit);
@@ -536,7 +536,7 @@ contract RaidenMicroTransferChannels {
         private
     {
         //GasCost('settleChannel start', block.gaslimit, msg.gas);
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
         Channel channel = channels[key];
 
         require(channel.open_block_number != 0);
@@ -571,7 +571,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         private
     {
-        bytes32 key = getKey(_sender, _open_block_number);
+        byte32 key = getKey(_sender, _open_block_number);
         require(token.transfer(msg.sender, channels[key].collateral));
         channels[key].collateral = 0;
     }
@@ -682,14 +682,14 @@ contract RaidenMicroTransferChannels {
         constant
         returns (string)
     {
-        bytes32 ret;
+        byte32 ret;
         if (v == 0) {
             ret = '0';
         }
         else {
              while (v > 0) {
-                ret = bytes32(uint(ret) / (2 ** 8));
-                ret |= bytes32(((v % 10) + 48) * 2 ** (8 * 31));
+                ret = byte32(uint(ret) / (2 ** 8));
+                ret |= byte32(((v % 10) + 48) * 2 ** (8 * 31));
                 v /= 10;
             }
         }
@@ -697,7 +697,7 @@ contract RaidenMicroTransferChannels {
         bytes memory bytesString = new bytes(32);
         uint charCount = 0;
         for (uint j=0; j<32; j++) {
-            byte char = byte(bytes32(uint(ret) * 2 ** (8 * j)));
+            byte char = byte(byte32(uint(ret) * 2 ** (8 * j)));
             if (char != 0) {
                 bytesString[j] = char;
                 charCount++;
@@ -737,11 +737,11 @@ contract RaidenMicroTransferChannels {
         else return byte(uint8(b) + 0x57);
     }
 
-    function bytes32ToString(bytes32 x) constant returns (string) {
+    function byte32ToString(byte32 x) constant returns (string) {
         bytes memory bytesString = new bytes(32);
         uint charCount = 0;
         for (uint j = 0; j < 32; j++) {
-            byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
+            byte char = byte(byte32(uint(x) * 2 ** (8 * j)));
             if (char != 0) {
                 bytesString[charCount] = char;
                 charCount++;
