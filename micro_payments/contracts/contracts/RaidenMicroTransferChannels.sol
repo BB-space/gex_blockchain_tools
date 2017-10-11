@@ -135,14 +135,14 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         public
         constant
-        returns (byte32 data)
+        returns (byte32)
     {
         return sha3(_sender, _open_block_number);
     }
 
     /// @dev Returns a hash of the balance message needed to be signed by the sender.
     /// @param _open_block_number The block number at which a channel between the sender and receivers was created.
-    /// @param _payment_data The array of uint256 incoded (balance, address) pairs
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
     /// @return Hash of the balance message.
     function getBalanceMessage(
         address _sender,
@@ -164,7 +164,7 @@ contract RaidenMicroTransferChannels {
     /// @dev Returns the sender address extracted from the balance proof.
     /// @param _sender The address that sends tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receivers was created.
-    /// @param _payment_data The array of uint256 incoded (balance, address) pairs
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
     /// @param _balance_msg_sig The balance message signed by the sender or one of the receivers.
     /// @return Address of the balance proof signer.
     function verifyBalanceProof(  // TODO Check that the order of elements in array does not change! (shouldn't)
@@ -243,8 +243,9 @@ contract RaidenMicroTransferChannels {
     }
 
     /// @dev Function called when any of the parties wants to close the channel and settle; any receiver needs a balance proof to immediately settle, sender triggers a challenge period.
-    /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
-    /// @param _payment_data The array of uint256 incoded (balance, address) pairs
+    /// @param _sender The address that sends the tokens
+    /// @param _open_block_number The block number at which a channel between the sender and receivers was created.
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
     /// @param _balance_msg_sig The balance message signed by the sender.
     function close(
         address _sender,
@@ -264,10 +265,20 @@ contract RaidenMicroTransferChannels {
         require(sender == _sender);
         //GasCost('close verifyBalanceProof end', block.gaslimit, msg.gas);
 
+        var (, , overspend) = checkOverspend(_payment_data);
+        require(!overspent);
+
         initChallengePeriod(_receiver, _open_block_number, _payment_data, ClosingStatus.Good);
     }
 
-    // very expensive, but the collateral should cover the expenses
+    /// very expensive, but the collateral should cover the expenses
+    /// @dev Function called when someone has detected that the sender is trying to cheat
+    /// @param _sender The address that sends the tokens.
+    /// @param _open_block_number The block number at which a channel between the sender and receivers was created.
+    /// @param _right_payment_data The right array of uint256 encoded (balance, address) pairs
+    /// @param _right_balance_msg_sig The right balance message signed by the sender.
+    /// @param _wrong_payment_data The wrong array of uint256 encoded (balance, address) pairs
+    /// @param _wrong_balance_msg_sig The wrong balance message signed by the sender.
     function report_cheating( // TODO test this
         address _sender,
         uint32 _open_block_number,
@@ -372,6 +383,9 @@ contract RaidenMicroTransferChannels {
         }
     }
 
+    /// @dev Decodes the array of uint256 encoded (balance, address) pairs into two arrays
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
+    /// @return Two arrays: receivers addresses and their balances
     function decodePaymentData(
         uint256[] _payment_data)
         public
@@ -392,9 +406,8 @@ contract RaidenMicroTransferChannels {
 
     /// @dev Function for getting information about a channel.
     /// @param _sender The address that sends tokens.
-    /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
-    /// @return Channel information (unique_identifier, deposit, settle_block_number, closing_balance).
+    /// @return Channel information
     function getChannelInfo(
         address _sender,
         uint32 _open_block_number)
@@ -421,6 +434,7 @@ contract RaidenMicroTransferChannels {
         ClosingRequest request = closing_requests[key];
 
         // remove closed channel structures
+        // TODO check if we can still access the variables when we delete these
         delete channels[key];
         delete closing_requests[key];
 
@@ -450,6 +464,7 @@ contract RaidenMicroTransferChannels {
         ChannelSettled(_sender, _open_block_number);
     }
 
+    /// @dev The pull payment withdraw function
     function withdraw() external{
         require(payments[msg.sender] > 0);
         var amount = payments[msg.sender];
@@ -457,6 +472,9 @@ contract RaidenMicroTransferChannels {
         token.transfer(msg.sender, amount);
     }
 
+    /// @dev Nodes can call this method to become a channel maintainer
+    /// @param _receiver The address that receives tokens.
+    /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     function registerMaintainer(
         address _sender,
         uint32 _open_block_number)
@@ -477,7 +495,12 @@ contract RaidenMicroTransferChannels {
         MaintainerRegistered(_sender, _open_block_number, msg.sender);
     }
 
-    // expensive as well, we encourage people to just always submit the last transaction so they don't have to call this at all
+    /// Expensive as well, we encourage people to just always submit the last transaction so they don't have to call this at all
+    /// @dev Called when the channel settlement period has started and someone has a more recent transaction
+    /// @param _sender The address that sends the tokens
+    /// @param _open_block_number The block number at which a channel between the sender and receivers was created.
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
+    /// @param _balance_msg_sig The balance message signed by the sender.
     function submitLaterTransaction(
         address _sender,
         uint32 _open_block_number,
@@ -513,6 +536,10 @@ contract RaidenMicroTransferChannels {
      *  Private functions
      */
 
+    /// @dev A function that decodes the transaction data and checks if it's valid
+    /// @param key The key that's used to get the channel
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
+    /// @return Two arrays: receivers addresses and their balances + a boolean that indicates weather the transaction is valid or not
     function checkOverspend(
         byte32 key,
         uint256[] _payment_data)
@@ -538,6 +565,7 @@ contract RaidenMicroTransferChannels {
 
     /// @dev Creates a new channel between a sender and a receivers, only callable by the token_223 contract.
     /// @param _sender The address that receives tokens.
+    /// @param _channel_fee The channel fee that is gonna be paid to maintainers
     /// @param _deposit The amount of tokens that the sender escrows.
     function createChannelPrivate(
         address _sender,
@@ -555,8 +583,8 @@ contract RaidenMicroTransferChannels {
         require(channels[key].open_block_number == 0);
         require(closing_requests[key].settle_block_number == 0);
 
-        uint192 memory deposit = ((_deposit - _channel_fee) / 100) * 85;
-        uint32 memory collateral = (_deposit - _channel_fee) - deposit;
+        uint192 memory deposit = ((_deposit - _channel_fee * 3) / 100) * 85;  // TODO checks for < 0
+        uint32 memory collateral = (_deposit - _channel_fee * 3) - deposit;
 
         if (deposit + collateral + _channel_fee == _deposit){   // temporary structure, will probably delete this after some tests
             ChannelCreated(0, 0, 0, 0);
@@ -609,7 +637,8 @@ contract RaidenMicroTransferChannels {
     /// @dev Sender starts the challenge period; this can only happend once.
     /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
-    /// @param _balance The amount of tokens owed by the sender to the receiver.
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
+    /// @param _closing_status The enum that indicates the way the channel was closed
     function initChallengePeriod(
         address _sender,
         uint32 _open_block_number,
@@ -630,6 +659,9 @@ contract RaidenMicroTransferChannels {
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
     }
 
+    /// @dev Called when the _sender got caught cheating
+    /// @param _sender The address that pays the tokens
+    /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     function payCollateral(
         address _sender,
         uint32 _open_block_number)
@@ -763,7 +795,11 @@ contract RaidenMicroTransferChannels {
         return string(bytesStringTrimmed);
     }
 
-    function byte32ToString(byte32 x) constant returns (string) {
+    function byte32ToString(
+        byte32 x)
+        internal
+        constant
+        returns (string) {
         bytes memory bytesString = new bytes(32);
         uint charCount = 0;
         for (uint j = 0; j < 32; j++) {
