@@ -1,33 +1,37 @@
 from web3 import Web3, HTTPProvider
 from flask import Flask, request
+from common import TransferType
 from graphene import ObjectType, String, Schema
 from flask_graphql import GraphQLView
 import json
 
+'''
+       class Query(ObjectType):
+           hello = String(description='Hello')
+
+           def resolve_hello(self, args, context, info):
+               event_id = args.get('event_id')
+               if event_id in Node.events:
+
+               return 'World'
+   '''
+
 
 class Node:
-    '''
-        class Query(ObjectType):
-            hello = String(description='Hello')
-
-            def resolve_hello(self, args, context, info):
-                event_id = args.get('event_id')
-                if event_id in Node.events:
-
-                return 'World'
-    '''
-
     account_password = "123"
     password_unlock_duration = 120
     flask_port = 3333
-    events = []
     app = Flask(__name__)
+    events = []
 
-    @app.route('/test', methods=['POST'])
-    def test(self):
+    @app.route('/sign', methods=['POST'])
+    def sign(self):
+        # todo here!!!!
         event_id = request.form['event_id']
         if event_id in self.events:
+            print("Sign call from " + event_id)
             key = request.form['key']
+            transfer_type = request.form['type']
             if self.validate_signature(key):
                 self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.account_password,
                                                     self.password_unlock_duration)  # todo unsecure
@@ -35,6 +39,8 @@ class Node:
                 amount = 100
                 new_key = "ll"
                 self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).burnRequest(new_key, amount)
+        else:
+            print("Wrong sign request!")
 
     def __init__(self):
         with open('data.json') as data_file:
@@ -49,9 +55,11 @@ class Node:
         # event listeners
         search_nodes_event = self.gexContract.on('SearchNodes')
         search_nodes_event.watch(self.search_nodes_callback)
-        token_burned_event = self.ethContract.on('TokenBurned')
-        token_burned_event.watch(self.token_burned_callback)
-        # init Flask
+        eth_token_burned_event = self.ethContract.on('TokenBurned')
+        eth_token_burned_event.watch(self.eth_token_burned_callback)
+        gex_token_burned_event = self.gexContract.on('TokenBurned')
+        gex_token_burned_event.watch(self.gex_token_burned_callback)
+        # init Flask server
         self.init_flask()
 
     def init_flask(self):
@@ -71,33 +79,42 @@ class Node:
         # todo
         return True
 
-    def token_burned_callback(self, result):
+    def eth_token_burned_callback(self, result):
+        self.burned_event_callback(result, False)
+
+    def gex_token_burned_callback(self, result):
+        self.burned_event_callback(result, True)
+
+    def burned_event_callback(self, result, from_gex):
         print(result['args'])
         event_id = result['args']['event_id']
-        # todo check transaction
-        self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,
-                                            self.password_unlock_duration)  # todo unsecure
-        self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).mint(event_id)
+        if event_id in self.events:
+            print("Burn callback for " + event_id)
+            # todo check transaction
+            if from_gex:
+                self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.account_password,
+                                                    self.password_unlock_duration)  # todo unsecure
+                self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).mint(event_id)
+            else:
+                self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,
+                                                    self.password_unlock_duration)  # todo unsecure
+                self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).mint(event_id)
 
     def search_nodes_callback(self, result):
         print(result['args'])
         event_id = result['args']['event_id']
         if self.is_validator(event_id):
-            # todo add nose to list
             self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,
                                                 self.password_unlock_duration)  # todo unsecure
             if self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).register(event_id):
-                print "Registered for event", event_id
+                print("Registered for event " + event_id)
                 if self.validate_contracts_identity(event_id):
-                    print "Contracts identity is verified"
+                    self.events.append(event_id)
+                    print("Contracts identity is verified")
                 else:
-                    print "Contracts identity verification is failed"
+                    print("Contracts identity verification is failed")
             else:
-                print "Registration for event", event_id, "is failed"
-                # .mint(self.web3gex.eth.accounts[0], 100)
-                # tokenContract = web3.eth.contract(contract_name='GEXToken', address=data['GEXToken'], abi=data['GEXToken_abi'])
-                # print tokenContract.call().balanceOf(web3.eth.accounts[0])
-                # tokenContract.transact({'from': web3.eth.accounts[0]}).mint(web3.eth.accounts[0], 100)
+                print("Registration for event " + event_id + " is failed")
 
 
 node = Node()
