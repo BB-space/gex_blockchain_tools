@@ -1,4 +1,4 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.15;
 
 import "../../contracts/token_223/Token.sol";
 import "../../contracts/lib/ECVerify.sol";
@@ -30,7 +30,7 @@ contract RaidenMicroTransferChannels {
         uint32 open_block_number; // number of the block when the channel was opened
         uint32 collateral; // the amount of coins to be paid out to the person who proved that the sender is cheating
         uint32 channel_fee; // fee the sender pays to the nodes that maintain the channel
-        address[] maintaining_nodes; // nodes that maintain the channel  TODO decide on the number of maintainers
+        address[] maintaining_nodes; // nodes that maintain the channel, currently 3 is required
         address topic_holder_node; // the node that hosts the payment kafka topic
         bytes32 random_n;
     }
@@ -78,13 +78,18 @@ contract RaidenMicroTransferChannels {
 
     event MaintainerRegistered(
         address indexed _sender,
-        address indexed _open_block_number,
+        uint32 indexed _open_block_number,
         address indexed _maintainer);
 
     event ChannelTopicCreated(
         address indexed _sender,
-        address indexed _open_block_number,
+        uint32 indexed _open_block_number,
         address indexed _topic_holder);
+
+    event CollateralPayed(
+        address indexed _sender,
+        uint32 indexed _open_block_number,
+        uint32 _collateral);
 
     event GasCost(
         string _function_name,
@@ -145,7 +150,7 @@ contract RaidenMicroTransferChannels {
         string memory str = concat("Key: ", bytes32ToString(getKey(_sender, _open_block_number)));
         str = concat(str, ", Data: ");
         for (i = 0; i < data.length; i++){
-            str = concat(str, uintToString(uint256(data[i])));  // TODO decide if we want the message signed this way or the actual receiver -> balance pairs
+            str = concat(str, uintToString(uint256(data[i])));
         }
         return str;
     }
@@ -227,7 +232,7 @@ contract RaidenMicroTransferChannels {
         } else if (flag_byte == x01) {
             topUpPrivate(_sender, number, uint192(_deposit));
         } else {
-            throw;
+            revert();
         }
 
     }
@@ -245,20 +250,20 @@ contract RaidenMicroTransferChannels {
     {
         bytes32 key = getKey(_sender, _open_block_number);
 
-        require(closing_requests[key].settle_block_number != 0);
+        require(closing_requests[key].settle_block_number == 0);  // can only call this method once per channel
         require(uint32(block.number) - _open_block_number >= channel_lifetime);
         require(_balance_msg_sig.length == 65);
 
         //GasCost('close verifyBalanceProof start', block.gaslimit, msg.gas);
-        address sender = verifyBalanceProof(_receiver, _open_block_number, _balance, _balance_msg_sig);
+        address sender = verifyBalanceProof(_sender, _open_block_number, _payment_data, _balance_msg_sig);
         require(sender == _sender);
         //GasCost('close verifyBalanceProof end', block.gaslimit, msg.gas);
 
-        initChallengePeriod(_receiver, _open_block_number, _balance);
+        initChallengePeriod(_receiver, _open_block_number, _payment_data, ClosingStatus.Good);
     }
 
-    // costly
-    function report_contradiction(
+    // very expensive, but the collateral should cover the expenses
+    function report_cheating( // TODO test this
         address _sender,
         uint32 _open_block_number,
         uint256[] _right_payment_data,
@@ -267,34 +272,99 @@ contract RaidenMicroTransferChannels {
         bytes _wrong_balance_msg_sig)
         external
     {
-        // TODO implement
-    }
+        require(msg.sender != _sender); // user cannot report himself
+        bytes32 memory key = getKey(_sender, _open_block_number);
 
-    // costly
-    function report_overspend(  // TODO maybe make one function report_cheating instead of two?
-        address _sender,
-        uint32 _open_block_number,
-        uint256[] _right_payment_data,
-        bytes _right_balance_msg_sig,
-        uint256[] _wrong_payment_data,
-        bytes _wrong_balance_msg_sig)
-        external
-    {
-        // TODO implement
+        // check that both transactions were signed by the _sender
+        address sender = verifyBalanceProof(_sender, _open_block_number, _right_payment_data, _right_balance_msg_sig);
+        require(sender == _sender);
+        sender = verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
+        require(sender == _sender);
+
+        address[] memory wrong_receivers;
+        uint[] memory wrong_balances;
+        (wrong_receivers, wrong_balances) = decodePaymentData(_wrong_payment_data);
+
+        address[] memory right_receivers;
+        uint[] memory right_balances;
+        (right_receivers, right_balances) = decodePaymentData(_right_payment_data);
+
+        uint memory balances_sum = 0;
+
+        for (uint i = 0; i < wrong_balances.length; i++){
+            balances_sum += wrong_balances[i];
+        }
+
+        if (balances_sum > channels[key].deposit){
+            payCollateral(_sender, _open_block_number);
+            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
+
+        } else {
+            uint8 array_length = min(right_balances.length, wrong_balances.length);
+            int[] memory balance_diff = new int[](array_length);
+            bool memory finished = false;
+
+            for (uint i = 0; i < array_length; i++){
+                if (right_receivers[i] == wrong_receivers[i]){
+                    balance_diff.append(int(right_balances[i] - wrong_balances[i]));
+                } else {
+                    // TODO wrong receivers order, what should we do?
+                }
+            }
+
+            //case 1
+            if (!finished && wrong_balances.length > right_balances.length){
+                for (uint i = 0; i < array_length; i++){
+                    if (balances_sum[i] > 0){
+                        payCollateral(_sender, _open_block_number);
+                        initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Cheating);
+                        finished = true;
+                        break;
+                    }
+                }
+            }
+            //case 2
+            if (!finished && wrong_balances.length == right_balances.length){
+                bool memory pos = false;
+                bool memory neg = false;
+                for (uint i = 0; i < array_length; i++){
+                    if (balances_sum[i] > 0){
+                        pos = true;
+                    } else if (balances_sum[i] < 0){
+                        neg = true;
+                    }
+                    if (pos && neg){
+                        payCollateral(_sender, _open_block_number);
+                        initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Cheating);
+                        break;
+                    }
+                }
+            }
+            //case 3
+            if (!finished && wrong_balances.length < right_balances.length){
+                for (uint i = 0; i < array_length; i++){
+                    if (balances_sum[i] < 0){
+                        payCollateral(_sender, _open_block_number);
+                        initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Cheating);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     function decodePaymentData(
         uint256[] _payment_data)
         public
         constant
-        returns()
+        returns(address[], uint[])
     {
         // TODO test this
         address[] memory receivers;
         uint[] memory balances;
 
         for (uint i=0; i<_payment_data.length; i++) {
-            receivers.append(address( _payment_data[i] & (D160-1) ));
+            receivers.append(address( _payment_data[i] & (D160-1)));
             balances.append(_payment_data[i] / D160);
         }
 
@@ -437,7 +507,8 @@ contract RaidenMicroTransferChannels {
     function initChallengePeriod(
         address _sender,
         uint32 _open_block_number,
-        uint256[] _payment_data)
+        uint256[] _payment_data,
+        ClosingStatus _closing_status)
         private
     {
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
@@ -465,7 +536,7 @@ contract RaidenMicroTransferChannels {
         private
     {
         //GasCost('settleChannel start', block.gaslimit, msg.gas);
-        bytes32 key = getKey(_sender, _receiver, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
         Channel channel = channels[key];
 
         require(channel.open_block_number != 0);
@@ -493,6 +564,16 @@ contract RaidenMicroTransferChannels {
 
         ChannelSettled(_sender, _receiver, _open_block_number, _balance);
         //GasCost('settleChannel end', block.gaslimit, msg.gas);
+    }
+
+    function payCollateral(
+        address _sender,
+        uint32 _open_block_number)
+        private
+    {
+        bytes32 key = getKey(_sender, _open_block_number);
+        require(token.transfer(msg.sender, channels[key].collateral));
+        channels[key].collateral = 0;
     }
 
     /*
@@ -524,12 +605,6 @@ contract RaidenMicroTransferChannels {
         if (a < b) return a;
         else return b;
     }
-
-    // 2656 gas cost
-    /// @dev Internal function for getting an address from tokenFallback data bytes.
-    /// @param b Bytes received.
-    /// @return Address resulted.
-
 
     // 2662 gas cost
     /// @dev Internal function for getting the block number or channel fee from tokenFallback data bytes.
@@ -599,52 +674,6 @@ contract RaidenMicroTransferChannels {
         memcpy(retptr + self_len, other_ptr, other_len);
         return ret;
     }
-
-    /*function uintToBytes (
-        uint256 n)
-        internal
-        constant
-        returns (bytes32 b)
-    {
-        //b = new bytes(32);
-        assembly {
-            //mstore(add(b, 32), n)
-            b := mload(add(n, 32))
-        }
-    }
-
-    function uintToBytes32 (
-        uint256 n)
-        internal
-        constant
-        returns (bytes32 b)
-    {
-        assembly {
-            b := mload(add(n, 32))
-        }
-    }
-
-    function stringToBytes1(
-        string str)
-        internal
-        constant
-        returns (bytes)
-    {
-        return bytes(str);
-    }
-
-    function stringToBytes2(
-        string source)
-        internal
-        constant
-        returns (bytes result)
-    {
-        uint len = bytes(source).length;
-        result = new bytes(len);
-        assembly {
-            result := mload(add(source, len))
-        }
-    }*/
 
     // 9613 gas
     function uintToString(
