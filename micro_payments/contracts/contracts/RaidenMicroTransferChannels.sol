@@ -416,9 +416,13 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
     {
+        byte32 key = getKey(_sender, _open_block_number);
         Channel channel = channels[key];
         ClosingRequest request = closing_requests[key];
-        byte32 key = getKey(_sender, _open_block_number);
+
+        // remove closed channel structures
+        delete channels[key];
+        delete closing_requests[key];
 
         require(request.settle_block_number != 0);
 	    require(block.number >= request.settle_block_number);
@@ -442,10 +446,6 @@ contract RaidenMicroTransferChannels {
             payments[_sender] += channel.collateral;
         if (amount > 0)
             payments[_sender] += amount;
-
-        // remove closed channel structures
-        delete channels[key];
-        delete closing_requests[key];
 
         ChannelSettled(_sender, _open_block_number);
     }
