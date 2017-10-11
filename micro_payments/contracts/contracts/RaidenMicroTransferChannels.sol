@@ -91,6 +91,11 @@ contract RaidenMicroTransferChannels {
         uint32 indexed _open_block_number,
         uint32 _collateral);
 
+    event ClosingBalancesChanged(
+        address _sender,
+        uint32 _open_block_number,
+        uint256[] _payment_data);
+
     event GasCost(
         string _function_name,
         uint _gaslimit,
@@ -274,6 +279,7 @@ contract RaidenMicroTransferChannels {
     {
         require(msg.sender != _sender); // user cannot report himself
         byte32 memory key = getKey(_sender, _open_block_number);
+        bool memory finished = false;
 
         // check that both transactions were signed by the _sender
         address sender = verifyBalanceProof(_sender, _open_block_number, _right_payment_data, _right_balance_msg_sig);
@@ -281,28 +287,19 @@ contract RaidenMicroTransferChannels {
         sender = verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
         require(sender == _sender);
 
-        address[] memory wrong_receivers;
-        uint[] memory wrong_balances;
-        (wrong_receivers, wrong_balances) = decodePaymentData(_wrong_payment_data);
+        var (right_receivers, right_balances, right_overspent) = checkOverspend(key, _right_payment_data);
+        var (wrong_receivers, wrong_balances, wrong_overspent) = checkOverspend(key, _wrong_payment_data);
+        require(!right_overspent);
 
-        address[] memory right_receivers;
-        uint[] memory right_balances;
-        (right_receivers, right_balances) = decodePaymentData(_right_payment_data);
-
-        uint memory balances_sum = 0;
-
-        for (uint i = 0; i < wrong_balances.length; i++){
-            balances_sum += wrong_balances[i];
-        }
-
-        if (balances_sum > channels[key].deposit){
+        if (wrong_overspent){
             payCollateral(_sender, _open_block_number);
             initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
+            finished = true;
+        }
 
-        } else {
+        if (!finished) {
             uint8 array_length = min(right_balances.length, wrong_balances.length);
             int[] memory balance_diff = new int[](array_length);
-            bool memory finished = false;
 
             for (uint i = 0; i < array_length; i++){
                 if (right_receivers[i] == wrong_receivers[i]){
@@ -313,7 +310,7 @@ contract RaidenMicroTransferChannels {
             }
 
             //case 1
-            if (!finished && wrong_balances.length > right_balances.length){
+            if (wrong_balances.length > right_balances.length){
                 for (uint i = 0; i < array_length; i++){
                     if (balances_sum[i] > 0){
                         payCollateral(_sender, _open_block_number);
@@ -389,13 +386,12 @@ contract RaidenMicroTransferChannels {
         return (key, channels[key].deposit, channels[key].collateral, channels[key].channel_fee, closing_requests[key].settle_block_number, closing_requests[key].closing_balances_data);
     }
 
-    /// @dev Function called by the sender after the challenge period has ended, in case the receiver has not closed the channel.
+    /// @dev Function called by the anyone after the challenge period has ended.
     /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
-    function settle(    // TODO change this !
+    function settle(
         address _sender,
-        uint32 _open_block_number,
-        uint256[] _payment_data)
+        uint32 _open_block_number)
         external
     {
         byte32 key = getKey(_sender, _open_block_number);
@@ -403,7 +399,7 @@ contract RaidenMicroTransferChannels {
         require(closing_requests[key].settle_block_number != 0);
 	    require(block.number > closing_requests[key].settle_block_number);
 
-        settleChannel(_sender, _open_block_number, _payment_data);
+        settleChannel(_sender, _open_block_number);
     }
 
     function registerMaintainer(
@@ -426,9 +422,64 @@ contract RaidenMicroTransferChannels {
         MaintainerRegistered(_sender, _open_block_number, msg.sender);
     }
 
+    // expensive as well, we encourage people to just always submit the last transaction so they don't have to call this at all
+    function submitLaterTransaction(
+        address _sender,
+        uint32 _open_block_number,
+        uint256[] _payment_data,
+        bytes _balance_msg_sig)
+        external
+    {
+        byte32 key = getKey(_sender, _open_block_number);
+        require(closing_requests[key].settle_block_number != 0);
+        require(_balance_msg_sig.length == 65);
+
+        address sender = verifyBalanceProof(_sender, _open_block_number, _payment_data, _balance_msg_sig);
+        require(sender == _sender);
+
+        var (new_receivers, new_balances, overspend) = checkOverspend(_payment_data);
+        require(!overspent);
+        var (old_receivers, old_balances) = decodePaymentData(closing_requests[key].closing_balances_data);
+        require(old_receivers.length <= new_receivers.length);
+
+        for (uint i = 0; i < old_balances.length; i++){
+            if (old_receivers[i] == new_receivers[i]){
+                if (int(new_balances[i] - old_balances[i]) < 0) revert();
+            } else {
+                // TODO wrong receivers order, what should we do?
+            }
+        }
+
+        closing_requests[key].closing_balances_data = _payment_data;
+        ClosingBalancesChanged(_sender, _open_block_number, _payment_data);
+    }
+
     /*
      *  Private functions
      */
+
+    function checkOverspend(
+        byte32 key,
+        uint256[] _payment_data)
+        private
+        returns(address[], uint[], bool)
+    {
+        address[] memory receivers;
+        uint[] memory balances;
+        uint memory balances_sum = 0;
+
+        (receivers, balances) = decodePaymentData(_payment_data);
+
+        for (uint i = 0; i < balances.length; i++){
+            balances_sum += balances[i];
+        }
+
+        if (balances_sum > channels[key].deposit){
+            return (receivers, balances, true);
+        } else {
+            return (receivers, balances, false);
+        }
+    }
 
     /// @dev Creates a new channel between a sender and a receivers, only callable by the token_223 contract.
     /// @param _sender The address that receives tokens.
