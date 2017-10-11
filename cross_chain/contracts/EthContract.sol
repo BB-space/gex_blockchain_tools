@@ -1,66 +1,77 @@
-pragma solidity ^0.4.0;
-
-
-//import './GEXToken.sol';
+pragma solidity ^0.4.15;
 
 
 contract EthContract {
 
     uint constant QUORUM_MINIMUM = 10;
 
-    //GEXToken gexToken;
+    address tokenContract;
 
-    address token;
-
-    struct NodeInfo {
-    address addr;
-    string ip;
-    string pubKey;
-    }
- // todo rewrite  nodes  in GexContract style
-    struct BurnRequest {
-    address addr;
+    struct MintRequest {
+    address to;
     uint amount;
-    NodeInfo[] nodes;
-    uint counter;
-    string publicDestructionKey;
+    uint mintCounter;
     }
 
-    mapping (address => uint) balances;
+    struct BurnRequest {
+    address from;
+    uint amount;
+    uint burnCounter;
+    bytes32 publicDestructionKey;
+    }
 
-    mapping (bytes32 => BurnRequest) requests;
+    // todo delete(requests[event_id])
+    mapping (bytes32 => MintRequest) mintRequests;
 
-    event TokenBurned(bytes32 id);
+    mapping (bytes32 => BurnRequest) burnRequests;
+
+    event TokenBurned(bytes32 event_id);
 
     function EthContract(address _token){
-        //gexToken = GEXToken(_token);
-        token = _token;
+        tokenContract = _token;
     }
 
-    function burnRequest(string publicDestructionKey, uint amount)  {
-        bytes32 id = keccak256(msg.sender, amount, publicDestructionKey, block.timestamp);
-        BurnRequest storage br;
-        br.addr = msg.sender;
-        br.amount = amount;
-        br.publicDestructionKey = publicDestructionKey;
-        requests[id] = br;
+    function mintRequest(bytes32 _event_id, uint _amount){
+        MintRequest mr;
+        // todo do we need storage or memory?
+        mr.to = msg.sender;
+        mr.amount = _amount;
+        mintRequests[_event_id] = mr;
     }
 
-    function verifySign(string signedKey) private returns (bool){
+    function mint(bytes32 _event_id){
+        if (mintRequests[_event_id].mintCounter < QUORUM_MINIMUM) {
+            mintRequests[_event_id].mintCounter++;
+            if (mintRequests[_event_id].mintCounter == QUORUM_MINIMUM) {
+                tokenContract.call(bytes4(sha3("mint(address _to,uint256 _amount)")),
+                mintRequests[_event_id].to, mintRequests[_event_id].amount);
+                // todo if (!token.mint(_beneficiary, tokens)) revert();
+            }
+        }
+    }
+
+    function burnRequest(bytes32 _event_id, bytes32 _publicDestructionKey, uint _amount)  {
+        BurnRequest br;
+        // todo do we need storage or memory?
+        br.from = msg.sender;
+        br.amount = _amount;
+        br.publicDestructionKey = _publicDestructionKey;
+        burnRequests[_event_id] = br;
+    }
+
+    function verifySign(string _signedKey) private returns (bool){
         //todo
         return true;
     }
 
-    function burn(bytes32 id, string signedKey) payable returns (bool){
-        require(requests[id].addr != address(0x0));
-        if (requests[id].counter < QUORUM_MINIMUM) {
-            if (verifySign(signedKey)) {
-                requests[id].counter++;
-                if (requests[id].counter == QUORUM_MINIMUM) {
-                    //balances[requests[id].addr] -= requests[id].amount;
-                    token.call(bytes4(sha3("burn(address _from,uint _amount)")), requests[id].addr, requests[id].amount);
-                    //gexToken.butn(requests[id].addr, requests[id].amount);
-                    TokenBurned(id);
+    function burn(bytes32 _event_id, string _signedKey) returns (bool){
+        if (burnRequests[_event_id].burnCounter < QUORUM_MINIMUM) {
+            if (verifySign(_signedKey)) {
+                burnRequests[_event_id].burnCounter++;
+                if (burnRequests[_event_id].burnCounter == QUORUM_MINIMUM) {
+                    tokenContract.call(bytes4(sha3("burn(address _from,uint _amount)")),
+                    burnRequests[_event_id].from, burnRequests[_event_id].amount);
+                    TokenBurned(_event_id);
                 }
                 return true;
             }

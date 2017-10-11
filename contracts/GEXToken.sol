@@ -1,4 +1,4 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.15;
 
 
 import './token_20/StandardToken.sol'; // TODO rewrite for token_223

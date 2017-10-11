@@ -1,14 +1,10 @@
 from web3 import Web3, HTTPProvider
 from collections import namedtuple
-from enum import Enum
+from common import TransferType
 import json
 import uuid
 
 Node = namedtuple('Node', 'address ip key')
-
-# 'gex_to_eth' means that token is transferring from GEX notwork to Ethereum network.
-# The same way 'eth_to_gex' corresponds to transfer from Ethereum to GEX.
-TransferType = Enum('TransferType', 'gex_to_eth eth_to_gex')
 
 
 class Transfer:
@@ -20,10 +16,10 @@ class Transfer:
     type = None
 
     def __init__(self):
-        # todo send id to contract
         self.event_id = uuid.uuid4().hex
 
 
+# todo check that mint is finished
 # todo single instance
 class User:
     account_password = "123"  # same pass for both networks
@@ -48,7 +44,8 @@ class User:
 
     def create_transfer(self, transfer_type, address, amount):
         if transfer_type not in TransferType.__members__:
-            print "Invalid transfer type"
+            print("Invalid transfer type")
+            # todo remove exit
             exit(1)
         transfer = self.generate_destruction_keys()
         transfer.address = address
@@ -61,11 +58,17 @@ class User:
                                             self.password_unlock_duration)
         if type == TransferType.gex_to_eth.name:
             # todo change accounts
-            self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).burnRequest(transfer.amount)
-            self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).mintRequest(transfer.amount)
+            self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).burnRequest(transfer.event_id,
+                                                                                          transfer.public_destruction_key,
+                                                                                          transfer.amount)
+            self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).mintRequest(transfer.event_id,
+                                                                                          transfer.amount)
         else:
-            self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).mintRequest(transfer.amount)
-            self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).burnRequest(transfer.amount)
+            self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).mintRequest(transfer.event_id,
+                                                                                          transfer.amount)
+            self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).burnRequest(transfer.event_id,
+                                                                                          transfer.public_destruction_key,
+                                                                                          transfer.amount)
         self.transfers[transfer.event_id] = transfer
 
     def generate_destruction_keys(self):
@@ -76,7 +79,7 @@ class User:
         return transfer
 
     def node_registration_finished_callback(self, result):
-        print result['args']
+        print(result['args'])
         event_id = result['args']['event_id']
         if event_id in self.transfers:
             transfer = self.transfers[event_id]
@@ -87,7 +90,7 @@ class User:
                 transfer.nodes.append(node)
             self.send_key_to_nodes(transfer)
         else:
-            print "Invalid event"
+            print("Invalid event")
 
     def send_key_to_nodes(self, transfer):
         for node in transfer.nodes:

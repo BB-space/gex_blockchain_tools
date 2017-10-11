@@ -31,5 +31,4 @@ module.exports = function (deployer) {
         })
 
     });
-    //deployer.link(GEXToken, GexContract);
 };

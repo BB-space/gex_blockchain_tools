@@ -1,5 +1,6 @@
 # general
 .idea
+*.pyc
 
 #cross_chain
 cross_chain/build/
