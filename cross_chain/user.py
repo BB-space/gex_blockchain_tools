@@ -1,13 +1,18 @@
 from web3 import Web3, HTTPProvider
 from collections import namedtuple
-from common import TransferType
+from enum import Enum
 import json
 import uuid
 
 Node = namedtuple('Node', 'address ip key')
 
+# 'gex_to_eth' means that token is transferring from GEX notwork to Ethereum network.
+# The same way 'eth_to_gex' corresponds to transfer from Ethereum to GEX.
+TransferType = Enum('TransferType', 'gex_to_eth eth_to_gex')
+
 
 class Transfer:
+    # todo remove fileds
     public_destruction_key = None
     private_destruction_key = None
     address = None
@@ -16,6 +21,7 @@ class Transfer:
     type = None
 
     def __init__(self):
+        # todo is it unique ?
         self.event_id = uuid.uuid4().hex
 
 
@@ -49,7 +55,6 @@ class User:
             exit(1)
         transfer = self.generate_destruction_keys()
         transfer.address = address
-        transfer.amount = amount
         transfer.type = TransferType[transfer_type]
         # todo unsecure
         self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,

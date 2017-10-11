@@ -1,29 +1,24 @@
 pragma solidity ^0.4.15;
 
 
+//todo ann require with type everywhere or return 2 types structure
 contract EthContract {
 
     uint constant QUORUM_MINIMUM = 10;
 
     address tokenContract;
 
-    struct MintRequest {
-    address to;
+    struct Request {
+    address addr;
     uint amount;
-    uint mintCounter;
-    }
-
-    struct BurnRequest {
-    address from;
-    uint amount;
-    uint burnCounter;
+    address[] validators;
+    uint counter;
     bytes32 publicDestructionKey;
+    bool isBurnRequest;
     }
 
     // todo delete(requests[event_id])
-    mapping (bytes32 => MintRequest) mintRequests;
-
-    mapping (bytes32 => BurnRequest) burnRequests;
+    mapping (bytes32 => Request) requests;
 
     event TokenBurned(bytes32 event_id);
 
@@ -31,32 +26,39 @@ contract EthContract {
         tokenContract = _token;
     }
 
+    function isEventPresent(bytes32 _event_id) constant returns (bool) {
+        return requests[_event_id].amount != 0;
+    }
+
     function mintRequest(bytes32 _event_id, uint _amount){
-        MintRequest mr;
+        Request request;
         // todo do we need storage or memory?
-        mr.to = msg.sender;
-        mr.amount = _amount;
-        mintRequests[_event_id] = mr;
+        request.addr = msg.sender;
+        request.amount = _amount;
+        request.isBurnRequest = true;
+        requests[_event_id] = request;
     }
 
     function mint(bytes32 _event_id){
-        if (mintRequests[_event_id].mintCounter < QUORUM_MINIMUM) {
-            mintRequests[_event_id].mintCounter++;
-            if (mintRequests[_event_id].mintCounter == QUORUM_MINIMUM) {
+        require(!requests[_event_id].isBurnRequest);
+        if (requests[_event_id].counter < QUORUM_MINIMUM) {
+            requests[_event_id].counter++;
+            if (requests[_event_id].counter == QUORUM_MINIMUM) {
                 tokenContract.call(bytes4(sha3("mint(address _to,uint256 _amount)")),
-                mintRequests[_event_id].to, mintRequests[_event_id].amount);
+                requests[_event_id].addr, requests[_event_id].amount);
                 // todo if (!token.mint(_beneficiary, tokens)) revert();
             }
         }
     }
 
     function burnRequest(bytes32 _event_id, bytes32 _publicDestructionKey, uint _amount)  {
-        BurnRequest br;
+        Request request;
         // todo do we need storage or memory?
-        br.from = msg.sender;
-        br.amount = _amount;
-        br.publicDestructionKey = _publicDestructionKey;
-        burnRequests[_event_id] = br;
+        request.addr = msg.sender;
+        request.amount = _amount;
+        request.publicDestructionKey = _publicDestructionKey;
+        request.isBurnRequest = false;
+        requests[_event_id] = request;
     }
 
     function verifySign(string _signedKey) private returns (bool){
@@ -65,12 +67,13 @@ contract EthContract {
     }
 
     function burn(bytes32 _event_id, string _signedKey) returns (bool){
-        if (burnRequests[_event_id].burnCounter < QUORUM_MINIMUM) {
+        require(requests[_event_id].isBurnRequest);
+        if (requests[_event_id].counter < QUORUM_MINIMUM) {
             if (verifySign(_signedKey)) {
-                burnRequests[_event_id].burnCounter++;
-                if (burnRequests[_event_id].burnCounter == QUORUM_MINIMUM) {
+                requests[_event_id].counter++;
+                if (requests[_event_id].counter == QUORUM_MINIMUM) {
                     tokenContract.call(bytes4(sha3("burn(address _from,uint _amount)")),
-                    burnRequests[_event_id].from, burnRequests[_event_id].amount);
+                    requests[_event_id].addr, requests[_event_id].amount);
                     TokenBurned(_event_id);
                 }
                 return true;

@@ -1,6 +1,5 @@
 from web3 import Web3, HTTPProvider
 from flask import Flask, request
-from common import TransferType
 from graphene import ObjectType, String, Schema
 from flask_graphql import GraphQLView
 import json
@@ -26,21 +25,28 @@ class Node:
 
     @app.route('/sign', methods=['POST'])
     def sign(self):
-        # todo here!!!!
         event_id = request.form['event_id']
         if event_id in self.events:
             print("Sign call from " + event_id)
             key = request.form['key']
-            transfer_type = request.form['type']
-            if self.validate_signature(key):
-                self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.account_password,
-                                                    self.password_unlock_duration)  # todo unsecure
-                # todo get amount and new_key
-                amount = 100
-                new_key = "ll"
-                self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).burnRequest(new_key, amount)
+            in_inner_network = request.form['in_inner_network']
+            new_key = self.sign_with_key(event_id, key)
+            if in_inner_network:
+                if self.gexContract.call().isEventPresent(event_id):
+                    self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.account_password,
+                                                        self.password_unlock_duration)  # todo unsecure
+                    self.ethContract.transact({'from': self.web3eth.eth.accounts[0]}).burn(event_id, new_key)
+                else:
+                    print("This event is not exist in GEX network")
+            else:
+                if self.ethContract.call().isEventPresent(event_id):
+                    self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,
+                                                        self.password_unlock_duration)  # todo unsecure
+                    self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).burn(event_id, new_key)
+                else:
+                    print("This event is not exist in Ethereum network")
         else:
-            print("Wrong sign request!")
+            print("Wrong sign request")
 
     def __init__(self):
         with open('data.json') as data_file:
@@ -67,6 +73,10 @@ class Node:
         # app.add_url_rule('/', view_func=view_func)
         self.app.run(host='0.0.0.0', port=self.flask_port)
 
+    def sign_with_key(self, event_id, key):
+        # todo
+        return "lala"
+
     def validate_signature(self, key):
         # todo validate only once
         return True
@@ -85,16 +95,16 @@ class Node:
     def gex_token_burned_callback(self, result):
         self.burned_event_callback(result, True)
 
-    def burned_event_callback(self, result, from_gex):
+    def burned_event_callback(self, result, burned_in_gex_network):
         print(result['args'])
         event_id = result['args']['event_id']
         if event_id in self.events:
             print("Burn callback for " + event_id)
             # todo check transaction
-            if from_gex:
+            if burned_in_gex_network:
                 self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.account_password,
                                                     self.password_unlock_duration)  # todo unsecure
-                self.gexContract.transact({'from': self.web3eth.eth.accounts[0]}).mint(event_id)
+                self.ethContract.transact({'from': self.web3eth.eth.accounts[0]}).mint(event_id)
             else:
                 self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,
                                                     self.password_unlock_duration)  # todo unsecure
