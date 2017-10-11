@@ -1,8 +1,10 @@
 from web3 import Web3, HTTPProvider
 from collections import namedtuple
 from enum import Enum
+from Crypto.PublicKey import RSA
 import json
 import uuid
+import requests
 
 Node = namedtuple('Node', 'address ip key')
 
@@ -12,7 +14,7 @@ TransferType = Enum('TransferType', 'gex_to_eth eth_to_gex')
 
 
 class Transfer:
-    # todo remove fileds
+    # todo remove fields
     public_destruction_key = None
     private_destruction_key = None
     address = None
@@ -30,6 +32,7 @@ class Transfer:
 class User:
     account_password = "123"  # same pass for both networks
     password_unlock_duration = 120
+    flask_port = 3333
     transfers = {}
 
     def __init__(self):
@@ -79,8 +82,9 @@ class User:
     def generate_destruction_keys(self):
         transfer = Transfer()
         # todo generate keys
-        transfer.public_destruction_key = "111"
-        transfer.private_destruction_key = "222"
+        key = RSA.generate(2048)
+        transfer.public_destruction_key = key.publickey().exportKey()
+        transfer.private_destruction_key = key
         return transfer
 
     def node_registration_finished_callback(self, result):
@@ -99,8 +103,12 @@ class User:
 
     def send_key_to_nodes(self, transfer):
         for node in transfer.nodes:
-            # todo
-            pass
+            # todo sign
+            key = transfer.public_destruction_key + node.key
+            response = requests.post(node.ip + ":" + self.flask_port,
+                                     data={'event_id': transfer.event_id, 'key': key,
+                                           'gex_to_eth': True if transfer.type == TransferType.gex_to_eth else False})
+            print(response.status_code)
 
 
 user = User()

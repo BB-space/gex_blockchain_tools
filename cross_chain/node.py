@@ -29,20 +29,21 @@ class Node:
         if event_id in self.events:
             print("Sign call from " + event_id)
             key = request.form['key']
-            in_inner_network = request.form['in_inner_network']
+            gex_to_eth = request.form['gex_to_eth']
             new_key = self.sign_with_key(event_id, key)
-            if in_inner_network:
-                if self.gexContract.call().isEventPresent(event_id):
-                    self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.account_password,
-                                                        self.password_unlock_duration)  # todo unsecure
-                    self.ethContract.transact({'from': self.web3eth.eth.accounts[0]}).burn(event_id, new_key)
-                else:
-                    print("This event is not exist in GEX network")
-            else:
+            if gex_to_eth:
                 if self.ethContract.call().isEventPresent(event_id):
                     self.web3gex.personal.unlockAccount(self.web3gex.eth.accounts[0], self.account_password,
                                                         self.password_unlock_duration)  # todo unsecure
                     self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).burn(event_id, new_key)
+                else:
+                    print("This event is not exist in GEX network")
+            else:
+                if self.gexContract.call().isEventPresent(event_id):
+                    self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.account_password,
+                                                        self.password_unlock_duration)  # todo unsecure
+                    self.ethContract.transact({'from': self.web3eth.eth.accounts[0]}).burn(event_id, new_key)
+
                 else:
                     print("This event is not exist in Ethereum network")
         else:
