@@ -23,7 +23,7 @@ contract RaidenMicroTransferChannels {
 
     mapping (byte32 => Channel) channels;
     mapping (byte32 => ClosingRequest) closing_requests;
-
+    mapping (address => uint256) payments;
 
     struct Channel {
         uint192 deposit; // amount of the coins (tokens) in the channel
@@ -293,7 +293,12 @@ contract RaidenMicroTransferChannels {
 
         if (wrong_overspent){
             payCollateral(_sender, _open_block_number);
-            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
+            if (closing_requests[key].settle_block_number == 0){
+                initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
+            } else {
+                closing_requests[key].closing_status = ClosingStatus.Overspend;
+                closing_requests[key].closing_balances_data = _right_payment_data;
+            }
             finished = true;
         }
 
@@ -314,7 +319,12 @@ contract RaidenMicroTransferChannels {
                 for (uint i = 0; i < array_length; i++){
                     if (balances_sum[i] > 0){
                         payCollateral(_sender, _open_block_number);
-                        initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Cheating);
+                        if (closing_requests[key].settle_block_number == 0){
+                            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
+                        } else {
+                            closing_requests[key].closing_status = ClosingStatus.Overspend;
+                            closing_requests[key].closing_balances_data = _right_payment_data;
+                        }
                         finished = true;
                         break;
                     }
@@ -332,7 +342,13 @@ contract RaidenMicroTransferChannels {
                     }
                     if (pos && neg){
                         payCollateral(_sender, _open_block_number);
-                        initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Cheating);
+                        if (closing_requests[key].settle_block_number == 0){
+                            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
+                        } else {
+                            closing_requests[key].closing_status = ClosingStatus.Overspend;
+                            closing_requests[key].closing_balances_data = _right_payment_data;
+                        }
+                        finished = true;
                         break;
                     }
                 }
@@ -342,7 +358,13 @@ contract RaidenMicroTransferChannels {
                 for (uint i = 0; i < array_length; i++){
                     if (balances_sum[i] < 0){
                         payCollateral(_sender, _open_block_number);
-                        initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Cheating);
+                        if (closing_requests[key].settle_block_number == 0){
+                            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
+                        } else {
+                            closing_requests[key].closing_status = ClosingStatus.Overspend;
+                            closing_requests[key].closing_balances_data = _right_payment_data;
+                        }
+                        finished = true;
                         break;
                     }
                 }
@@ -394,12 +416,45 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
     {
+        Channel channel = channels[key];
+        ClosingRequest request = closing_requests[key];
         byte32 key = getKey(_sender, _open_block_number);
 
-        require(closing_requests[key].settle_block_number != 0);
-	    require(block.number > closing_requests[key].settle_block_number);
+        require(request.settle_block_number != 0);
+	    require(block.number >= request.settle_block_number);
+        var amount = channel.deposit;
 
-        settleChannel(_sender, _open_block_number);
+        var (receivers, balances) = decodePaymentData(request.closing_balances_data);
+
+        for (uint i = 0; i < receivers.length; i++){
+            payments[receivers[i]] += balances[i];
+            amount -= balances[i];
+        }
+
+        var maintainers = channel.maintaining_nodes;
+        var channel_fee = channel.channel_fee;
+
+        for (uint i = 0; i < maintainers.length; i++){
+            payments[maintainers[i]] += channel_fee;
+        }
+
+        if (channel.collateral != 0)
+            payments[_sender] += channel.collateral;
+        if (amount > 0)
+            payments[_sender] += amount;
+
+        // remove closed channel structures
+        delete channels[key];
+        delete closing_requests[key];
+
+        ChannelSettled(_sender, _open_block_number);
+    }
+
+    function withdraw() external{
+        require(payments[msg.sender] > 0);
+        var amount = payments[msg.sender];
+        payments[msg.sender] = 0;
+        token.transfer(msg.sender, amount);
     }
 
     function registerMaintainer(
@@ -566,55 +621,13 @@ contract RaidenMicroTransferChannels {
         byte32 key = getKey(_sender, _open_block_number);
 
         require(closing_requests[key].settle_block_number == 0);
-        require(_balance <= channels[key].deposit);
 
         // Mark channel as closed
         closing_requests[key].settle_block_number = uint32(block.number) + challenge_period;
-        closing_requests[key].closing_balance = _balance;
-        ChannelCloseRequested(msg.sender, _receiver, _open_block_number, _balance);
+        closing_requests[key].closing_balances_data = _payment_data;
+        closing_requests[key].closing_status = _closing_status;
+        ChannelCloseRequested(msg.sender, _receiver, _open_block_number, _payment_data);
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
-    }
-
-    /// @dev Closes the channel and settles by transfering the balance to the receiver and the rest of the deposit back to the sender.
-    /// @param _sender The address that sends tokens.
-    /// @param _receiver The address that receives tokens.
-    /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
-    /// @param _balance The amount of tokens owed by the sender to the receiver.
-    function settleChannel(  // TODO change this
-        address _sender,
-        uint32 _open_block_number,
-        uint256[] _payment_data)
-        private
-    {
-        //GasCost('settleChannel start', block.gaslimit, msg.gas);
-        byte32 key = getKey(_sender, _open_block_number);
-        Channel channel = channels[key];
-
-        require(channel.open_block_number != 0);
-        require(_balance <= channel.deposit);
-
-        // send minimum of _balance and deposit to receiver
-        uint send_to_receiver = min(_balance, channel.deposit);
-        if(send_to_receiver > 0) {
-            //GasCost('settleChannel', block.gaslimit, msg.gas);
-            require(token.transfer(_receiver, send_to_receiver));
-        }
-
-        // send maximum of deposit - balance and 0 to sender
-        uint send_to_sender = max(channel.deposit - _balance, 0);
-        if(send_to_sender > 0) {
-            //GasCost('settleChannel', block.gaslimit, msg.gas);
-            require(token.transfer(_sender, send_to_sender));
-        }
-
-        assert(channel.deposit >= _balance);
-
-        // remove closed channel structures
-        delete channels[key];
-        delete closing_requests[key];
-
-        ChannelSettled(_sender, _receiver, _open_block_number, _balance);
-        //GasCost('settleChannel end', block.gaslimit, msg.gas);
     }
 
     function payCollateral(
@@ -623,8 +636,9 @@ contract RaidenMicroTransferChannels {
         private
     {
         byte32 key = getKey(_sender, _open_block_number);
-        require(token.transfer(msg.sender, channels[key].collateral));
+        var coll = channels[key].collateral;
         channels[key].collateral = 0;
+        require(token.transfer(msg.sender, coll));
     }
 
     /*
