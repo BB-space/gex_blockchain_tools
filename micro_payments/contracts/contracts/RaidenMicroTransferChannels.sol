@@ -638,25 +638,12 @@ contract RaidenMicroTransferChannels {
         byte32 key = getKey(_sender, _open_block_number);
         var coll = channels[key].collateral;
         channels[key].collateral = 0;
-        require(token.transfer(msg.sender, coll));
+        payments[msg.sender] = coll;
     }
 
     /*
      *  Internal functions
      */
-
-    /// @dev Internal function for getting the maximum between two numbers.
-    /// @param a First number to compare.
-    /// @param b Second number to compare.
-    /// @return The maximum between the two provided numbers.
-    function max(uint192 a, uint192 b)
-        internal
-        constant
-        returns (uint)
-    {
-        if (a > b) return a;
-        else return b;
-    }
 
     /// @dev Internal function for getting the minimum between two numbers.
     /// @param a First number to compare.
@@ -774,32 +761,6 @@ contract RaidenMicroTransferChannels {
         }
 
         return string(bytesStringTrimmed);
-    }
-
-    function addressToString(
-        address x)
-        internal
-        constant
-        returns (string)
-    {
-        bytes memory str = new bytes(40);
-        for (uint i = 0; i < 20; i++) {
-            byte b = byte(uint8(uint(x) / (2**(8*(19 - i)))));
-            byte hi = byte(uint8(b) / 16);
-            byte lo = byte(uint8(b) - 16 * uint8(hi));
-            str[2*i] = char(hi);
-            str[2*i+1] = char(lo);
-        }
-        return string(str);
-    }
-
-    function char(byte b)
-        internal
-        constant
-        returns (byte c)
-    {
-        if (b < 10) return byte(uint8(b) + 0x30);
-        else return byte(uint8(b) + 0x57);
     }
 
     function byte32ToString(byte32 x) constant returns (string) {
