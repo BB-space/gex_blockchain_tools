@@ -21,6 +21,4 @@ sig = pr.sign(message)
 # hash_op = web3.sha3(message)
 print(web3.eth.accounts[0])
 signature = web3.eth.sign(web3.eth.accounts[0], message)
-print testContract.transact({'from': web3.eth.accounts[0]}).verify(message, signature)
-0x83dafc7b3a6aeb5cf5db99cd7c334e887c02a9ff
-0xcef813a7123f5bbef9a2f8c0affd9f44a26b50da74e3f43cf0f94e30035d90c8
+print testContract.transact({'from': web3.eth.accounts[0]}).verify_new(message, signature)

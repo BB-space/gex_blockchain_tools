@@ -15,14 +15,16 @@ contract Test {
         return signer;
     }
 
-    function verify(bytes32 message, bytes s) constant returns (address) {
+    function verify_new(string message, bytes s) constant returns (address) {
         string memory prefix = "\x19Ethereum Signed Message:\n";
-        uint256 message_length = message.length;
+        uint256 message_length =  bytes(message).length;
         string memory message_length_string = uintToString(message_length);
         string memory prefixed_message = concat(prefix, message_length_string);
-        bytes32 prefixedHash = sha3(prefixed_message, message);
+        prefixed_message = concat(prefixed_message, message);
+        bytes32 prefixed_message_hash = sha3(prefixed_message);
+        //bytes32 prefixedHash = sha3(prefixed_message, message);
 
-        return ECVerify.ecverify(prefixedHash, s);
+        return ECVerify.ecverify(prefixed_message_hash, s);
     }
 
    function memcpy(
