@@ -413,12 +413,19 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
         constant
-        returns (bytes32, uint192, uint32, uint32, uint32, uint256[])
+        returns (bytes32, uint192, uint32, uint32, address, uint32, uint256[])
     {
         bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
 
-        return (key, channels[key].deposit, channels[key].collateral, channels[key].channel_fee, closing_requests[key].settle_block_number, closing_requests[key].closing_balances_data);
+        return (
+            key,
+            channels[key].deposit,
+            channels[key].collateral,
+            channels[key].channel_fee,
+            channels[key].topic_holder_node,
+            closing_requests[key].settle_block_number,
+            closing_requests[key].closing_balances_data);
     }
 
     /// @dev Function called by the anyone after the challenge period has ended.
@@ -516,7 +523,7 @@ contract RaidenMicroTransferChannels {
         require(sender == _sender);
 
         var (new_receivers, new_balances, overspend) = checkOverspend(_payment_data);
-        require(!overspent);
+        require(!overspent);  // TODO should we give the collateral here?
         var (old_receivers, old_balances) = decodePaymentData(closing_requests[key].closing_balances_data);
         require(old_receivers.length <= new_receivers.length);
 
@@ -582,14 +589,16 @@ contract RaidenMicroTransferChannels {
         require(channels[key].deposit == 0);
         require(channels[key].open_block_number == 0);
         require(closing_requests[key].settle_block_number == 0);
+        require((_deposit - _channel_fee * 3) > 100);
 
-        uint192 memory deposit = ((_deposit - _channel_fee * 3) / 100) * 85;  // TODO checks for < 0
+        uint192 memory deposit = ((_deposit - _channel_fee * 3) / 100) * 85; // TODO / 100
         uint32 memory collateral = (_deposit - _channel_fee * 3) - deposit;
 
         if (deposit + collateral + _channel_fee == _deposit){   // temporary structure, will probably delete this after some tests
             ChannelCreated(0, 0, 0, 0);
         } else {
-            bytes32 memory random_n = bytes32(0);
+            bytes32 memory random_n = bytes32(0);  // TODO implement random here
+
             Channel channel;
 
             channel.deposit = deposit;
@@ -668,9 +677,10 @@ contract RaidenMicroTransferChannels {
         private
     {
         bytes32 key = getKey(_sender, _open_block_number);
+        require(channels[key].collateral != 0);
         var coll = channels[key].collateral;
         channels[key].collateral = 0;
-        payments[msg.sender] = coll;
+        payments[msg.sender] += coll;
     }
 
     /*
