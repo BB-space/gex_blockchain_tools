@@ -1,7 +1,8 @@
 from web3 import Web3, HTTPProvider
 from collections import namedtuple
 from enum import Enum
-from Crypto.PublicKey import RSA
+from Crypto.PublicKey import ECC
+import ecdsa
 import json
 import uuid
 import requests
@@ -81,10 +82,11 @@ class User:
 
     def generate_destruction_keys(self):
         transfer = Transfer()
-        # todo generate keys
-        key = RSA.generate(2048)
-        transfer.public_destruction_key = key.publickey().exportKey()
-        transfer.private_destruction_key = key
+        #key = ECC.generate(curve='P-256')
+        #transfer.public_destruction_key = key.publickey().exportKey()
+        #transfer.private_destruction_key = key
+        transfer.private_destruction_key = ecdsa.SigningKey.generate(curve=ecdsa.NIST256p)
+        transfer.public_destruction_key = transfer.private_destruction_key.get_verifying_key()
         return transfer
 
     def node_registration_finished_callback(self, result):

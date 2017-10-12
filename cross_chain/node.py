@@ -1,5 +1,6 @@
 from web3 import Web3, HTTPProvider
 from flask import Flask, request
+import ecdsa
 from graphene import ObjectType, String, Schema
 from flask_graphql import GraphQLView
 import json
