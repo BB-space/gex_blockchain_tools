@@ -21,8 +21,8 @@ contract RaidenMicroTransferChannels {
 
     Token token;
 
-    mapping (byte32 => Channel) channels;
-    mapping (byte32 => ClosingRequest) closing_requests;
+    mapping (bytes32 => Channel) channels;
+    mapping (bytes32 => ClosingRequest) closing_requests;
     mapping (address => uint256) payments;
 
     struct Channel {
@@ -32,7 +32,7 @@ contract RaidenMicroTransferChannels {
         uint32 channel_fee; // fee the sender pays to the nodes that maintain the channel
         address[] maintaining_nodes; // nodes that maintain the channel, currently 3 is required
         address topic_holder_node; // the node that hosts the payment kafka topic
-        byte32 random_n;
+        bytes32 random_n;
     }
 
     struct ClosingRequest {
@@ -58,7 +58,7 @@ contract RaidenMicroTransferChannels {
         address indexed _sender,
         uint192 _deposit,
         uint32 _channel_fee,
-        byte32 _random_n);
+        bytes32 _random_n);
 
     event ChannelToppedUp (
         address indexed _sender,
@@ -135,7 +135,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         public
         constant
-        returns (byte32)
+        returns (bytes32)
     {
         return sha3(_sender, _open_block_number);
     }
@@ -152,7 +152,7 @@ contract RaidenMicroTransferChannels {
         constant
         returns (string)
     {
-        string memory str = concat("Key: ", byte32ToString(getKey(_sender, _open_block_number)));
+        string memory str = concat("Key: ", bytes32ToString(getKey(_sender, _open_block_number)));
         str = concat(str, ", Data: ");
         for (i = 0; i < data.length; i++){
             str = concat(str, uintToString(uint256(data[i])));
@@ -199,7 +199,7 @@ contract RaidenMicroTransferChannels {
 
 
         // Hash the prefixed message string
-        byte32 prefixed_message_hash = sha3(prefixed_message);
+        bytes32 prefixed_message_hash = sha3(prefixed_message);
 
         // Derive address from signature
         address signer = ECVerify.ecverify(prefixed_message_hash, _balance_msg_sig);
@@ -254,7 +254,7 @@ contract RaidenMicroTransferChannels {
         bytes _balance_msg_sig)
         external
     {
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
 
         require(closing_requests[key].settle_block_number == 0);  // can only call this method once per channel
         require(uint32(block.number) - _open_block_number >= channel_lifetime);
@@ -289,7 +289,7 @@ contract RaidenMicroTransferChannels {
         external
     {
         require(msg.sender != _sender); // user cannot report himself
-        byte32 memory key = getKey(_sender, _open_block_number);
+        bytes32 memory key = getKey(_sender, _open_block_number);
         bool memory finished = false;
 
         // check that both transactions were signed by the _sender
@@ -413,9 +413,9 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
         constant
-        returns (byte32, uint192, uint32, uint32, uint32, uint256[])
+        returns (bytes32, uint192, uint32, uint32, uint32, uint256[])
     {
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
 
         return (key, channels[key].deposit, channels[key].collateral, channels[key].channel_fee, closing_requests[key].settle_block_number, closing_requests[key].closing_balances_data);
@@ -429,7 +429,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
     {
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
         Channel channel = channels[key];
         ClosingRequest request = closing_requests[key];
 
@@ -480,7 +480,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
     {
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
         require(channels[key].maintaining_nodes.length < 3);
 
@@ -508,7 +508,7 @@ contract RaidenMicroTransferChannels {
         bytes _balance_msg_sig)
         external
     {
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
         require(closing_requests[key].settle_block_number != 0);
         require(_balance_msg_sig.length == 65);
 
@@ -541,7 +541,7 @@ contract RaidenMicroTransferChannels {
     /// @param _payment_data The array of uint256 encoded (balance, address) pairs
     /// @return Two arrays: receivers addresses and their balances + a boolean that indicates weather the transaction is valid or not
     function checkOverspend(
-        byte32 key,
+        bytes32 key,
         uint256[] _payment_data)
         private
         returns(address[], uint[], bool)
@@ -577,7 +577,7 @@ contract RaidenMicroTransferChannels {
         uint32 open_block_number = uint32(block.number);
 
         // Create unique identifier from sender and current block number
-        byte32 key = getKey(_sender, open_block_number);
+        bytes32 key = getKey(_sender, open_block_number);
 
         require(channels[key].deposit == 0);
         require(channels[key].open_block_number == 0);
@@ -589,7 +589,7 @@ contract RaidenMicroTransferChannels {
         if (deposit + collateral + _channel_fee == _deposit){   // temporary structure, will probably delete this after some tests
             ChannelCreated(0, 0, 0, 0);
         } else {
-            byte32 memory random_n = byte32(0);
+            bytes32 memory random_n = bytes32(0);
             Channel channel;
 
             channel.deposit = deposit;
@@ -619,7 +619,7 @@ contract RaidenMicroTransferChannels {
         require(_added_deposit != 0);
         require(_open_block_number != 0);
 
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
 
         require(channels[key].deposit != 0);
         require(closing_requests[key].settle_block_number == 0);
@@ -647,7 +647,7 @@ contract RaidenMicroTransferChannels {
         private
     {
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
 
         require(closing_requests[key].settle_block_number == 0);
 
@@ -667,7 +667,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         private
     {
-        byte32 key = getKey(_sender, _open_block_number);
+        bytes32 key = getKey(_sender, _open_block_number);
         var coll = channels[key].collateral;
         channels[key].collateral = 0;
         payments[msg.sender] = coll;
@@ -701,12 +701,12 @@ contract RaidenMicroTransferChannels {
         returns (uint32)
     {
         bytes1 flag_byte;
-        bytes4 number;
+        bytes4 data_number;
         assembly {
             flag_byte := mload(add(b, 0x20))
-            number := mload(add(b, 0x21))
+            data_number := mload(add(b, 0x21))
         }
-        return (flag_byte, uint32(number));
+        return (flag_byte, uint32(data_number));
     }
 
     function memcpy(
@@ -748,7 +748,7 @@ contract RaidenMicroTransferChannels {
 
         assembly {
             self_ptr := add(_self, 0x20)
-            other_ptr := add(_other, 0x20)
+            other_ptr := add(_other, 0x20)  //
         }
 
         var ret = new string(self_len + other_len);
@@ -766,14 +766,14 @@ contract RaidenMicroTransferChannels {
         constant
         returns (string)
     {
-        byte32 ret;
+        bytes32 ret;
         if (v == 0) {
             ret = '0';
         }
         else {
              while (v > 0) {
-                ret = byte32(uint(ret) / (2 ** 8));
-                ret |= byte32(((v % 10) + 48) * 2 ** (8 * 31));
+                ret = bytes32(uint(ret) / (2 ** 8));
+                ret |= bytes32(((v % 10) + 48) * 2 ** (8 * 31));
                 v /= 10;
             }
         }
@@ -781,7 +781,7 @@ contract RaidenMicroTransferChannels {
         bytes memory bytesString = new bytes(32);
         uint charCount = 0;
         for (uint j=0; j<32; j++) {
-            byte char = byte(byte32(uint(ret) * 2 ** (8 * j)));
+            byte char = byte(bytes32(uint(ret) * 2 ** (8 * j)));
             if (char != 0) {
                 bytesString[j] = char;
                 charCount++;
@@ -795,15 +795,15 @@ contract RaidenMicroTransferChannels {
         return string(bytesStringTrimmed);
     }
 
-    function byte32ToString(
-        byte32 x)
+    function bytes32ToString(
+        bytes32 x)
         internal
         constant
         returns (string) {
         bytes memory bytesString = new bytes(32);
         uint charCount = 0;
         for (uint j = 0; j < 32; j++) {
-            byte char = byte(byte32(uint(x) * 2 ** (8 * j)));
+            byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
             if (char != 0) {
                 bytesString[charCount] = char;
                 charCount++;
