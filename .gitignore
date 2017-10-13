@@ -5,6 +5,8 @@
 #cross_chain
 cross_chain/build/
 cross_chain/data.json
+cross_chain/node_modules/
+cross_chain/package.json
 
 # micro_payments
 micro_payments/env
