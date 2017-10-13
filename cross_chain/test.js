@@ -35,6 +35,7 @@ console.log("vd ----------> " + v_decimal);
 
 const fixed_msg = "\x19Ethereum Signed Message:\n" + msg.length + msg;
 const fixed_msg_sha = web3.sha3(fixed_msg);
+console.log(fixed_msg_sha);
 data = Verifier.recoverAddr.call(fixed_msg_sha, v_decimal, r, s);
 console.log("-----data------");
 console.log("input addr ==> " + addr);
