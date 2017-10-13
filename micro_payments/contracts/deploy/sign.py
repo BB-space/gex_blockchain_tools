@@ -15,15 +15,15 @@ def eth_privtoaddr(priv) -> str:
 
 def eth_message_hex(msg: str) -> bytes:
     msg = eth_prefix + str(len(msg)) + msg
-    print("--eth_message_hex msg", msg)
+    # print("--eth_message_hex msg", msg)
     msg_hex = "0x" + "".join("{:02x}".format(ord(c)) for c in msg)
-    print("---eth_message_hex hex", msg_hex)
+    # print("---eth_message_hex hex", msg_hex)
     return sha3(msg_hex)
 
 
 def sign(data: str, private_key_seed_ascii: str):
     data = eth_message_hex(data)
-    print("--eth_message_hex hash", data)
+    # print("--eth_message_hex hash", data)
     priv = private_key_seed_ascii
     pk = PrivateKey(priv, raw=True)
     signature = pk.ecdsa_recoverable_serialize(pk.ecdsa_sign_recoverable(data, raw=True))

@@ -1,7 +1,7 @@
-var GEXToken = artifacts.require("./GEXToken.sol");
-var NodeContract = artifacts.require("./NodeContract.sol");
-var GexContract = artifacts.require("./GexContract.sol");
-var EthContract = artifacts.require("./EthContract.sol");
+//var GEXToken = artifacts.require("./GEXToken.sol");
+//var NodeContract = artifacts.require("./NodeContract.sol");
+//var GexContract = artifacts.require("./GexContract.sol");
+//var EthContract = artifacts.require("./EthContract.sol");
 var Verifier = artifacts.require("./Verifier.sol");
 
 module.exports = function (deployer) {

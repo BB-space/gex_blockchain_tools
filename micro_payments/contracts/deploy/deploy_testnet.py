@@ -132,7 +132,7 @@ def getTokens(**kwargs):
         print('After token')
         channel_factory = chain.provider.get_contract_factory('RaidenMicroTransferChannels')
         print('1')
-        txhash = channel_factory.deploy(args=[token_address, challenge_period], transaction={'from': owner})
+        txhash = channel_factory.deploy(args=[token_address, challenge_period, 1], transaction={'from': owner})
         print('2')
         receipt = check_succesful_tx(chain.web3, txhash, txn_wait)
         print('3')
@@ -161,20 +161,28 @@ def getTokens(**kwargs):
 
         # check if it works:
         # 1. get message balance hash for address[0]
-        balance_msg = "Receiver: " + addresses[0] + ", Balance: 10000, Channel ID: 100"
+        D160 = 2 ** 160
+        amount = 54391 * 10 ** 18
+        address = int('0x8ad98b6f7cf894fd1c47eb7e291713742bca0d83', 0)
+        data = D160 * amount + address
 
+        balance_msg = channel_factory(cf_address).call().getBalanceMessage(addresses[0], 1, [data])
         # 2. sign the hash with private key corresponding to address[0]
         balance_msg_sig, addr = sign.check(balance_msg, binascii.unhexlify(priv_keys[0]))
         # 3. check if ECVerify and ec_recovered address are equal
-        ec_recovered_addr = channel_factory(cf_address).call().verifyBalanceProof(addresses[0], 100, 10000, balance_msg_sig)
+        # print(balance_msg)
+        print(addr, addresses[0])
+
+        print(balance_msg)
+        ec_recovered_addr = channel_factory(cf_address).call().verifyBalanceProof(addresses[0], 1, [data], balance_msg_sig)
         print('EC_RECOVERED_ADDR:', ec_recovered_addr)
         print('FIRST WALLET ADDR:', addresses[0])
         assert ec_recovered_addr == addresses[0]
 
         print('Wait for confirmation...')
 
-        # transfer_filter = token.on('Transfer')
-        # wait(transfer_filter, event_wait)
+        transfer_filter = token.on('Transfer')
+        wait(transfer_filter, event_wait)
 
         print('BALANCE:', token(token_address).call().balanceOf(addresses[0]))
         assert token(token_address).call().balanceOf(addresses[0]) > 0

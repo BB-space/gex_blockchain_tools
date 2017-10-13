@@ -1,7 +1,7 @@
 pragma solidity ^0.4.15;
 
-import "some/token_223/Token.sol";
-import "some/lib/ECVerify.sol";
+import "./Token/Token.sol";
+import "./lib/ECVerify.sol";
 //import "../../../contracts/NodeContract.sol";
 
 /// @title Raiden MicroTransfer Channels Contract.
@@ -150,7 +150,9 @@ contract RaidenMicroTransferChannels {
         constant
         returns (string)
     {
-        string memory str = concat("Key: ", bytes32ToString(getKey(_sender, _open_block_number)));
+        string memory str = concat("Sender: 0x", addressToString(_sender));
+        str = concat(str, ", Block: ");
+        str = concat(str, uintToString(_open_block_number));
         str = concat(str, ", Data: ");
         for (uint i = 0; i < _payment_data.length; i++){
             str = concat(str, uintToString(uint256(_payment_data[i])));
@@ -294,10 +296,10 @@ contract RaidenMicroTransferChannels {
         verifyBalanceProof(_sender, _open_block_number, _right_payment_data, _right_balance_msg_sig);
         verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
 
-        helpMePlease(key, _right_payment_data, _wrong_payment_data);
+        check_cheating(key, _right_payment_data, _wrong_payment_data);
     }
 
-    function helpMePlease(bytes32 key, uint256[] _right_payment_data, uint256[] _wrong_payment_data) private {
+    function check_cheating(bytes32 key, uint256[] _right_payment_data, uint256[] _wrong_payment_data) private {
         var (right_receivers, right_balances, right_overspent) = checkOverspend(key, _right_payment_data);
         var (wrong_receivers, wrong_balances, wrong_overspent) = checkOverspend(key, _wrong_payment_data);
         require(!right_overspent);
@@ -757,7 +759,7 @@ contract RaidenMicroTransferChannels {
 
         assembly {
             self_ptr := add(_self, 0x20)
-            other_ptr := add(_other, 0x20)  //
+            other_ptr := add(_other, 0x20)
         }
 
         var ret = new string(self_len + other_len);
@@ -767,6 +769,24 @@ contract RaidenMicroTransferChannels {
         memcpy(retptr + self_len, other_ptr, other_len);
         return ret;
     }
+
+    function addressToString(
+        address x)
+        internal
+        constant
+        returns (string)
+    {
+        bytes memory str = new bytes(40);
+        for (uint i = 0; i < 20; i++) {
+            byte b = byte(uint8(uint(x) / (2**(8*(19 - i)))));
+            byte hi = byte(uint8(b) / 16);
+            byte lo = byte(uint8(b) - 16 * uint8(hi));
+            str[2*i] = char(hi);
+            str[2*i+1] = char(lo);
+        }
+        return string(str);
+    }
+
 
     // 9613 gas
     function uintToString(
@@ -823,5 +843,14 @@ contract RaidenMicroTransferChannels {
             bytesStringTrimmed[j] = bytesString[j];
         }
         return string(bytesStringTrimmed);
+    }
+
+    function char(byte b)
+        internal
+        constant
+        returns (byte c)
+    {
+        if (b < 10) return byte(uint8(b) + 0x30);
+        else return byte(uint8(b) + 0x57);
     }
 }

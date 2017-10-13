@@ -39,7 +39,7 @@ print("vd ----------> " + str(v_decimal))
 
 fixed_msg = "\x19Ethereum Signed Message:\n" + str(len(msg)) + msg
 #fixed_msg_sha = web3.sha3('0x' + fixed_msg.encode("hex"))
-fixed_msg_sha = web3.sha3(web3.fromAscii(fixed_msg))
+fixed_msg_sha = web3.sha3(web3.fromAscii(msg))
 
 
 print(fixed_msg_sha)
@@ -48,7 +48,7 @@ print(type(s))
 print(type(v_decimal))
 print(type(fixed_msg_sha))
 
-data = Verifier.call().recoverAddr(fixed_msg_sha, v_decimal, r, s)
+data = Verifier.call().recoverAddr(fixed_msg_sha[:2], v_decimal, r[:2], s[:2])
 print("-----data------")
 print("input addr ==> " + addr)
 print("output addr => " + data)
