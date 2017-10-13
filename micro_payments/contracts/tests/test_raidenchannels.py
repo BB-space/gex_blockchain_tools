@@ -69,9 +69,9 @@ def get_last_open_block_number(contract):
 
 def channel_post_create_tests(contract, sender, receiver, channel_deposit):
     open_block_number = get_last_open_block_number(contract)
-    channel_data = contract.call().getChannelInfo(sender, receiver, open_block_number)
+    channel_data = contract.call().getChannelInfo(sender, open_block_number)
 
-    assert channel_data[0] == contract.call().getKey(sender, receiver, open_block_number)
+    assert channel_data[0] == contract.call().getKey(sender, open_block_number)
     assert channel_data[1] == channel_deposit
     assert channel_data[2] == 0
     assert channel_data[3] == 0

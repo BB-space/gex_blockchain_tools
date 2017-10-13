@@ -1,8 +1,8 @@
 pragma solidity ^0.4.15;
 
-import "../../contracts/token_223/Token.sol";
-import "../../contracts/lib/ECVerify.sol";
-import "../../contracts/NodeContract.sol";
+import "some/token_223/Token.sol";
+import "some/lib/ECVerify.sol";
+//import "../../../contracts/NodeContract.sol";
 
 /// @title Raiden MicroTransfer Channels Contract.
 contract RaidenMicroTransferChannels {
@@ -17,7 +17,7 @@ contract RaidenMicroTransferChannels {
     uint8 public challenge_period;
     uint8 public channel_lifetime;
     string constant prefix = "\x19Ethereum Signed Message:\n";
-    uint constant D160 = 0x10000000000000000000000000000000000000000;
+    uint constant D160 = 0x0010000000000000000000000000000000000000000;
 
     Token token;
 
@@ -28,8 +28,8 @@ contract RaidenMicroTransferChannels {
     struct Channel {
         uint192 deposit; // amount of the coins (tokens) in the channel
         uint32 open_block_number; // number of the block when the channel was opened
-        uint32 collateral; // the amount of coins to be paid out to the person who proved that the sender is cheating
         uint32 channel_fee; // fee the sender pays to the nodes that maintain the channel
+        uint192 collateral; // the amount of coins to be paid out to the person who proved that the sender is cheating
         address[] maintaining_nodes; // nodes that maintain the channel, currently 3 is required
         address topic_holder_node; // the node that hosts the payment kafka topic
         bytes32 random_n;
@@ -68,12 +68,11 @@ contract RaidenMicroTransferChannels {
 
     event ChannelCloseRequested(
         address indexed _sender,
-        uint256[] _payment_data,
-        uint32 indexed _open_block_number);
+        uint32 indexed _open_block_number,
+        uint256[] _payment_data);
 
     event ChannelSettled(
         address indexed _sender,
-        uint256[] _payment_data,
         uint32 indexed _open_block_number);
 
     event MaintainerRegistered(
@@ -127,7 +126,6 @@ contract RaidenMicroTransferChannels {
 
     /// @dev Returns the unique channel identifier used in the contract.
     /// @param _sender The address that sends tokens.
-    /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     /// @return Unique channel identifier.
     function getKey(
@@ -154,8 +152,8 @@ contract RaidenMicroTransferChannels {
     {
         string memory str = concat("Key: ", bytes32ToString(getKey(_sender, _open_block_number)));
         str = concat(str, ", Data: ");
-        for (i = 0; i < data.length; i++){
-            str = concat(str, uintToString(uint256(data[i])));
+        for (uint i = 0; i < _payment_data.length; i++){
+            str = concat(str, uintToString(uint256(_payment_data[i])));
         }
         return str;
     }
@@ -202,8 +200,8 @@ contract RaidenMicroTransferChannels {
         bytes32 prefixed_message_hash = sha3(prefixed_message);
 
         // Derive address from signature
-        address signer = ECVerify.ecverify(prefixed_message_hash, _balance_msg_sig);
-        return signer;
+        require(ECVerify.ecverify(prefixed_message_hash, _balance_msg_sig) == _sender);
+        return _sender;
     }
 
     /*
@@ -230,11 +228,11 @@ contract RaidenMicroTransferChannels {
         bytes1 flag_byte;
         uint32 number;
 
-        (flag_byte, number) = fallbackDataConvert(data);
+        (flag_byte, number) = fallbackDataConvert(_data);
 
-        if (flag_byte == x00){
+        if (flag_byte == bytes1(0)){
             createChannelPrivate(_sender, number, uint192(_deposit));
-        } else if (flag_byte == x01) {
+        } else if (flag_byte == bytes1(1)) {
             topUpPrivate(_sender, number, uint192(_deposit));
         } else {
             revert();
@@ -265,10 +263,10 @@ contract RaidenMicroTransferChannels {
         require(sender == _sender);
         //GasCost('close verifyBalanceProof end', block.gaslimit, msg.gas);
 
-        var (, , overspend) = checkOverspend(_payment_data);
-        require(!overspent);
+        var (, , overspend) = checkOverspend(key, _payment_data);
+        require(!overspend);
 
-        initChallengePeriod(_receiver, _open_block_number, _payment_data, ClosingStatus.Good);
+        initChallengePeriod(key, _payment_data, ClosingStatus.Good);
     }
 
     /// very expensive, but the collateral should cover the expenses
@@ -289,97 +287,46 @@ contract RaidenMicroTransferChannels {
         external
     {
         require(msg.sender != _sender); // user cannot report himself
-        bytes32 memory key = getKey(_sender, _open_block_number);
-        bool memory finished = false;
+        bytes32  key = getKey(_sender, _open_block_number);
 
         // check that both transactions were signed by the _sender
-        address sender = verifyBalanceProof(_sender, _open_block_number, _right_payment_data, _right_balance_msg_sig);
-        require(sender == _sender);
-        sender = verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
-        require(sender == _sender);
 
+        verifyBalanceProof(_sender, _open_block_number, _right_payment_data, _right_balance_msg_sig);
+        verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
+
+        helpMePlease(key, _right_payment_data, _wrong_payment_data);
+    }
+
+    function helpMePlease(bytes32 key, uint256[] _right_payment_data, uint256[] _wrong_payment_data) private {
         var (right_receivers, right_balances, right_overspent) = checkOverspend(key, _right_payment_data);
         var (wrong_receivers, wrong_balances, wrong_overspent) = checkOverspend(key, _wrong_payment_data);
         require(!right_overspent);
 
         if (wrong_overspent){
-            payCollateral(_sender, _open_block_number);
-            if (closing_requests[key].settle_block_number == 0){
-                initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
-            } else {
-                closing_requests[key].closing_status = ClosingStatus.Overspend;
-                closing_requests[key].closing_balances_data = _right_payment_data;
-            }
-            finished = true;
+            return closeCheating(key, _right_payment_data, ClosingStatus.Overspend);
         }
 
-        if (!finished) {
-            uint8 array_length = min(right_balances.length, wrong_balances.length);
-            int[] memory balance_diff = new int[](array_length);
+        int[] memory balance_diff = new int[](min(right_balances.length, wrong_balances.length));
 
-            for (uint i = 0; i < array_length; i++){
-                if (right_receivers[i] == wrong_receivers[i]){
-                    balance_diff.append(int(right_balances[i] - wrong_balances[i]));
-                } else {
-                    // TODO wrong receivers order, what should we do?
-                }
+        for (uint i = 0; i < balance_diff.length; i++){
+            if (right_receivers[i] == wrong_receivers[i]){
+                balance_diff[i] = int(right_balances[i] - wrong_balances[i]);
+            } else {
+                // TODO wrong receivers order, what should we do?
             }
+        }
 
-            //case 1
-            if (wrong_balances.length > right_balances.length){
-                for (uint i = 0; i < array_length; i++){
-                    if (balances_sum[i] > 0){
-                        payCollateral(_sender, _open_block_number);
-                        if (closing_requests[key].settle_block_number == 0){
-                            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
-                        } else {
-                            closing_requests[key].closing_status = ClosingStatus.Overspend;
-                            closing_requests[key].closing_balances_data = _right_payment_data;
-                        }
-                        finished = true;
-                        break;
-                    }
-                }
-            }
-            //case 2
-            if (!finished && wrong_balances.length == right_balances.length){
-                bool memory pos = false;
-                bool memory neg = false;
-                for (uint i = 0; i < array_length; i++){
-                    if (balances_sum[i] > 0){
-                        pos = true;
-                    } else if (balances_sum[i] < 0){
-                        neg = true;
-                    }
-                    if (pos && neg){
-                        payCollateral(_sender, _open_block_number);
-                        if (closing_requests[key].settle_block_number == 0){
-                            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
-                        } else {
-                            closing_requests[key].closing_status = ClosingStatus.Overspend;
-                            closing_requests[key].closing_balances_data = _right_payment_data;
-                        }
-                        finished = true;
-                        break;
-                    }
-                }
-            }
-            //case 3
-            if (!finished && wrong_balances.length < right_balances.length){
-                for (uint i = 0; i < array_length; i++){
-                    if (balances_sum[i] < 0){
-                        payCollateral(_sender, _open_block_number);
-                        if (closing_requests[key].settle_block_number == 0){
-                            initChallengePeriod(_sender, _open_block_number, _right_payment_data, ClosingStatus.Overspend);
-                        } else {
-                            closing_requests[key].closing_status = ClosingStatus.Overspend;
-                            closing_requests[key].closing_balances_data = _right_payment_data;
-                        }
-                        finished = true;
-                        break;
-                    }
-                }
-            }
+        //case 1
+        if (wrong_balances.length > right_balances.length){
+            return cheatingCase1(balance_diff, key, _right_payment_data);
+        }
+        //case 2
+        if (wrong_balances.length == right_balances.length){
+            return cheatingCase2(balance_diff, key, _right_payment_data);
+        }
+        //case 3
+        if (wrong_balances.length < right_balances.length){
+            return cheatingCase3(balance_diff, key, _right_payment_data);
         }
     }
 
@@ -393,12 +340,12 @@ contract RaidenMicroTransferChannels {
         returns(address[], uint[])
     {
         // TODO test this
-        address[] memory receivers;
-        uint[] memory balances;
+        address[] memory receivers = new address[](_payment_data.length);
+        uint[] memory balances = new uint[](_payment_data.length);
 
         for (uint i=0; i<_payment_data.length; i++) {
-            receivers.append(address( _payment_data[i] & (D160-1)));
-            balances.append(_payment_data[i] / D160);
+            receivers[i] = address( _payment_data[i] & (D160-1));
+            balances[i] = _payment_data[i] / D160;
         }
 
         return(receivers, balances);
@@ -413,7 +360,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
         constant
-        returns (bytes32, uint192, uint32, uint32, address, uint32, uint256[])
+        returns (bytes32, uint192, uint192, uint32, address, uint32, uint256[])
     {
         bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
@@ -429,7 +376,6 @@ contract RaidenMicroTransferChannels {
     }
 
     /// @dev Function called by the anyone after the challenge period has ended.
-    /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     function settle(
         address _sender,
@@ -437,8 +383,8 @@ contract RaidenMicroTransferChannels {
         external
     {
         bytes32 key = getKey(_sender, _open_block_number);
-        Channel channel = channels[key];
-        ClosingRequest request = closing_requests[key];
+        Channel storage channel = channels[key];
+        ClosingRequest storage request = closing_requests[key];
 
         // remove closed channel structures
         // TODO check if we can still access the variables when we delete these
@@ -447,7 +393,7 @@ contract RaidenMicroTransferChannels {
 
         require(request.settle_block_number != 0);
 	    require(block.number >= request.settle_block_number);
-        var amount = channel.deposit;
+        uint256 amount = channel.deposit;
 
         var (receivers, balances) = decodePaymentData(request.closing_balances_data);
 
@@ -459,7 +405,7 @@ contract RaidenMicroTransferChannels {
         var maintainers = channel.maintaining_nodes;
         var channel_fee = channel.channel_fee;
 
-        for (uint i = 0; i < maintainers.length; i++){
+        for (i = 0; i < maintainers.length; i++){
             payments[maintainers[i]] += channel_fee;
         }
 
@@ -480,7 +426,6 @@ contract RaidenMicroTransferChannels {
     }
 
     /// @dev Nodes can call this method to become a channel maintainer
-    /// @param _receiver The address that receives tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     function registerMaintainer(
         address _sender,
@@ -493,7 +438,7 @@ contract RaidenMicroTransferChannels {
 
         //todo check for eligibility using the random_n in the channel
 
-        channels[key].maintaining_nodes.append(msg.sender);
+        channels[key].maintaining_nodes.push(msg.sender);
         if (channels[key].maintaining_nodes.length == 1){
             channels[key].topic_holder_node = msg.sender;
             ChannelTopicCreated(_sender, _open_block_number, msg.sender);
@@ -519,10 +464,9 @@ contract RaidenMicroTransferChannels {
         require(closing_requests[key].settle_block_number != 0);
         require(_balance_msg_sig.length == 65);
 
-        address sender = verifyBalanceProof(_sender, _open_block_number, _payment_data, _balance_msg_sig);
-        require(sender == _sender);
+        verifyBalanceProof(_sender, _open_block_number, _payment_data, _balance_msg_sig);
 
-        var (new_receivers, new_balances, overspend) = checkOverspend(_payment_data);
+        var (new_receivers, new_balances, overspent) = checkOverspend(key, _payment_data);
         require(!overspent);  // TODO should we give the collateral here?
         var (old_receivers, old_balances) = decodePaymentData(closing_requests[key].closing_balances_data);
         require(old_receivers.length <= new_receivers.length);
@@ -550,12 +494,13 @@ contract RaidenMicroTransferChannels {
     function checkOverspend(
         bytes32 key,
         uint256[] _payment_data)
-        private
+//        private
+        constant
         returns(address[], uint[], bool)
     {
         address[] memory receivers;
         uint[] memory balances;
-        uint memory balances_sum = 0;
+        uint balances_sum = 0;
 
         (receivers, balances) = decodePaymentData(_payment_data);
 
@@ -591,13 +536,13 @@ contract RaidenMicroTransferChannels {
         require(closing_requests[key].settle_block_number == 0);
         require((_deposit - _channel_fee * 3) > 100);
 
-        uint192 memory deposit = ((_deposit - _channel_fee * 3) / 100) * 85; // TODO / 100
-        uint32 memory collateral = (_deposit - _channel_fee * 3) - deposit;
+        uint192 deposit = ((_deposit - _channel_fee * 3) / 100) * 85; // TODO / 100
+        uint192 collateral = (_deposit - _channel_fee * 3) - deposit;
 
         if (deposit + collateral + _channel_fee == _deposit){   // temporary structure, will probably delete this after some tests
             ChannelCreated(0, 0, 0, 0);
         } else {
-            bytes32 memory random_n = bytes32(0);  // TODO implement random here
+            bytes32 random_n = bytes32(0);  // TODO implement random here
 
             Channel channel;
 
@@ -633,8 +578,8 @@ contract RaidenMicroTransferChannels {
         require(channels[key].deposit != 0);
         require(closing_requests[key].settle_block_number == 0);
 
-        uint192 memory deposit = (_added_deposit  / 100) * 85;
-        uint32 memory collateral = _added_deposit - deposit;
+        uint192 deposit = (_added_deposit  / 100) * 85;
+        uint192 collateral = _added_deposit - deposit;
 
         channels[key].deposit += deposit;
         channels[key].collateral += collateral;
@@ -644,43 +589,97 @@ contract RaidenMicroTransferChannels {
 
 
     /// @dev Sender starts the challenge period; this can only happend once.
-    /// @param _receiver The address that receives tokens.
-    /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
-    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
     /// @param _closing_status The enum that indicates the way the channel was closed
     function initChallengePeriod(
-        address _sender,
-        uint32 _open_block_number,
+        bytes32 key,
         uint256[] _payment_data,
         ClosingStatus _closing_status)
         private
     {
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
-        bytes32 key = getKey(_sender, _open_block_number);
-
         require(closing_requests[key].settle_block_number == 0);
-
         // Mark channel as closed
         closing_requests[key].settle_block_number = uint32(block.number) + challenge_period;
         closing_requests[key].closing_balances_data = _payment_data;
         closing_requests[key].closing_status = _closing_status;
-        ChannelCloseRequested(msg.sender, _receiver, _open_block_number, _payment_data);
+//        ChannelCloseRequested(_sender, _open_block_number, _payment_data);
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
     }
 
     /// @dev Called when the _sender got caught cheating
-    /// @param _sender The address that pays the tokens
-    /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     function payCollateral(
-        address _sender,
-        uint32 _open_block_number)
+        bytes32 key)
         private
     {
-        bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].collateral != 0);
         var coll = channels[key].collateral;
         channels[key].collateral = 0;
         payments[msg.sender] += coll;
+    }
+
+    function closeCheating(
+        bytes32 key,
+        uint256[] _right_payment_data,
+        ClosingStatus status)
+        private
+    {
+
+        payCollateral(key);
+        if (closing_requests[key].settle_block_number == 0){
+            initChallengePeriod(key, _right_payment_data, status);
+        } else {
+            closing_requests[key].closing_status = status;
+            closing_requests[key].closing_balances_data = _right_payment_data;
+        }
+    }
+
+    function cheatingCase1(
+        int[] balance_diff,
+        bytes32 key,
+        uint256[] _right_payment_data)
+        private
+    {
+        for (uint i = 0; i < balance_diff.length; i++){
+            if (balance_diff[i] > 0){
+                closeCheating(key, _right_payment_data, ClosingStatus.Cheating);
+                break;
+            }
+        }
+    }
+
+    function cheatingCase2(
+        int[] balance_diff,
+        bytes32 key,
+        uint256[] _right_payment_data)
+        private
+    {
+        bool pos = false;
+        bool neg = false;
+        for (uint i = 0; i < balance_diff.length; i++){
+            if (balance_diff[i] > 0){
+                pos = true;
+            } else if (balance_diff[i] < 0){
+                neg = true;
+            }
+            if (pos && neg){
+                closeCheating(key, _right_payment_data, ClosingStatus.Cheating);
+                break;
+            }
+        }
+    }
+
+    function cheatingCase3(
+        int[] balance_diff,
+        bytes32 key,
+        uint256[] _right_payment_data)
+        private
+    {
+        for (uint i = 0; i < balance_diff.length; i++){
+            if (balance_diff[i] < 0){
+                closeCheating(key, _right_payment_data, ClosingStatus.Cheating);
+                break;
+            }
+        }
     }
 
     /*
@@ -691,7 +690,7 @@ contract RaidenMicroTransferChannels {
     /// @param a First number to compare.
     /// @param b Second number to compare.
     /// @return The minimum between the two provided numbers.
-    function min(uint192 a, uint192 b)
+    function min(uint256 a, uint256 b)
         internal
         constant
         returns (uint)
@@ -708,7 +707,7 @@ contract RaidenMicroTransferChannels {
         bytes b)
         internal
         constant
-        returns (uint32)
+        returns (bytes1, uint32)
     {
         bytes1 flag_byte;
         bytes4 data_number;

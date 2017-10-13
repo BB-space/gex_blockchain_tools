@@ -173,8 +173,8 @@ def getTokens(**kwargs):
 
         print('Wait for confirmation...')
 
-        transfer_filter = token.on('Transfer')
-        wait(transfer_filter, event_wait)
+        # transfer_filter = token.on('Transfer')
+        # wait(transfer_filter, event_wait)
 
         print('BALANCE:', token(token_address).call().balanceOf(addresses[0]))
         assert token(token_address).call().balanceOf(addresses[0]) > 0
