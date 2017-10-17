@@ -21,7 +21,7 @@ def check_succesful_tx(web3: Web3, txid: str, timeout=180) -> dict:
     '''
     receipt = wait_for_transaction_receipt(web3, txid, timeout=timeout)
     txinfo = web3.eth.getTransaction(txid)
-    assert txinfo['gas'] != receipt['gasUsed']
+    assert txinfo['gas'] != receipt['gasUsed']  # why does this work?
     return receipt
 
 
@@ -120,11 +120,10 @@ def getTokens(**kwargs):
         owner = owner or web3.eth.accounts[0]
         print('Web3 provider is', web3.currentProvider)
 
-        token = chain.provider.get_contract_factory('ERC223Token')
+        token = chain.provider.get_contract_factory('ERC223Token')  # This will be the abi of the token
 
         if not token_address:
-            token = chain.provider.get_contract_factory('ERC223Token')
-            txhash = token.deploy(args=[supply, token_name, token_decimals, token_symbol], transaction={'from': owner})
+            txhash = token.deploy(args=[supply, token_name, token_decimals, token_symbol], transaction={'from': owner}) # the way we deploy contracts
             receipt = check_succesful_tx(chain.web3, txhash, txn_wait)
             token_address = receipt['contractAddress']
             print(token_name, ' address is', token_address)
