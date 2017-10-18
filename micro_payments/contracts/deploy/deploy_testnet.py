@@ -108,6 +108,7 @@ class TestMTC:
         generate_wallets()
         deploy_contracts()
         self.project = Project()
+        self.open_block = None
         with self.project.get_chain(CHAIN_NAME) as chain:
             self.web3 = chain.web3
             self.info = read_from_file()
@@ -147,26 +148,51 @@ class TestMTC:
         time.sleep(15 * 3)
         tx_hash = self.channel.transact({'from': self.sender}) \
             .registerMaintainer(self.sender, self.open_block)
-        receipt = check_successful_tx(self.web3, tx_hash, txn_wait)
-
-        # transfer_filter = self.token.on('Transfer')
-        # wait(transfer_filter, event_wait)
-
+        check_successful_tx(self.web3, tx_hash, txn_wait)
         print(self.channel.call().getChannelInfo(self.sender, self.open_block))
 
     def test_channel_sign(self):
         print('Waiting for channel lifetime to end')
         time.sleep(15 * (channel_lifetime + 1))
         print('Lifetime should have ended')
-        data = [convert_to_256(self.web3.eth.accounts[1], 10 * 10 ** token_decimals)]
+        data = []
+        amount = 1428715
+        address = int(addresses[1], 0)
+        data.append(D160 * amount + address)
         balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, data)
-        balance_msg_sig, _ = sign.check(balance_msg, binascii.unhexlify(self.sender_key))
+        balance_msg_sig, _ = sign.check(balance_msg, binascii.unhexlify(self.sender_key[2:]))
         self.channel.transact({'from': self.sender}).close(self.sender, self.open_block, data, balance_msg_sig)
-        time.sleep(15 * (5 + 1))
-        # close_filter = self.channel.on('ChannelCloseRequested')
-        # wait(close_filter, event_wait)
+        time.sleep(15 * (1 + 1))
+        print('BLOCK', self.open_block)
+        try:
+            print(self.channel.call().getChannelInfo(self.sender, self.open_block))
+        except:
+            pass
+        try:
+            print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
+        except:
+            pass
 
-        print(self.channel.call().getChannelInfo(self.sender, self.open_block))
+    def test_settle_channel(self):
+        # self.block = ''
+        print('Waiting for channel settlement to end')
+        time.sleep(15 * (challenge_period + 1))
+        print('Lifetime should have ended')
+        print(self.channel.transact({'from': self.sender}).settle(self.sender, self.open_block))
+        time.sleep(15 * (1 + 1))
+        try:
+            print(self.channel.call().getChannelInfo(self.sender, self.open_block))
+        except:
+            print('Channel info failed')
+        try:
+            print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
+        except:
+            print('Closing request info failed')
+        try:
+            print(self.channel.call({'from': addresses[1]}).checkBalance())
+        except:
+            print('Balance failed')
+
 
 
 if __name__ == '__main__':
@@ -174,5 +200,6 @@ if __name__ == '__main__':
     test.set_up()
     # test.test_right_sign()
     test.test_create_channel()
-    # test.test_channel_sign()
+    test.test_channel_sign()
+    test.test_settle_channel()
 

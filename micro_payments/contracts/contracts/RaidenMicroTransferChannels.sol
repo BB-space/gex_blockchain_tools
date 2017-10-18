@@ -166,7 +166,7 @@ contract RaidenMicroTransferChannels {
     /// @param _payment_data The array of uint256 encoded (balance, address) pairs
     /// @param _balance_msg_sig The balance message signed by the sender or one of the receivers.
     /// @return Address of the balance proof signer.
-    function verifyBalanceProof(  // TODO Check that the order of elements in array does not change! (shouldn't)
+    function verifyBalanceProof(
         address _sender,
         uint32 _open_block_number,
         uint256[] _payment_data,
@@ -257,6 +257,7 @@ contract RaidenMicroTransferChannels {
 
         require(closing_requests[key].settle_block_number == 0);  // can only call this method once per channel
         require(uint32(block.number) - _open_block_number >= channel_lifetime);
+//        require(channels[key].maintaining_nodes == 3);  // TODO uncomment after testing
         require(_balance_msg_sig.length == 65);
 
         //GasCost('close verifyBalanceProof start', block.gaslimit, msg.gas);
@@ -361,7 +362,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
         constant
-        returns (bytes32, uint192, uint192, uint32) //, address)
+        returns (bytes32, uint192, uint192, uint32, address, address[])
     {
         bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
@@ -370,8 +371,26 @@ contract RaidenMicroTransferChannels {
             key,
             channels[key].deposit,
             channels[key].collateral,
-            channels[key].channel_fee); //,
-            //channels[key].topic_holder_node);
+            channels[key].channel_fee,
+            channels[key].topic_holder_node,
+            channels[key].maintaining_nodes);
+    }
+
+
+    function getClosingRequestInfo(
+        address _sender,
+        uint32 _open_block_number)
+        external
+        constant
+        returns (uint32, ClosingStatus, uint256[])
+    {
+        bytes32 key = getKey(_sender, _open_block_number);
+        require(closing_requests[key].settle_block_number != 0);
+
+        return (
+            closing_requests[key].settle_block_number,
+            closing_requests[key].closing_status,
+            closing_requests[key].closing_balances_data);
     }
 
     /// @dev Function called by the anyone after the challenge period has ended.
@@ -386,10 +405,6 @@ contract RaidenMicroTransferChannels {
         ClosingRequest storage request = closing_requests[key];
 
         // remove closed channel structures
-        // TODO check if we can still access the variables when we delete these
-        delete channels[key];
-        delete closing_requests[key];
-
         require(request.settle_block_number != 0);
 	    require(block.number >= request.settle_block_number);
         uint256 amount = channel.deposit;
@@ -413,6 +428,8 @@ contract RaidenMicroTransferChannels {
         if (amount > 0)
             payments[_sender] += amount;
 
+        delete channels[key];
+        delete closing_requests[key];
         ChannelSettled(_sender, _open_block_number);
     }
 
@@ -422,6 +439,10 @@ contract RaidenMicroTransferChannels {
         var amount = payments[msg.sender];
         payments[msg.sender] = 0;
         token.transfer(msg.sender, amount);
+    }
+
+    function checkBalance() external returns(uint){
+        return payments[msg.sender];
     }
 
     /// @dev Nodes can call this method to become a channel maintainer
