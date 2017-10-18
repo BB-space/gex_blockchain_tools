@@ -279,7 +279,7 @@ contract RaidenMicroTransferChannels {
     /// @param _right_balance_msg_sig The right balance message signed by the sender.
     /// @param _wrong_payment_data The wrong array of uint256 encoded (balance, address) pairs
     /// @param _wrong_balance_msg_sig The wrong balance message signed by the sender.
-    function report_cheating( // TODO test this
+    function reportCheating( // TODO test this
         address _sender,
         uint32 _open_block_number,
         uint256[] _right_payment_data,
@@ -296,10 +296,10 @@ contract RaidenMicroTransferChannels {
         verifyBalanceProof(_sender, _open_block_number, _right_payment_data, _right_balance_msg_sig);
         verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
 
-        check_cheating(key, _right_payment_data, _wrong_payment_data);
+        checkCheating(key, _right_payment_data, _wrong_payment_data);
     }
 
-    function check_cheating(bytes32 key, uint256[] _right_payment_data, uint256[] _wrong_payment_data) private {
+    function checkCheating(bytes32 key, uint256[] _right_payment_data, uint256[] _wrong_payment_data) private {
         var (right_receivers, right_balances, right_overspent) = checkOverspend(key, _right_payment_data);
         var (wrong_receivers, wrong_balances, wrong_overspent) = checkOverspend(key, _wrong_payment_data);
         require(!right_overspent);

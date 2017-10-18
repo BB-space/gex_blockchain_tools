@@ -102,6 +102,14 @@ def convert_to_256(address, balance):
     return
 
 
+def generate_data(amounts):
+    data = []
+    amounts = [1428726, 1428726]
+    for i in range(len(amounts)):
+        data.append(D160 * amounts[i] + int(addresses[i], 0))
+    return data
+
+
 class TestMTC:
 
     def set_up(self):
@@ -109,6 +117,7 @@ class TestMTC:
         deploy_contracts()
         self.project = Project()
         self.open_block = None
+        self.key = None
         with self.project.get_chain(CHAIN_NAME) as chain:
             self.web3 = chain.web3
             self.info = read_from_file()
@@ -149,9 +158,11 @@ class TestMTC:
         tx_hash = self.channel.transact({'from': self.sender}) \
             .registerMaintainer(self.sender, self.open_block)
         check_successful_tx(self.web3, tx_hash, txn_wait)
-        print(self.channel.call().getChannelInfo(self.sender, self.open_block))
+        info = self.channel.call().getChannelInfo(self.sender, self.open_block)
+        self.key = info[0]
+        print(info)
 
-    def test_channel_sign(self):
+    def test_close_channel(self):
         print('Waiting for channel lifetime to end')
         time.sleep(15 * (channel_lifetime + 1))
         print('Lifetime should have ended')
@@ -163,11 +174,26 @@ class TestMTC:
         balance_msg_sig, _ = sign.check(balance_msg, binascii.unhexlify(self.sender_key[2:]))
         self.channel.transact({'from': self.sender}).close(self.sender, self.open_block, data, balance_msg_sig)
         time.sleep(15 * (1 + 1))
-        print('BLOCK', self.open_block)
+        print('BLOCK', self.open_block)  # TODO write this to the data.json as well?
         try:
             print(self.channel.call().getChannelInfo(self.sender, self.open_block))
         except:
-            pass
+            print('Channel info failed in close ×')
+        try:
+            print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
+        except:
+            print('Closing request info failed in close ×')
+
+    def test_send_new_transaction(self):
+        data = []
+        amount = 1528715
+        address = int(addresses[1], 0)
+        data.append(D160 * amount + address)
+        balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, data)
+        balance_msg_sig, _ = sign.check(balance_msg, binascii.unhexlify(self.sender_key[2:]))
+        tx_hash = self.channel.transact({'from': self.sender}).submitLaterTransaction(self.sender, self.open_block, data, balance_msg_sig)
+        check_successful_tx(self.web3, tx_hash, txn_wait)
+        time.sleep(15 * (1 + 1))
         try:
             print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
         except:
@@ -178,28 +204,115 @@ class TestMTC:
         print('Waiting for channel settlement to end')
         time.sleep(15 * (challenge_period + 1))
         print('Lifetime should have ended')
-        print(self.channel.transact({'from': self.sender}).settle(self.sender, self.open_block))
+        tx_hash = self.channel.transact({'from': self.sender}).settle(self.sender, self.open_block)
+        check_successful_tx(self.web3, tx_hash, txn_wait)
         time.sleep(15 * (1 + 1))
         try:
             print(self.channel.call().getChannelInfo(self.sender, self.open_block))
         except:
-            print('Channel info failed')
+            print('Channel info failed in settle ✓')
         try:
             print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
         except:
-            print('Closing request info failed')
+            print('Closing request info failed is settle ✓')
         try:
             print(self.channel.call({'from': addresses[1]}).checkBalance())
         except:
-            print('Balance failed')
+            print('Balance failed in settle ×')
 
+    def test_overspend(self):
+        self.test_create_channel()
+
+        data = []
+        amount = 142871500000000000  # obviously much more that we've sent initially
+        address = int(addresses[1], 0)
+        data.append(D160 * amount + address)
+
+        # Trying to close the channel with an overspend
+        balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, data)
+        balance_msg_sig, _ = sign.check(balance_msg, binascii.unhexlify(self.sender_key[2:]))
+        tx_hash = self.channel.transact({'from': self.sender}).close(self.sender, self.open_block, data, balance_msg_sig)
+        check_successful_tx(self.web3, tx_hash, txn_wait)
+        time.sleep(15 * (1 + 1))
+        try:
+            print(self.channel.call().getChannelInfo(self.sender, self.open_block))
+        except:
+            print('Channel info failed in overspend. ×')
+        try:
+            print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
+        except:
+            print('Closing request info failed in overspend. ✓')
+
+        # Checking if we've overspent
+        print(self.channel.call({'from': self.sender}).checkOverspend(self.key, data))
+
+        # Reporting cheating
+        right_data = []
+        amount = 1428715
+        address = int(addresses[1], 0)
+        right_data.append(D160 * amount + address)
+        right_balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, right_data)
+        right_balance_msg_sig, _ = sign.check(right_balance_msg, binascii.unhexlify(self.sender_key[2:]))
+        tx_hash = self.channel.transact({'from': self.web3.eth.accounts[1]}).reportCheating(
+            self.sender,
+            self.open_block,
+            right_data,
+            right_balance_msg_sig,
+            data,
+            balance_msg_sig)
+        check_successful_tx(self.web3, tx_hash, txn_wait)
+        time.sleep(15 * (1 + 1))
+        try:
+            print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
+        except:
+            print('Closing request info failed in close. ×')
+
+    def cheating_template(self, case_n, good_data, bad_data):
+        self.test_create_channel()
+        print('Case#: {}, Good data: {}'.format(case_n, good_data))
+        bad_balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, bad_data)
+        bad_balance_msg_sig, _ = sign.check(bad_balance_msg, binascii.unhexlify(self.sender_key[2:]))
+        right_balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, good_data)
+        right_balance_msg_sig, _ = sign.check(right_balance_msg, binascii.unhexlify(self.sender_key[2:]))
+        tx_hash = self.channel.transact({'from': self.web3.eth.accounts[1]}).reportCheating(
+            self.sender,
+            self.open_block,
+            good_data,
+            right_balance_msg_sig,
+            bad_data,
+            bad_balance_msg_sig)
+        check_successful_tx(self.web3, tx_hash, txn_wait)
+        time.sleep(15 * (1 + 1))
+        try:
+            print(self.channel.call().getClosingRequestInfo(self.sender, self.open_block))
+        except:
+            print('Closing request info failed in cheating {}. ×'.format(case_n))
+
+    def test_cheating1(self):
+        good_data = generate_data([1428726, 1428726])
+        bad_data = generate_data([1428715, 1428715, 1428715])
+        self.cheating_template(1, good_data, bad_data)
+
+    def test_cheating2(self):
+        good_data = generate_data([1428726, 1428726, 1428726])
+        bad_data = generate_data([1428726, 1428725, 1428727])
+        self.cheating_template(2, good_data, bad_data)
+
+    def test_cheating3(self):
+        good_data = generate_data([1428715, 1428715, 1428715])
+        bad_data = generate_data([1428726, 1428726])
+        self.cheating_template(3, good_data, bad_data)
 
 
 if __name__ == '__main__':
     test = TestMTC()
     test.set_up()
     # test.test_right_sign()
-    test.test_create_channel()
-    test.test_channel_sign()
-    test.test_settle_channel()
-
+    # test.test_create_channel()
+    # test.test_close_channel()
+    # test.test_send_new_transaction()
+    # test.test_settle_channel()
+    # test.test_overspend()
+    # test.test_cheating1()
+    test.test_cheating2()
+    test.test_cheating3()
