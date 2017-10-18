@@ -67,8 +67,7 @@ contract RaidenMicroTransferChannels {
         uint192 _deposit);
 
     event ChannelCloseRequested(
-        address indexed _sender,
-        uint32 indexed _open_block_number,
+        bytes32 _key,
         uint256[] _payment_data);
 
     event ChannelSettled(
@@ -362,7 +361,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
         constant
-        returns (bytes32, uint192, uint192, uint32, address, uint32, uint256[])
+        returns (bytes32, uint192, uint192, uint32) //, address)
     {
         bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
@@ -371,10 +370,8 @@ contract RaidenMicroTransferChannels {
             key,
             channels[key].deposit,
             channels[key].collateral,
-            channels[key].channel_fee,
-            channels[key].topic_holder_node,
-            closing_requests[key].settle_block_number,
-            closing_requests[key].closing_balances_data);
+            channels[key].channel_fee); //,
+            //channels[key].topic_holder_node);
     }
 
     /// @dev Function called by the anyone after the challenge period has ended.
@@ -496,7 +493,7 @@ contract RaidenMicroTransferChannels {
     function checkOverspend(
         bytes32 key,
         uint256[] _payment_data)
-//        private
+        public
         constant
         returns(address[], uint[], bool)
     {
@@ -541,24 +538,16 @@ contract RaidenMicroTransferChannels {
         uint192 deposit = ((_deposit - _channel_fee * 3) / 100) * 85; // TODO / 100
         uint192 collateral = (_deposit - _channel_fee * 3) - deposit;
 
-        if (deposit + collateral + _channel_fee == _deposit){   // temporary structure, will probably delete this after some tests
-            ChannelCreated(0, 0, 0, 0);
-        } else {
-            bytes32 random_n = bytes32(0);  // TODO implement random here
+        bytes32 random_n = bytes32(0);  // TODO implement random here
 
-            Channel channel;
+        channels[key].deposit = deposit;
+        channels[key].open_block_number = open_block_number;
+        channels[key].collateral = collateral;
+        channels[key].channel_fee = _channel_fee;
+        channels[key].random_n = random_n;
+        //GasCost('createChannel end', block.gaslimit, msg.gas);
 
-            channel.deposit = deposit;
-            channel.open_block_number = open_block_number;
-            channel.collateral = collateral;
-            channel.channel_fee = _channel_fee;
-            channel.random_n = random_n;
-
-            channels[key] = channel;
-            //GasCost('createChannel end', block.gaslimit, msg.gas);
-
-            ChannelCreated(_sender, deposit, _channel_fee, random_n);
-        }
+        ChannelCreated(_sender, deposit, _channel_fee, random_n);
     }
 
     /// @dev Funds channel with an additional deposit of tokens, only callable by the token_223 contract.
@@ -604,7 +593,7 @@ contract RaidenMicroTransferChannels {
         closing_requests[key].settle_block_number = uint32(block.number) + challenge_period;
         closing_requests[key].closing_balances_data = _payment_data;
         closing_requests[key].closing_status = _closing_status;
-//        ChannelCloseRequested(_sender, _open_block_number, _payment_data);
+        ChannelCloseRequested(key, _payment_data);
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
     }
 
