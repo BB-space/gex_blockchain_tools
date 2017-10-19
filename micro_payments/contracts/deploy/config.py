@@ -1,6 +1,6 @@
 FILE_PATH = 'data.json'
 CHAIN_NAME = 'privtest'
-SENDERS = 4
+SENDERS = 11
 D160 = 2 ** 160
 private_keys = []
 addresses = []

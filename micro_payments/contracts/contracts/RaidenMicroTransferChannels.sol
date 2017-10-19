@@ -159,7 +159,7 @@ contract RaidenMicroTransferChannels {
         return str;
     }
 
-    // 56014 gas cost
+    // 70k+ gas cost with one payee, 400k gas with 10 payees
     /// @dev Returns the sender address extracted from the balance proof.
     /// @param _sender The address that sends tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receivers was created.
@@ -175,7 +175,7 @@ contract RaidenMicroTransferChannels {
         constant
         returns (address)
     {
-        //GasCost('close verifyBalanceProof getBalanceMessage start', block.gaslimit, msg.gas);
+//        GasCost('close verifyBalanceProof getBalanceMessage start', block.gaslimit, msg.gas);
         // Create message which should be signed by sender
         string memory message = getBalanceMessage(_sender, _open_block_number, _payment_data);
         //GasCost('close verifyBalanceProof getBalanceMessage end', block.gaslimit, msg.gas);
@@ -192,7 +192,6 @@ contract RaidenMicroTransferChannels {
         //GasCost('close verifyBalanceProof concat start', block.gaslimit, msg.gas);
         // Prefix the message
         string memory prefixed_message = concat(prefix, message_length_string);
-        //GasCost('close verifyBalanceProof concat end', block.gaslimit, msg.gas);
 
         prefixed_message = concat(prefixed_message, message);
 
@@ -202,6 +201,7 @@ contract RaidenMicroTransferChannels {
 
         // Derive address from signature
         require(ECVerify.ecverify(prefixed_message_hash, _balance_msg_sig) == _sender);
+//        GasCost('close verifyBalanceProof concat end', block.gaslimit, msg.gas);
         return _sender;
     }
 
@@ -271,7 +271,7 @@ contract RaidenMicroTransferChannels {
         initChallengePeriod(key, _payment_data, ClosingStatus.Good);
     }
 
-    /// very expensive, but the collateral should cover the expenses
+    /// very expensive, but the collateral should cover the expenses       350-400k gas
     /// @dev Function called when someone has detected that the sender is trying to cheat
     /// @param _sender The address that sends the tokens.
     /// @param _open_block_number The block number at which a channel between the sender and receivers was created.
@@ -288,6 +288,8 @@ contract RaidenMicroTransferChannels {
         bytes _wrong_balance_msg_sig)
         external
     {
+//        GasCost('Report cheating start', block.gaslimit, msg.gas);
+
         require(msg.sender != _sender); // user cannot report himself
         bytes32  key = getKey(_sender, _open_block_number);
 
@@ -297,6 +299,7 @@ contract RaidenMicroTransferChannels {
         verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
 
         checkCheating(key, _right_payment_data, _wrong_payment_data);
+//        GasCost('Report cheating end', block.gaslimit, msg.gas);
     }
 
     function checkCheating(bytes32 key, uint256[] _right_payment_data, uint256[] _wrong_payment_data) private {
@@ -393,6 +396,7 @@ contract RaidenMicroTransferChannels {
             closing_requests[key].closing_balances_data);
     }
 
+    /// 123000 gas
     /// @dev Function called by the anyone after the challenge period has ended.
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     function settle(
@@ -400,6 +404,7 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
     {
+//        GasCost('Settle start', block.gaslimit, msg.gas);
         bytes32 key = getKey(_sender, _open_block_number);
 
         Channel storage channel = channels[key];
@@ -431,6 +436,7 @@ contract RaidenMicroTransferChannels {
         delete channels[key];
         delete closing_requests[key];
         ChannelSettled(_sender, _open_block_number);
+//        GasCost('Settle end', block.gaslimit, msg.gas);
     }
 
     /// @dev The pull payment withdraw function
@@ -446,6 +452,7 @@ contract RaidenMicroTransferChannels {
         return payments[msg.sender];
     }
 
+    /// ~68787 gas
     /// @dev Nodes can call this method to become a channel maintainer
     /// @param _open_block_number The block number at which a channel between the sender and receiver was created.
     function registerMaintainer(
@@ -453,6 +460,8 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number)
         external
     {
+//        GasCost('Register maintainer start', block.gaslimit, msg.gas);
+
         bytes32 key = getKey(_sender, _open_block_number);
         require(channels[key].open_block_number != 0);
         require(channels[key].maintaining_nodes.length < 3);
@@ -466,6 +475,7 @@ contract RaidenMicroTransferChannels {
         }
 
         MaintainerRegistered(_sender, _open_block_number, msg.sender);
+//        GasCost('Register maintainer end', block.gaslimit, msg.gas);
     }
 
     /// Expensive as well, we encourage people to just always submit the last transaction so they don't have to call this at all
@@ -536,6 +546,7 @@ contract RaidenMicroTransferChannels {
         }
     }
 
+    /// ~ 61000 gas
     /// @dev Creates a new channel between a sender and a receivers, only callable by the token_223 contract.
     /// @param _sender The address that receives tokens.
     /// @param _channel_fee The channel fee that is gonna be paid to maintainers
@@ -546,7 +557,7 @@ contract RaidenMicroTransferChannels {
         uint192 _deposit)
         private
     {
-        //GasCost('createChannel start', block.gaslimit, msg.gas);
+//        GasCost('createChannel start', block.gaslimit, msg.gas);
         uint32 open_block_number = uint32(block.number);
 
         // Create unique identifier from sender and current block number
@@ -567,8 +578,7 @@ contract RaidenMicroTransferChannels {
         channels[key].collateral = collateral;
         channels[key].channel_fee = _channel_fee;
         channels[key].random_n = random_n;
-        //GasCost('createChannel end', block.gaslimit, msg.gas);
-
+//        GasCost('createChannel end', block.gaslimit, msg.gas);
         ChannelCreated(_sender, deposit, _channel_fee, random_n);
     }
 
@@ -600,7 +610,7 @@ contract RaidenMicroTransferChannels {
         //GasCost('topUp end', block.gaslimit, msg.gas);
     }
 
-
+    /// ~ 110000 gas
     /// @dev Sender starts the challenge period; this can only happend once.
     /// @param key The key for the channel
     /// @param _payment_data The array of uint256 encoded (balance, address) pairs
@@ -611,14 +621,14 @@ contract RaidenMicroTransferChannels {
         ClosingStatus _closing_status)
         private
     {
-        //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
+//        GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
         require(closing_requests[key].settle_block_number == 0);
         // Mark channel as closed
         closing_requests[key].settle_block_number = uint32(block.number) + challenge_period;
         closing_requests[key].closing_balances_data = _payment_data;
         closing_requests[key].closing_status = _closing_status;
         ChannelCloseRequested(key, _payment_data);
-        //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
+//        GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
     }
 
     /// @dev Called when the _sender got caught cheating to payout the collateral
@@ -643,7 +653,6 @@ contract RaidenMicroTransferChannels {
         ClosingStatus status)
         private
     {
-
         payCollateral(key);
         if (closing_requests[key].settle_block_number == 0){
             initChallengePeriod(key, _right_payment_data, status);
