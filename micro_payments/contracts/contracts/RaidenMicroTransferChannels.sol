@@ -10,7 +10,7 @@ contract RaidenMicroTransferChannels {
     /*
      *  Data structures
      */
-    enum ClosingStatus {Cheating, Good, Overspend}
+    enum ClosingStatus {Good, Cheating, Overspend}
 
     address public owner;
     address public token_address;
@@ -401,14 +401,14 @@ contract RaidenMicroTransferChannels {
         external
     {
         bytes32 key = getKey(_sender, _open_block_number);
+
         Channel storage channel = channels[key];
         ClosingRequest storage request = closing_requests[key];
 
-        // remove closed channel structures
         require(request.settle_block_number != 0);
 	    require(block.number >= request.settle_block_number);
-        uint256 amount = channel.deposit;
 
+        uint256 amount = channel.deposit;
         var (receivers, balances) = decodePaymentData(request.closing_balances_data);
 
         for (uint i = 0; i < receivers.length; i++){
@@ -441,6 +441,7 @@ contract RaidenMicroTransferChannels {
         token.transfer(msg.sender, amount);
     }
 
+    /// @dev Function to check how much you can get paid using the withdraw function
     function checkBalance() external returns(uint){
         return payments[msg.sender];
     }
@@ -601,6 +602,8 @@ contract RaidenMicroTransferChannels {
 
 
     /// @dev Sender starts the challenge period; this can only happend once.
+    /// @param key The key for the channel
+    /// @param _payment_data The array of uint256 encoded (balance, address) pairs
     /// @param _closing_status The enum that indicates the way the channel was closed
     function initChallengePeriod(
         bytes32 key,
@@ -618,7 +621,8 @@ contract RaidenMicroTransferChannels {
         //GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
     }
 
-    /// @dev Called when the _sender got caught cheating
+    /// @dev Called when the _sender got caught cheating to payout the collateral
+    /// @param key The key for the channel
     function payCollateral(
         bytes32 key)
         private
@@ -629,6 +633,10 @@ contract RaidenMicroTransferChannels {
         payments[msg.sender] += coll;
     }
 
+    /// @dev Helper method to close or change a channel if sender got caught cheating
+    /// @param key The key for the channel
+    /// @param _right_payment_data The array of right uint256 encoded (balance, address) pairs
+    /// @param status The new closing status of the channel
     function closeCheating(
         bytes32 key,
         uint256[] _right_payment_data,
@@ -645,6 +653,10 @@ contract RaidenMicroTransferChannels {
         }
     }
 
+    /// @dev Helper method for cheating case 1
+    /// @param balance_diff The difference between the right balances and the wrong ones
+    /// @param key The key for the channel
+    /// @param _right_payment_data The array of right uint256 encoded (balance, address) pairs
     function cheatingCase1(
         int[] balance_diff,
         bytes32 key,
@@ -659,6 +671,10 @@ contract RaidenMicroTransferChannels {
         }
     }
 
+    /// @dev Helper method for cheating case 2
+    /// @param balance_diff The difference between the right balances and the wrong ones
+    /// @param key The key for the channel
+    /// @param _right_payment_data The array of right uint256 encoded (balance, address) pairs
     function cheatingCase2(
         int[] balance_diff,
         bytes32 key,
@@ -680,6 +696,10 @@ contract RaidenMicroTransferChannels {
         }
     }
 
+    /// @dev Helper method for cheating case 3
+    /// @param balance_diff The difference between the right balances and the wrong ones
+    /// @param key The key for the channel
+    /// @param _right_payment_data The array of right uint256 encoded (balance, address) pairs
     function cheatingCase3(
         int[] balance_diff,
         bytes32 key,
