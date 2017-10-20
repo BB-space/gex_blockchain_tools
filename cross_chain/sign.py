@@ -69,6 +69,5 @@ def pack(*args) -> bytes:
 
     return msg
 
-
 def sha3(*args) -> bytes:
     return keccak(pack(*args))

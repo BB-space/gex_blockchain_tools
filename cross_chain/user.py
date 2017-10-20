@@ -1,6 +1,7 @@
 from web3 import Web3, HTTPProvider
 from enum import Enum
 import json
+from sign import sha3
 
 # 'gex_to_eth' means that token is transferring from GEX notwork to Ethereum network.
 # The same way 'eth_to_gex' corresponds to transfer from Ethereum to GEX.
@@ -23,8 +24,7 @@ class Transfer:
             self.burning_contract = eth_contract
             self.minting_contract = gex_contract
         self.block_number = self.minting_net.eth.blockNumber
-        # todo check
-        self.event_id = web3_gex.sha3(address, amount, self.block_number)
+        self.event_id = web3_gex.toHex(sha3(self.block_number, address, amount))
 
 
 # todo check that mint is finished
@@ -48,8 +48,6 @@ class User:
                                                      abi=data['EthContract_abi'])
 
         # event listeners
-        event_id_generated_event = self.gexContract.on('EventIDGenerated')
-        event_id_generated_event.watch(self.event_id_generated_callback)
         node_registration_finished_event = self.gexContract.on('NodesRegistrationFinished')
         node_registration_finished_event.watch(self.node_registration_finished_callback)
 
@@ -69,11 +67,6 @@ class User:
         transfer.minting_contract.transact({'from': transfer.address}).mintRequest(transfer.block_number,
                                                                                    transfer.address, transfer.amount)
         self.transfers[transfer.event_id] = transfer
-
-    def event_id_generated_callback(self, result):
-        # todo remove
-        print("id generated! ")
-        print(result['args'])
 
     def node_registration_finished_callback(self, result):
         print(result['args'])

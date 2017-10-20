@@ -4,11 +4,8 @@ pragma solidity ^0.4.0;
 contract Test {
     function Test(){}
 
-    event GetSha(bytes32 event_id);
-
-
-    function sha(bytes message){
-        GetSha(sha3(message));
+    function sha(uint block_number, address addr, uint amount) returns (bytes32 result){
+        return sha3(block_number, addr, amount);
     }
 
     function compute_sha(bytes input) returns (bytes32 result) {
