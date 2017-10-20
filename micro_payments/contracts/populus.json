@@ -265,7 +265,7 @@
         }
       }
     },
-    "contracts_source_dir": "./contracts",
+    "contracts_source_dirs": ["../../contracts"],
     "import_remappings": []
   },
   "contracts": {

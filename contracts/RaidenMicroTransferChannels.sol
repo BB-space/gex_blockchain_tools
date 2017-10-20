@@ -1,8 +1,7 @@
 pragma solidity ^0.4.15;
 
-import "./Token/Token.sol";
+import "./token_223/Token.sol";
 import "./lib/ECVerify.sol";
-//import "../../../contracts/NodeContract.sol";
 
 /// @title Raiden MicroTransfer Channels Contract.
 contract RaidenMicroTransferChannels {
@@ -279,7 +278,7 @@ contract RaidenMicroTransferChannels {
     /// @param _right_balance_msg_sig The right balance message signed by the sender.
     /// @param _wrong_payment_data The wrong array of uint256 encoded (balance, address) pairs
     /// @param _wrong_balance_msg_sig The wrong balance message signed by the sender.
-    function reportCheating( // TODO test this
+    function reportCheating(
         address _sender,
         uint32 _open_block_number,
         uint256[] _right_payment_data,
@@ -317,7 +316,7 @@ contract RaidenMicroTransferChannels {
             if (right_receivers[i] == wrong_receivers[i]){
                 balance_diff[i] = int(right_balances[i] - wrong_balances[i]);
             } else {
-                // TODO wrong receivers order, what should we do?
+                revert();
             }
         }
 
@@ -344,7 +343,6 @@ contract RaidenMicroTransferChannels {
         constant
         returns(address[], uint[])
     {
-        // TODO test this
         address[] memory receivers = new address[](_payment_data.length);
         uint[] memory balances = new uint[](_payment_data.length);
 
@@ -498,7 +496,7 @@ contract RaidenMicroTransferChannels {
         verifyBalanceProof(_sender, _open_block_number, _payment_data, _balance_msg_sig);
 
         var (new_receivers, new_balances, overspent) = checkOverspend(key, _payment_data);
-        require(!overspent);  // TODO should we give the collateral here?
+        require(!overspent);
         var (old_receivers, old_balances) = decodePaymentData(closing_requests[key].closing_balances_data);
         require(old_receivers.length <= new_receivers.length);
 
@@ -506,7 +504,7 @@ contract RaidenMicroTransferChannels {
             if (old_receivers[i] == new_receivers[i]){
                 if (int(new_balances[i] - old_balances[i]) < 0) revert();
             } else {
-                // TODO wrong receivers order, what should we do?
+                revert();
             }
         }
 

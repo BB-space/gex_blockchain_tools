@@ -67,21 +67,20 @@ def wait(transfer_filter, timeout=30):
 
 def deploy_contracts():
     if os.path.isfile(FILE_PATH) and \
-                    os.path.getmtime(FILE_PATH) > os.path.getmtime('contracts/RaidenMicroTransferChannels.sol'):
+                    os.path.getmtime(FILE_PATH) > os.path.getmtime('../../contracts/RaidenMicroTransferChannels.sol'):
         return
 
-    # logging.info('Deploying new contracts')
+    logging.info('Deploying new contracts')
     project = Project()
     with project.get_chain(CHAIN_NAME) as chain:
         web3 = chain.web3
         owner = web3.eth.accounts[0]
-
-        # token = chain.provider.get_contract_factory('ERC223Token')  # This will be the abi of the token
-        # tx_hash = token.deploy(args=[supply, token_name, token_decimals, token_symbol],
-        #                       transaction={'from': owner})  # the way we deploy contracts
-        # receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)
-        token_address = '0x1cd17fc4a2edc4c0521926166e07a424588ae1cb'# receipt['contractAddress']
-        # logging.info('{} address is {}'.format(token_name, token_address))
+        print(chain.provider)
+        token = chain.provider.get_contract_factory('GEXToken')  # This will be the abi of the token
+        tx_hash = token.deploy(transaction={'from': owner})  # the way we deploy contracts
+        receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)
+        token_address = receipt['contractAddress']
+        logging.info('{} address is {}'.format(token_name, token_address))
 
         channel_factory = chain.provider.get_contract_factory('RaidenMicroTransferChannels')
         tx_hash = channel_factory.deploy(
@@ -90,7 +89,7 @@ def deploy_contracts():
         )
         receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)
         channels_address = receipt['contractAddress']
-        # logging.info('RaidenMicroTransferChannels address is {}'.format(channels_address))
+        logging.info('RaidenMicroTransferChannels address is {}'.format(channels_address))
 
         # for sender in addresses:
         #     token(token_address).transact({'from': owner}).transfer(sender, token_assign)
@@ -129,7 +128,7 @@ class TestMTC():
             self.rand = random.Random()
             self.channel = chain.provider\
                 .get_contract_factory('RaidenMicroTransferChannels')(self.project_info['channels_address'])
-            self.token = chain.provider.get_contract_factory('ERC223Token')(self.project_info['token_address'])
+            self.token = chain.provider.get_contract_factory('GEXToken')(self.project_info['token_address'])
             self.sender = self.web3.eth.accounts[0]
             self.sender_key = utils.get_private_key(signer_key_path, signer_pass_path)
         # print(self.channel.call().createChannelPrivate(self.sender, 555, 1428715233280))
@@ -164,7 +163,7 @@ class TestMTC():
         check_successful_tx(self.web3, tx_hash, txn_wait)
         info = self.channel.call().getChannelInfo(self.sender, self.open_block)
         self.key = info[0]
-        # print(info)
+        self.logger.info(info)
 
     def test_close_channel(self):
         self.logger.info('Waiting for channel lifetime to end')
@@ -172,7 +171,7 @@ class TestMTC():
         self.logger.info('Lifetime should have ended')
         data = []
         amount = 1428715
-        address = int(addresses[1], 0)
+        address = int(self.web3.eth.accounts[1], 0)
         data.append(D160 * amount + address)
         balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, data)
         balance_msg_sig, _ = sign.check(balance_msg, binascii.unhexlify(self.sender_key[2:]))
@@ -195,7 +194,7 @@ class TestMTC():
     def test_send_new_transaction(self):
         data = []
         amount = 1528715
-        address = int(addresses[1], 0)
+        address = int(self.web3.eth.accounts[1], 0)
         data.append(D160 * amount + address)
         balance_msg = self.channel.call().getBalanceMessage(self.sender, self.open_block, data)
         balance_msg_sig, _ = sign.check(balance_msg, binascii.unhexlify(self.sender_key[2:]))
@@ -343,6 +342,11 @@ class TestMTC():
             self.logger.warning('Closing request info failed in close ×')
         self.test_settle_channel()
 
+    def test_ten_cheating(self):
+        good_data = generate_data([1428726]*10)
+        bad_data = generate_data([1428726]*4 + [1428724] + [1428727] + [1428726]*3)
+        self.cheating_template(2, good_data, bad_data)
+
     def simple_cycle(self):
         self.set_up()
         self.get_all_events()
@@ -351,12 +355,36 @@ class TestMTC():
         self.test_close_channel()
         self.test_send_new_transaction()
         self.test_settle_channel()
+        self.test_withdraw()
 
+    def test_top_up(self):
+        self.set_up()
+        self.test_create_channel()
+        self.logger.info('Topping up a channel')
+        data_bytes = b'\x01\x00\x00\x00\x00'
+        data_int = int.from_bytes(data_bytes, byteorder='big') + self.open_block
+        data_bytes = (data_int).to_bytes(5, byteorder='big')
+        assert len(data_bytes) == 5
+        tx_hash = self.token.transact({'from': self.sender}) \
+            .transfer(self.project_info['channels_address'], 1428715233280, data_bytes)
+        receipt = check_successful_tx(self.web3, tx_hash, txn_wait)
+        self.logger.info('Channel should be topped up')
+        info = self.channel.call().getChannelInfo(self.sender, self.open_block)
+        self.key = info[0]
+        self.logger.info(info)
+
+    def test_withdraw(self):
+        self.logger.info('Balance before: {}'.format(
+            self.token.call({'from': self.web3.eth.accounts[1]}).balanceOf(self.web3.eth.accounts[1])))
+        tx_hash = self.channel.transact({'from': self.web3.eth.accounts[1]}).withdraw()
+        check_successful_tx(self.web3, tx_hash, txn_wait)
+        self.logger.info('Balance after: {}'.format(
+            self.token.call({'from': self.web3.eth.accounts[1]}).balanceOf(self.web3.eth.accounts[1])))
 
     def get_all_events(self):
         names = [
             # 'ChannelCreated',
-            # 'ChannelToppedUp',
+            'ChannelToppedUp',
             'ChannelCloseRequested',
             'ChannelSettled',
             # 'MaintainerRegistered',
@@ -371,15 +399,20 @@ class TestMTC():
 
 if __name__ == '__main__':
     generate_wallets()
-    # deploy_contracts()
-    threads = [Thread(name='Simple_Cycle', target=TestMTC('Simple_Cycle').test_ten_payee_close)]#,
+    deploy_contracts()
+    threads =  [Thread(name='Simple_Cycle', target=TestMTC('Simple_Cycle').simple_cycle)]#,
                # Thread(name='Overspend', target=TestMTC('Overspend').test_overspend),
                # Thread(name='Cheating1', target=TestMTC('Cheating1').test_cheating1),
                # Thread(name='Cheating2', target=TestMTC('Cheating2').test_cheating2),
-               # Thread(name='Cheating3', target=TestMTC('Cheating3').test_cheating3)]
+               # Thread(name='Cheating3', target=TestMTC('Cheating3').test_cheating3),
+               # Thread(name='Ten_Payees', target=TestMTC('Ten_Payees').test_ten_payee_close),
+               # Thread(name='Ten_Cheating', target=TestMTC('Ten_Cheating').test_ten_cheating),
+               # Thread(name='Top_Up', target=TestMTC('Top_Up').test_top_up)]
     for thread in threads:
         thread.start()
         time.sleep(25)
 
     for thread in threads:
         thread.join()
+
+# TODO test cheating with 10+ payees
