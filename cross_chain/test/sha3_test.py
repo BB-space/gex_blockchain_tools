@@ -1,6 +1,6 @@
 from web3 import Web3, HTTPProvider
 import json
-from sign import sha3
+from gex_chain.sign import sha3
 
 with open('data.json') as data_file:
     data = json.load(data_file)

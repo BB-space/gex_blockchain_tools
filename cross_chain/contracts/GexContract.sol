@@ -27,12 +27,6 @@ contract GexContract {
 
     event TokenBurned(bytes32 event_id);
 
-    event EventIDGenerated(
-    bytes32 _event_id,
-    uint _block_number,
-    address _addr,
-    uint _amount);
-
     function GexContract(address _tokenContract){
         token_address = _tokenContract;
     }
@@ -48,7 +42,6 @@ contract GexContract {
         requests[event_id].addr = _addr;
         requests[event_id].amount = _amount;
         requests[event_id].block_number = _block_number;
-        EventIDGenerated(event_id, _block_number, _addr, _amount);
         SearchNodes(event_id);
     }
 

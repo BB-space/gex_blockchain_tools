@@ -1,11 +1,9 @@
 from web3 import Web3, HTTPProvider
 from ecdsa import SigningKey, SECP256k1
-import sign
-import sha3
+from gex_chain.sign import sha3, check, eth_message_hex
 import binascii
 import json
 from ethereum.utils import encode_hex
-
 
 priv_keys = []
 addresses = []
@@ -39,8 +37,8 @@ def create_wallets():
 
 def check_for_message(message, verifier):
     for i in range(TEST_AMOUNT):
-        message_sig, sig_address = sign.check(message, binascii.unhexlify(priv_keys[i]))
-        message_hex = sign.eth_message_hex(message)
+        message_sig, sig_address = check(message, binascii.unhexlify(priv_keys[i]))
+        message_hex = eth_message_hex(message)
         r = message_sig[0:32]
         s = message_sig[32:64]
         v = int(message_sig[64]) + 27
@@ -57,7 +55,7 @@ if __name__ == '__main__':
     data = get_data()
     owner = web3.eth.accounts[0]
     my_verifier = web3.eth.contract(contract_name='Verifier', address=data['Verifier'],
-                                 abi=data['Verifier_abi'])
+                                    abi=data['Verifier_abi'])
     create_wallets()
     message = 'Hello World!'
     check_for_message(message, my_verifier)

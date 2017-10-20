@@ -1,7 +1,7 @@
 from web3 import Web3, HTTPProvider
 from enum import Enum
 import json
-from sign import sha3
+from gex_chain.sign import sha3
 
 # 'gex_to_eth' means that token is transferring from GEX notwork to Ethereum network.
 # The same way 'eth_to_gex' corresponds to transfer from Ethereum to GEX.
