@@ -37,6 +37,16 @@ const fixed_msg = "\x19Ethereum Signed Message:\n" + msg.length + msg;
 const fixed_msg_sha = web3.sha3(fixed_msg);
 console.log(fixed_msg_sha);
 data = Verifier.recoverAddr.call(fixed_msg_sha, v_decimal, r, s);
+
+var exampleEvent = Verifier.Verify({_from: web3.eth.coinbase});
+exampleEvent.watch(function (err, result) {
+    if (err) {
+        console.log(err);
+        return;
+    }
+    console.log("Arguments:" + result.args._value)
+});
+
 console.log("-----data------");
 console.log("input addr ==> " + addr);
 console.log("output addr => " + data);
