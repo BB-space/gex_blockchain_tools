@@ -7,6 +7,7 @@ cross_chain/build/
 cross_chain/data.json
 cross_chain/node_modules/
 cross_chain/package.json
+cross_chain/.cache/
 
 # micro_payments
 micro_payments/env
