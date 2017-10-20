@@ -414,5 +414,3 @@ if __name__ == '__main__':
 
     for thread in threads:
         thread.join()
-
-# TODO test cheating with 10+ payees
