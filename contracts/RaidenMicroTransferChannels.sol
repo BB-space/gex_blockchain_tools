@@ -55,6 +55,7 @@ contract RaidenMicroTransferChannels {
 
     event ChannelCreated(
         address indexed _sender,
+        uint32 indexed _open_block_number,
         uint192 _deposit,
         uint32 _channel_fee,
         bytes32 _random_n);
@@ -93,10 +94,10 @@ contract RaidenMicroTransferChannels {
         uint32 _open_block_number,
         uint256[] _payment_data);
 
-    event GasCost(
-        string _function_name,
-        uint _gaslimit,
-        uint _gas_remaining);
+//    event GasCost(
+//        string _function_name,
+//        uint _gaslimit,
+//        uint _gas_remaining);
 
     /*
      *  Constructor
@@ -153,6 +154,7 @@ contract RaidenMicroTransferChannels {
         str = concat(str, uintToString(_open_block_number));
         str = concat(str, ", Data: ");
         for (uint i = 0; i < _payment_data.length; i++){
+            if (i != 0) str = concat(str, ", ");
             str = concat(str, uintToString(uint256(_payment_data[i])));
         }
         return str;
@@ -366,7 +368,7 @@ contract RaidenMicroTransferChannels {
         returns (bytes32, uint192, uint192, uint32, address, address[])
     {
         bytes32 key = getKey(_sender, _open_block_number);
-        require(channels[key].open_block_number != 0);
+        require(channels[key].topic_holder_node != 0x0);
 
         return (
             key,
@@ -577,7 +579,7 @@ contract RaidenMicroTransferChannels {
         channels[key].channel_fee = _channel_fee;
         channels[key].random_n = random_n;
 //        GasCost('createChannel end', block.gaslimit, msg.gas);
-        ChannelCreated(_sender, deposit, _channel_fee, random_n);
+        ChannelCreated(_sender, open_block_number, deposit, _channel_fee, random_n);
     }
 
     /// @dev Funds channel with an additional deposit of tokens, only callable by the token_223 contract.
