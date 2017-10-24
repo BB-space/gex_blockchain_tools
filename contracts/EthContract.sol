@@ -75,7 +75,7 @@ contract EthContract {
         requests[event_id].addr_to = _addr_to;
         requests[event_id].amount = _amount;
         requests[event_id].block_number = _block_number;
-        token_address.call(bytes4(sha3("burn(address,uint)")), requests[_event_id].addr_from, requests[_event_id].amount);
+        token_address.call(bytes4(sha3("burn(address,uint256)")), requests[_event_id].addr_from, requests[_event_id].amount);
         TokenBurned(_event_id);
     }
 
@@ -102,7 +102,7 @@ contract EthContract {
     }
 
     function mintTest(address addr) public {
-        token_address.call(bytes4(sha3("mint(address,uint)")), addr, 10);
+        token_address.call(bytes4(sha3("mint(address,uint256)")), addr, 10);
     }
 
     function mint(bytes32 _event_id) public {
@@ -121,7 +121,7 @@ contract EthContract {
                     Test4(_event_id, requests[_event_id].counter);
                     if (requests[_event_id].counter == QUORUM_MINIMUM) {
                         Test5();
-                        token_address.call(bytes4(sha3("mint(address,uint)")),
+                        token_address.call(bytes4(sha3("mint(address,uint256)")),
                         requests[_event_id].addr_to, requests[_event_id].amount);
                         Test6();
                         TokenMinted(_event_id);
