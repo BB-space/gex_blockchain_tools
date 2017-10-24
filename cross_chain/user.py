@@ -28,7 +28,6 @@ class Transfer:
 
 
 # todo save events to db
-# todo check that mint is finished
 # todo single instance
 class User:
     # todo save passwords
@@ -53,6 +52,11 @@ class User:
         gex_node_registration_finished_event.watch(self.node_registration_finished_callback)
         eth_node_registration_finished_event = self.ethContract.on('NodesRegistrationFinished')
         eth_node_registration_finished_event.watch(self.node_registration_finished_callback)
+
+        gex_gas_event = self.gexContract.on('GasCost')
+        gex_gas_event.watch(self.gas_callback)
+        eth_gas_event = self.ethContract.on('GasCost')
+        eth_gas_event.watch(self.gas_callback)
 
     def create_transfer(self, is_gex_net, addr_from, addr_to, amount):
         if amount <= 0:
@@ -81,6 +85,10 @@ class User:
                 result['args']['event_id'], transfer.block_number, transfer.addr_from, transfer.addr_to,
                 transfer.amount)
 
+    def gas_callback(self, result):
+        print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
+            result['args']['_gas_remaining']))
+
 
 def mint_callback(result):
     print("Mint")
@@ -108,12 +116,11 @@ eth_mint_event.watch(mint_callback)
 eth_burn_event = eth_token.on('Burn')
 eth_burn_event.watch(burn_callback)
 
-
 user = User()
-user.create_transfer(True, web3.eth.accounts[0], web3.eth.accounts[1], 10)
+user.create_transfer(False, web3.eth.accounts[0], web3.eth.accounts[1], 10)
 while True:
-    print(str(gex_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
-        gex_token.call().balanceOf(web3.eth.accounts[1])) + "   "
-          + str(eth_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
-        eth_token.call().balanceOf(web3.eth.accounts[1])))
+    #print(str(gex_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
+    #    gex_token.call().balanceOf(web3.eth.accounts[1])) + "   "
+    #      + str(eth_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
+    #    eth_token.call().balanceOf(web3.eth.accounts[1])))
     time.sleep(30)

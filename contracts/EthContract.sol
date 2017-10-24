@@ -3,7 +3,7 @@ pragma solidity ^0.4.15;
 
 contract EthContract {
 
-    uint8 constant QUORUM_MINIMUM = 2; // TODO make 10
+    uint8 constant QUORUM_MINIMUM = 1; // TODO make 10
 
     address public token_address;
 
@@ -30,10 +30,17 @@ contract EthContract {
 
     event TokenMinted(bytes32 event_id);
 
+    event GasCost(
+    string _function_name,
+    uint _gaslimit,
+    uint _gas_remaining);
+
+
     function EthContract(address _tokenContract){
         token_address = _tokenContract;
     }
 
+    // 84172 gas
     function mintRequest(
     uint _block_number,
     address _addr_from,
@@ -41,6 +48,7 @@ contract EthContract {
     uint256 _amount)
     public
     {
+        GasCost('mintRequest start', block.gaslimit, msg.gas);
         //bytes32 event_id = keccak256(msg.sender, amount, block.timestamp);
         bytes32 event_id = sha3(_block_number, _addr_from, _addr_to, _amount);
         requests[event_id].block_number = _block_number;
@@ -48,8 +56,10 @@ contract EthContract {
         requests[event_id].addr_to = _addr_to;
         requests[event_id].amount = _amount;
         SearchNodes(event_id);
+        GasCost('mintRequest end', block.gaslimit, msg.gas);
     }
 
+    // 113719 gas
     function burn(
     bytes32 _event_id,
     uint _block_number,
@@ -58,6 +68,7 @@ contract EthContract {
     uint256 _amount)
     public
     {
+        GasCost('burn start', block.gaslimit, msg.gas);
         // todo check return value
         require(_amount > 0);
         bytes32 event_id = sha3(_block_number, _addr_from, _addr_to, _amount);
@@ -69,9 +80,12 @@ contract EthContract {
         requests[event_id].block_number = _block_number;
         token_address.call(bytes4(sha3("burn(address,uint256)")), _addr_from, _amount);
         TokenBurned(_event_id);
+        GasCost('burn end', block.gaslimit, msg.gas);
     }
 
+    // 65717 gas
     function register(bytes32 _event_id) public {
+        GasCost('register start', block.gaslimit, msg.gas);
         require(requests[_event_id].amount != 0);
         require(!requests[_event_id].registration_finished);
         if (checkNode(msg.sender)) {
@@ -82,6 +96,7 @@ contract EthContract {
             }
 
         }
+        GasCost('register end', block.gaslimit, msg.gas);
     }
 
     function checkNode(address _validator) private returns (bool){
@@ -89,7 +104,9 @@ contract EthContract {
         return _validator != 0;
     }
 
+    // mint for 1 node 117209 gas
     function mint(bytes32 _event_id) public {
+        GasCost('mint start', block.gaslimit, msg.gas);
         require(requests[_event_id].registration_finished);
         if (requests[_event_id].counter < QUORUM_MINIMUM) {
             // todo rewrite
@@ -112,5 +129,6 @@ contract EthContract {
                 }
             }
         }
+        GasCost('mint end', block.gaslimit, msg.gas);
     }
 }
