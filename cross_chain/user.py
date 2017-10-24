@@ -1,32 +1,33 @@
 from web3 import Web3, HTTPProvider
-from enum import Enum
 import json
-from gex_chain.sign import sha3
-
-# 'gex_to_eth' means that token is transferring from GEX notwork to Ethereum network.
-# The same way 'eth_to_gex' corresponds to transfer from Ethereum to GEX.
-TransferType = Enum('TransferType', 'gex_to_eth eth_to_gex')
+from sign import sha3
+import time
 
 
+# 'is_gex_net' means that token is transferring (burning) from GEX network to Ethereum network (minting).
 class Transfer:
-    def __init__(self, address, amount, transfer_type, web3_gex, web3_eth, gex_contract, eth_contract):
-        self.address = address
+    def __init__(self, addr_from, addr_to, amount, is_gex_net, web3_gex, web3_eth, gex_contract, eth_contract):
+        self.addr_from = addr_from
+        self.addr_to = addr_to
         self.amount = amount
-        self.transfer_type = transfer_type
-        if type == TransferType.gex_to_eth.name:
+        self.is_gex_net = is_gex_net
+        if is_gex_net:
             self.burning_net = web3_gex
             self.minting_net = web3_eth
             self.burning_contract = gex_contract
             self.minting_contract = eth_contract
+            print("burning in gex, minting in eth")
         else:
             self.burning_net = web3_eth
             self.minting_net = web3_gex
             self.burning_contract = eth_contract
             self.minting_contract = gex_contract
+            print("burning in eth, minting in gex")
         self.block_number = self.minting_net.eth.blockNumber
-        self.event_id = web3_gex.toHex(sha3(self.block_number, address, amount))
+        self.event_id = web3_gex.toHex(sha3(self.block_number, addr_from, addr_to, amount))
 
 
+# todo save events to db
 # todo check that mint is finished
 # todo single instance
 class User:
@@ -37,7 +38,7 @@ class User:
     transfers = {}
 
     def __init__(self):
-        with open('data.json') as data_file:
+        with open('./../data.json') as data_file:
             data = json.load(data_file)
 
         self.web3gex = Web3(HTTPProvider('http://localhost:8545'))
@@ -48,38 +49,95 @@ class User:
                                                      abi=data['EthContract_abi'])
 
         # event listeners
-        node_registration_finished_event = self.gexContract.on('NodesRegistrationFinished')
-        node_registration_finished_event.watch(self.node_registration_finished_callback)
+        gex_node_registration_finished_event = self.gexContract.on('NodesRegistrationFinished')
+        gex_node_registration_finished_event.watch(self.node_registration_finished_callback)
+        eth_node_registration_finished_event = self.ethContract.on('NodesRegistrationFinished')
+        eth_node_registration_finished_event.watch(self.node_registration_finished_callback)
 
-    def create_transfer(self, transfer_type, address, amount):
-        if transfer_type not in TransferType.__members__:
-            print("Invalid transfer type")
-            # todo remove exit
-            exit(1)
+    def create_transfer(self, is_gex_net, addr_from, addr_to, amount):
         if amount <= 0:
-            print("Amount must be >0")
+            print("Amount must be > 0")
             # todo remove exit
             exit(1)
-        # todo check address
-        transfer = Transfer(address, amount, TransferType[transfer_type], self.web3gex, self.web3eth, self.gexContract,
+        # todo check other fields
+        transfer = Transfer(addr_from, addr_to, amount, is_gex_net, self.web3gex, self.web3eth, self.gexContract,
                             self.ethContract)
-        transfer.minting_net.personal.unlockAccount(transfer.address, self.password, self.password_unlock_duration)
-        transfer.minting_contract.transact({'from': transfer.address}).mintRequest(transfer.block_number,
-                                                                                   transfer.address, transfer.amount)
+        # todo change address
+        transfer.minting_net.personal.unlockAccount(transfer.minting_net.eth.accounts[0], self.password,
+                                                    self.password_unlock_duration)
+        self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).mintTest(self.web3gex.eth.accounts[1])
+        #transfer.minting_contract.transact({'from': transfer.minting_net.eth.accounts[0]}).mintRequest(
+        #    transfer.block_number, transfer.addr_from, transfer.addr_to, transfer.amount)
         self.transfers[transfer.event_id] = transfer
 
     def node_registration_finished_callback(self, result):
-        print(result['args'])
-        event_id = result['args']['event_id']
+        print("Node registration finished")
+        event_id = self.web3gex.toHex(result['args']['event_id'])
         if event_id in self.transfers:
+            print("Burning")
             transfer = self.transfers[event_id]
-            transfer.burning_at.personal.unlockAccount(transfer.address, self.password, self.password_unlock_duration)
-            transfer.burning_contract.transact({'from': transfer.address}).burn(transfer.event_id,
-                                                                                transfer.block_number,
-                                                                                transfer.address,
-                                                                                transfer.amount)
+            transfer.burning_net.personal.unlockAccount(transfer.burning_net.eth.accounts[0], self.password,
+                                                        self.password_unlock_duration)
+            transfer.burning_contract.transact({'from': transfer.burning_net.eth.accounts[0]}).burn(
+                result['args']['event_id'], transfer.block_number, transfer.addr_from, transfer.addr_to,
+                transfer.amount)
 
+
+def mint_callback(result):
+    print("Mint")
+
+
+def burn_callback(result):
+    print("Burn")
+
+
+def test_callback(result):
+    print("Test " + result['args']['addr'])
+
+
+def mint_start_callback(result):
+    print("Mint start")
+
+
+def burn_start_callback(result):
+    print("Burn start")
+
+
+web3 = Web3(HTTPProvider('http://localhost:8545'))
+
+with open('./../data.json') as data_file:
+    data = json.load(data_file)
+
+gex_token = web3.eth.contract(contract_name='GEXToken', address=data['GEXToken'], abi=data['GEXToken_abi'])
+eth_token = web3.eth.contract(contract_name='ETHToken', address=data['ETHToken'], abi=data['ETHToken_abi'])
+print(data['GexContract'] + "   " + data['EthContract'])
+print(gex_token.call().getOwner() + "   " + eth_token.call().getOwner())
+gex_mint_event = gex_token.on('Mint')
+gex_mint_event.watch(mint_callback)
+gex_mint_s_event = gex_token.on('MintStart')
+gex_mint_s_event.watch(mint_start_callback)
+gex_burn_event = gex_token.on('Burn')
+gex_burn_event.watch(burn_callback)
+gex_burn_s_event = gex_token.on('BurnStart')
+gex_burn_s_event.watch(burn_start_callback)
+
+eth_mint_event = eth_token.on('Mint')
+eth_mint_event.watch(mint_callback)
+eth_mint_s_event = eth_token.on('MintStart')
+eth_mint_s_event.watch(mint_start_callback)
+eth_burn_event = eth_token.on('Burn')
+eth_burn_event.watch(burn_callback)
+eth_burn_s_event = eth_token.on('BurnStart')
+eth_burn_s_event.watch(burn_start_callback)
+
+mint_event = gex_token.on('Test')
+mint_event.watch(test_callback)
 
 user = User()
+user.create_transfer(True, web3.eth.accounts[0], web3.eth.accounts[1], 10)
 while True:
-    pass
+    print(str(gex_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
+        gex_token.call().balanceOf(web3.eth.accounts[1])) + "   "
+          + str(eth_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
+        eth_token.call().balanceOf(web3.eth.accounts[1])))
+    time.sleep(30)

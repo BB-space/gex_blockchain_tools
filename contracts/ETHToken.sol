@@ -6,7 +6,7 @@ import './Ownable.sol';
 import './SafeMath.sol';
 
 
-contract GEXToken is StandardToken, Ownable {
+contract ETHToken is StandardToken, Ownable {
 
     using SafeMath for uint;
 
@@ -29,7 +29,7 @@ contract GEXToken is StandardToken, Ownable {
     event Test(address addr);
 
 
-    function GEXToken(){
+    function ETHToken(){
         balances[msg.sender] = 1000 * 10 ** decimals;
         // TODO remove after testing
     }
