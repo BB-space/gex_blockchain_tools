@@ -6,6 +6,7 @@ hex-encoded values, such as hashes and private keys, come without a 0x prefix.
 from coincurve import PrivateKey, PublicKey
 from eth_utils import encode_hex, decode_hex, remove_0x_prefix, keccak, is_0x_prefixed
 from ethereum.transactions import Transaction
+from gex_chain.utils import BalancesData, convert_balances_data
 import rlp
 
 
@@ -122,19 +123,20 @@ def eth_verify(sig: bytes, msg: str) -> str:
     return addr_from_sig(sig, eth_message_hash(msg))
 
 
-def get_balance_message(sender, open_block_number, balances_data) -> str:
-    return 'Sender: {}, Block: {}, Data: {}'.format(sender, open_block_number, ', '.join(balances_data))
+def get_balance_message(sender: str, open_block_number: int, balances_data: BalancesData) -> str:
+    balances_data = [str(i) for i in convert_balances_data(balances_data)]
+    return 'Sender: {}, Block: {}, Data: {}'.format(sender, open_block_number, ', '.join(balances_data))  # TODO test
 
 
-def sign_balance_proof(privkey: str, receiver: str, open_block_number: int, balance: int) -> bytes:
-    msg = get_balance_message(receiver, open_block_number, balance)
+def sign_balance_proof(privkey: str, sender: str, open_block_number: int, balances_data: BalancesData) -> bytes:
+    msg = get_balance_message(sender, open_block_number, balances_data)
     return eth_sign(privkey, msg)
 
 
 def verify_balance_proof(
         sender: str,
         open_block_number: int,
-        balances_data,
+        balances_data: BalancesData,
         balance_sig: bytes
 ) -> str:
     msg = get_balance_message(sender, open_block_number, balances_data)

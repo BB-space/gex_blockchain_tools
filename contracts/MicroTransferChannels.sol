@@ -3,8 +3,8 @@ pragma solidity ^0.4.15;
 import "./token_223/Token.sol";
 import "./lib/ECVerify.sol";
 
-/// @title Raiden MicroTransfer Channels Contract.
-contract RaidenMicroTransferChannels {
+/// @title MicroTransfer Channels Contract.
+contract MicroTransferChannels {
 
     /*
      *  Data structures
@@ -106,7 +106,7 @@ contract RaidenMicroTransferChannels {
     /// @dev Constructor for creating the Raiden microtransfer channels contract.
     /// @param _token The address of the token_223 used by the channels.
     /// @param _challenge_period A fixed number of blocks representing the challenge period after a sender requests the closing of the channel without the receivers's signature.
-    function RaidenMicroTransferChannels(address _token, uint8 _challenge_period, uint8 _channel_lifetime) {
+    function MicroTransferChannels(address _token, uint8 _challenge_period, uint8 _channel_lifetime) {
         require(_token != 0x0);
         require(_challenge_period > 0);
         require(_channel_lifetime > 0);

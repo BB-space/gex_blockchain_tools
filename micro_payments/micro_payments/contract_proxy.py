@@ -8,8 +8,8 @@ from web3.formatters import input_filter_params_formatter, log_array_formatter
 from web3.utils.empty import empty as web3_empty
 from web3.utils.events import get_event_data
 from web3.utils.filters import construct_event_filter_params
+from micro_payments.crypto import privkey_to_addr, sign_transaction
 
-from crypto import privkey_to_addr, sign_transaction
 
 DEFAULT_TIMEOUT = 60
 DEFAULT_RETRY_INTERVAL = 3

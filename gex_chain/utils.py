@@ -9,9 +9,36 @@ from eth_utils import (
     encode_hex,
     is_hex,
 )
+from typing import List, Tuple
+
+Address = str
+Balance = int
+BalancesData = List[Tuple[Address, Balance]]
+BalancesDataConverted = List[int]
+D160 = 2 ** 160
 
 
 log = logging.getLogger(__name__)
+
+
+def get_data_for_token(first_byte: int, last_bytes: int) -> bytes:
+    data_bytes = (first_byte).to_bytes(5, byteorder='little')
+    data_int = int.from_bytes(data_bytes, byteorder='big') + last_bytes
+    data_bytes = (data_int).to_bytes(5, byteorder='big')
+    return data_bytes
+
+
+def convert_balances_data(balances_data: BalancesData) -> BalancesDataConverted:  # TODO test
+    data = []
+    for pair in balances_data:
+        data.append(D160 * pair[1] + int(pair[0], 0))
+    return data
+
+
+def check_overspend(deposit: int, balances_data: BalancesData) -> Tuple[bool, int]:
+    for pair in balances_data:
+        deposit -= pair[1]
+    return deposit < 0, deposit
 
 
 def parse_balance_proof_msg(proxy, receiver, open_block_number, balance, signature):

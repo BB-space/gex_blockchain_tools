@@ -9,24 +9,20 @@ from eth_utils import decode_hex, is_same_address
 from web3 import Web3
 from web3.providers.rpc import RPCProvider
 
-from gex_chain.utils import get_private_key
+from gex_chain.utils import get_private_key, get_data_for_token
 from micro_payments.config import CHANNEL_MANAGER_ADDRESS, TOKEN_ADDRESS, GAS_LIMIT, GAS_PRICE, \
     NETWORK_NAMES
 from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
 from micro_payments.crypto import privkey_to_addr
 from .channel import Channel
 
-CHANNEL_MANAGER_ABI_NAME = 'RaidenMicroTransferChannels'
-TOKEN_ABI_NAME = 'ERC223Token'
+CHANNEL_MANAGER_ABI_NAME = 'MicroTransferChannels'
+TOKEN_ABI_NAME = 'GEXToken'
 
 log = logging.getLogger(__name__)
 
 
-def get_data_for_token(first_byte: int, last_bytes: int) -> bytes:
-    data_bytes = (first_byte).to_bytes(5, byteorder='little')
-    data_int = int.from_bytes(data_bytes, byteorder='big') + last_bytes
-    data_bytes = (data_int).to_bytes(5, byteorder='big')
-    return data_bytes
+
 
 
 class Client:

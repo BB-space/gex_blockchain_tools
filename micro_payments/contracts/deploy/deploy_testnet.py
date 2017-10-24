@@ -67,7 +67,7 @@ def wait(transfer_filter, timeout=30):
 
 def deploy_contracts():
     if os.path.isfile(FILE_PATH) and \
-                    os.path.getmtime(FILE_PATH) > os.path.getmtime('../../contracts/RaidenMicroTransferChannels.sol'):
+                    os.path.getmtime(FILE_PATH) > os.path.getmtime('../../contracts/MicroTransferChannels.sol'):
         return
 
     logging.info('Deploying new contracts')
@@ -82,14 +82,14 @@ def deploy_contracts():
         token_address = receipt['contractAddress']
         logging.info('{} address is {}'.format(token_name, token_address))
 
-        channel_factory = chain.provider.get_contract_factory('RaidenMicroTransferChannels')
+        channel_factory = chain.provider.get_contract_factory('MicroTransferChannels')
         tx_hash = channel_factory.deploy(
             args=[token_address, challenge_period, channel_lifetime],
             transaction={'from': owner}
         )
         receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)
         channels_address = receipt['contractAddress']
-        logging.info('RaidenMicroTransferChannels address is {}'.format(channels_address))
+        logging.info('MicroTransferChannels address is {}'.format(channels_address))
 
         # for sender in addresses:
         #     token(token_address).transact({'from': owner}).transfer(sender, token_assign)
@@ -127,7 +127,7 @@ class TestMTC():
             self.project_info = read_from_file()
             self.rand = random.Random()
             self.channel = chain.provider\
-                .get_contract_factory('RaidenMicroTransferChannels')(self.project_info['channels_address'])
+                .get_contract_factory('MicroTransferChannels')(self.project_info['channels_address'])
             self.token = chain.provider.get_contract_factory('GEXToken')(self.project_info['token_address'])
             self.sender = self.web3.eth.accounts[0]
             self.sender_key = utils.get_private_key(signer_key_path, signer_pass_path)
