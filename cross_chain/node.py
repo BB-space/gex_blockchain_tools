@@ -1,7 +1,5 @@
 from web3 import Web3, HTTPProvider
 import json
-import sys
-import time
 
 
 class Node:
@@ -9,8 +7,7 @@ class Node:
     password_unlock_duration = 120
     events = []
 
-    def __init__(self, timeout=0):
-        self.timeout = int(timeout)
+    def __init__(self):
         with open('./../data.json') as data_file:
             data = json.load(data_file)
 
@@ -34,23 +31,6 @@ class Node:
         eth_token_minted_event = self.ethContract.on('TokenMinted')
         eth_token_minted_event.watch(self.minted_event_callback)
 
-        gex_test3_event = self.gexContract.on('Test3')
-        eth_test3_event = self.ethContract.on('Test3')
-        gex_test3_event.watch(self.callback3)
-        eth_test3_event.watch(self.callback3)
-        gex_test4_event = self.gexContract.on('Test4')
-        eth_test4_event = self.ethContract.on('Test4')
-        gex_test4_event.watch(self.callback4)
-        eth_test4_event.watch(self.callback4)
-        gex_test5_event = self.gexContract.on('Test5')
-        eth_test5_event = self.ethContract.on('Test5')
-        gex_test5_event.watch(self.callback5)
-        eth_test5_event.watch(self.callback5)
-        gex_test6_event = self.gexContract.on('Test6')
-        eth_test6_event = self.ethContract.on('Test6')
-        gex_test6_event.watch(self.callback6)
-        eth_test6_event.watch(self.callback6)
-
     def is_validator(self, event_id):
         # todo
         return True
@@ -70,25 +50,12 @@ class Node:
     def minted_event_callback(self, result):
         print("Token minted")
 
-    def callback3(self, result):
-        print("Test3")
-
-    def callback4(self, result):
-        print("Test4")
-        print(result)
-
-    def callback5(self, result):
-        print("Test5")
-
-    def callback6(self, result):
-        print("Test6")
 
     def burned_event_callback(self, result, is_gex_net):
         print("Token burned")
         event_id = self.web3gex.toHex(result['args']['event_id'])
         if event_id in self.events:
             print("Minting")
-            time.sleep(self.timeout)
             if is_gex_net:
                 self.web3eth.personal.unlockAccount(self.web3eth.eth.accounts[0], self.password,
                                                     self.password_unlock_duration)  # todo unsecure
@@ -116,7 +83,7 @@ class Node:
         self.events.append(event_id)
 
 
-node = Node(sys.argv[1])
+node = Node()
 print("Node started")
 while True:
     pass

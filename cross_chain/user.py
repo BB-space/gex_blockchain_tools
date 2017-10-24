@@ -65,10 +65,8 @@ class User:
         # todo change address
         transfer.minting_net.personal.unlockAccount(transfer.minting_net.eth.accounts[0], self.password,
                                                     self.password_unlock_duration)
-        self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).mintTest(self.web3gex.eth.accounts[1])
-        self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).f()
-        #transfer.minting_contract.transact({'from': transfer.minting_net.eth.accounts[0]}).mintRequest(
-        #    transfer.block_number, transfer.addr_from, transfer.addr_to, transfer.amount)
+        transfer.minting_contract.transact({'from': transfer.minting_net.eth.accounts[0]}).mintRequest(
+            transfer.block_number, transfer.addr_from, transfer.addr_to, transfer.amount)
         self.transfers[transfer.event_id] = transfer
 
     def node_registration_finished_callback(self, result):
@@ -92,18 +90,6 @@ def burn_callback(result):
     print("Burn")
 
 
-def test_callback(result):
-    print("Test " + result['args']['addr'])
-
-
-def mint_start_callback(result):
-    print("Mint start")
-
-
-def burn_start_callback(result):
-    print("Burn start")
-
-
 web3 = Web3(HTTPProvider('http://localhost:8545'))
 
 with open('./../data.json') as data_file:
@@ -111,28 +97,17 @@ with open('./../data.json') as data_file:
 
 gex_token = web3.eth.contract(contract_name='GEXToken', address=data['GEXToken'], abi=data['GEXToken_abi'])
 eth_token = web3.eth.contract(contract_name='ETHToken', address=data['ETHToken'], abi=data['ETHToken_abi'])
-print(data['GexContract'] + "   " + data['EthContract'])
-print(gex_token.call().getOwner() + "   " + eth_token.call().getOwner())
+
 gex_mint_event = gex_token.on('Mint')
 gex_mint_event.watch(mint_callback)
-gex_mint_s_event = gex_token.on('MintStart')
-gex_mint_s_event.watch(mint_start_callback)
 gex_burn_event = gex_token.on('Burn')
 gex_burn_event.watch(burn_callback)
-gex_burn_s_event = gex_token.on('BurnStart')
-gex_burn_s_event.watch(burn_start_callback)
 
 eth_mint_event = eth_token.on('Mint')
 eth_mint_event.watch(mint_callback)
-eth_mint_s_event = eth_token.on('MintStart')
-eth_mint_s_event.watch(mint_start_callback)
 eth_burn_event = eth_token.on('Burn')
 eth_burn_event.watch(burn_callback)
-eth_burn_s_event = eth_token.on('BurnStart')
-eth_burn_s_event.watch(burn_start_callback)
 
-mint_event = gex_token.on('Test')
-mint_event.watch(test_callback)
 
 user = User()
 user.create_transfer(True, web3.eth.accounts[0], web3.eth.accounts[1], 10)
