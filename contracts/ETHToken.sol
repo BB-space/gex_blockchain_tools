@@ -42,7 +42,7 @@ contract ETHToken is StandardToken, Ownable {
         Test(msg.sender);
     }
 
-    function mint(address _to, uint _amount) onlyOwner returns (bool) {
+    function mint(address _to, uint256 _amount) onlyOwner returns (bool) {
         MintStart(_to, _amount);
         require(totalSupply.add(_amount) <= cap);
         totalSupply = totalSupply.add(_amount);
@@ -51,7 +51,7 @@ contract ETHToken is StandardToken, Ownable {
         return true;
     }
 
-    function burn(address _from, uint _amount) onlyOwner returns (bool) {
+    function burn(address _from, uint256 _amount) onlyOwner returns (bool) {
         BurnStart(_from, _amount);
         require(balances[_from] >= _amount);
         balances[_from] = balances[_from].sub(_amount);

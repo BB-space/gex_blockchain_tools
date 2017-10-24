@@ -66,6 +66,7 @@ class User:
         transfer.minting_net.personal.unlockAccount(transfer.minting_net.eth.accounts[0], self.password,
                                                     self.password_unlock_duration)
         self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).mintTest(self.web3gex.eth.accounts[1])
+        self.gexContract.transact({'from': self.web3gex.eth.accounts[0]}).f()
         #transfer.minting_contract.transact({'from': transfer.minting_net.eth.accounts[0]}).mintRequest(
         #    transfer.block_number, transfer.addr_from, transfer.addr_to, transfer.amount)
         self.transfers[transfer.event_id] = transfer
