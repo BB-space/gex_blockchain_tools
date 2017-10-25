@@ -1,0 +1,7 @@
+bitcoin
+secp256k1
+web3
+pytest
+ethereum
+click
+populus
