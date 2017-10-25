@@ -1,7 +1,10 @@
 from web3 import Web3, HTTPProvider
 import json
-from sign import sha3
 import time
+import sys
+
+sys.path.append('../gex_chain')
+from sign import sha3
 
 
 # 'is_gex_net' means that token is transferring (burning) from GEX network to Ethereum network (minting).
@@ -119,7 +122,7 @@ eth_burn_event.watch(burn_callback)
 user = User()
 user.create_transfer(False, web3.eth.accounts[0], web3.eth.accounts[1], 10)
 while True:
-    #print(str(gex_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
+    # print(str(gex_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
     #    gex_token.call().balanceOf(web3.eth.accounts[1])) + "   "
     #      + str(eth_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
     #    eth_token.call().balanceOf(web3.eth.accounts[1])))
