@@ -1,8 +1,11 @@
 from web3 import Web3, HTTPProvider
 import json
-from gex_chain.sign import sha3
+import sys
 
-with open('data.json') as data_file:
+sys.path.append('../gex_chain')
+from sign import sha3
+
+with open('./../data.json') as data_file:
     data = json.load(data_file)
 
 web3 = Web3(HTTPProvider('http://localhost:8545'))

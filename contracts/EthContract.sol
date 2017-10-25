@@ -3,7 +3,7 @@ pragma solidity ^0.4.15;
 
 contract EthContract {
 
-    uint8 constant QUORUM_MINIMUM = 1; // TODO make 10
+    uint8 constant QUORUM_MINIMUM = 2; // TODO make 10
 
     address public token_address;
 
