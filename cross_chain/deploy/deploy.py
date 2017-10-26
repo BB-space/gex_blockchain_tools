@@ -23,6 +23,23 @@ def write_to_file(**kwargs):
         json.dump(kwargs, data_file)
 
 
+def deploy_test():
+    print('Deploying contracts')
+    project = Project()
+    with project.get_chain(CHAIN_NAME) as chain:
+        web3 = chain.web3
+        owner = web3.eth.accounts[0]
+        test = chain.provider.get_contract_factory('Test')
+        tx_hash = test.deploy(transaction={'from': owner})
+        receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)
+        test_address = receipt['contractAddress']
+        print('Test deployed')
+        write_to_file(
+            Test_abi=test.abi,
+            Test=test_address
+        )
+    print('Deployed')
+
 def deploy_contracts():
     print('Deploying contracts')
     project = Project()
@@ -60,11 +77,13 @@ def deploy_contracts():
         eth_contract_address = receipt['contractAddress']
         print('EthContract deployed')
         # Ownership
-        gex_token = GEXToken(gex_token_address)
+        gex_token = chain.provider.get_contract_factory('GEXToken')(gex_token_address)
+        #gex_token = GEXToken(gex_token_address)
         tx_hash = gex_token.transact({'from': owner}).transferOwnership(gex_contract_address)
         check_successful_tx(chain.web3, tx_hash, txn_wait)
         print('GEXToken ownership is established')
-        eth_token = GEXToken(gex_token_address)
+        eth_token = chain.provider.get_contract_factory('ETHToken')(eth_token_address)
+        #eth_token = GEXToken(gex_token_address)
         tx_hash = eth_token.transact({'from': owner}).transferOwnership(eth_contract_address)
         check_successful_tx(chain.web3, tx_hash, txn_wait)
         print('ETHToken ownership is established')
@@ -83,3 +102,4 @@ def deploy_contracts():
 
 if __name__ == '__main__':
     deploy_contracts()
+    #deploy_test()

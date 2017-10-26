@@ -1,6 +1,6 @@
 bitcoin
 secp256k1
-web3
+web3==3.11.1
 pytest
 ethereum
 click
