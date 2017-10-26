@@ -20,7 +20,7 @@ class MaintainerChannel(Channel):
 
     @balances_data.setter
     def balances_data(self, value: BalancesData):
-        log.error('You cannot set new data in MaintainerChannel, use set_new_balances')
+        log.error('You cannot set new data, use set_new_balances')
         return
 
     def _is_cheating(self, balances_data) -> bool:
