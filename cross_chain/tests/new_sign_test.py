@@ -4,7 +4,7 @@ import binascii
 import json
 from ethereum.utils import encode_hex
 import sys
-sys.path.append('../gex_chain')
+sys.path.append('../../gex_chain')
 from sign import sha3, check, eth_message_hex
 
 priv_keys = []

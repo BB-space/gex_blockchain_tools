@@ -8,7 +8,7 @@ class Node:
     events = []
 
     def __init__(self):
-        with open('./../data.json') as data_file:
+        with open('../data.json') as data_file:
             data = json.load(data_file)
 
         self.web3gex = Web3(HTTPProvider('http://localhost:8545'))

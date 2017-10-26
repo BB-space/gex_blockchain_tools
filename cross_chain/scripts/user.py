@@ -3,7 +3,7 @@ import json
 import time
 import sys
 
-sys.path.append('../gex_chain')
+sys.path.append('../../gex_chain')
 from sign import sha3
 
 
@@ -40,7 +40,7 @@ class User:
     transfers = {}
 
     def __init__(self):
-        with open('./../data.json') as data_file:
+        with open('../data.json') as data_file:
             data = json.load(data_file)
 
         self.web3gex = Web3(HTTPProvider('http://localhost:8545'))
@@ -89,8 +89,9 @@ class User:
                 transfer.amount)
 
     def gas_callback(self, result):
-        print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
-            result['args']['_gas_remaining']))
+        pass
+        #    print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
+        #       result['args']['_gas_remaining']))
 
 
 def mint_callback(result):
@@ -103,7 +104,7 @@ def burn_callback(result):
 
 web3 = Web3(HTTPProvider('http://localhost:8545'))
 
-with open('./../data.json') as data_file:
+with open('../data.json') as data_file:
     data = json.load(data_file)
 
 gex_token = web3.eth.contract(contract_name='GEXToken', address=data['GEXToken'], abi=data['GEXToken_abi'])
@@ -122,8 +123,8 @@ eth_burn_event.watch(burn_callback)
 user = User()
 user.create_transfer(False, web3.eth.accounts[0], web3.eth.accounts[1], 10)
 while True:
-    # print(str(gex_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
-    #    gex_token.call().balanceOf(web3.eth.accounts[1])) + "   "
-    #      + str(eth_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
-    #    eth_token.call().balanceOf(web3.eth.accounts[1])))
+    print(str(gex_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
+        gex_token.call().balanceOf(web3.eth.accounts[1])) + "   "
+          + str(eth_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
+        eth_token.call().balanceOf(web3.eth.accounts[1])))
     time.sleep(30)
