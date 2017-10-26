@@ -2,11 +2,9 @@ import logging
 from copy import copy
 from enum import Enum
 
-import time
-from eth_utils import decode_hex, is_same_address
-from micro_payments.crypto import sign_balance_proof, verify_balance_proof
-from gex_chain.utils import get_data_for_token
+from gex_chain.crypto import sign_balance_proof
 from gex_chain.utils import convert_balances_data, check_overspend, BalancesData
+from gex_chain.utils import get_data_for_token
 
 log = logging.getLogger(__name__)
 

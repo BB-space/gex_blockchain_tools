@@ -28,19 +28,10 @@ def get_data_for_token(first_byte: int, last_bytes: int) -> bytes:
     return data_bytes
 
 
-def convert_balances_data(balances_data: BalancesData) -> BalancesDataConverted:  # TODO test
+def convert_balances_data(balances_data: BalancesData) -> BalancesDataConverted:
     data = []
     for pair in balances_data:
         data.append(D160 * pair[1] + int(pair[0], 0))
-    return data
-
-
-def convert_balances_data_for_message(balances_data: BalancesData):  # TODO test
-    data = []
-    for pair in balances_data:
-        bts = (D160 * pair[1] + int(pair[0], 0)).to_bytes(32, 'big')
-        datum = [chr(int(bt)) for bt in bts]
-        data.append(''.join(datum))
     return data
 
 

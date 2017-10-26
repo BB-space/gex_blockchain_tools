@@ -1,19 +1,17 @@
 import json
 import logging
 import os
-from typing import List
 
 import click
 import filelock
-from eth_utils import decode_hex, is_same_address
+from gex_chain.crypto import privkey_to_addr
+from gex_chain.utils import get_private_key, get_data_for_token
+from micro_payments.config import GAS_LIMIT, GAS_PRICE, \
+    NETWORK_NAMES
+from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
 from web3 import Web3
 from web3.providers.rpc import RPCProvider
 
-from gex_chain.utils import get_private_key, get_data_for_token
-from micro_payments.config import CHANNEL_MANAGER_ADDRESS, TOKEN_ADDRESS, GAS_LIMIT, GAS_PRICE, \
-    NETWORK_NAMES
-from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
-from micro_payments.crypto import privkey_to_addr
 from .channel import Channel
 
 CHANNEL_MANAGER_ABI_NAME = 'channels_abi'

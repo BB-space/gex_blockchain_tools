@@ -1,16 +1,15 @@
 import gevent
 import rlp
-from coincurve import PrivateKey, PublicKey
-from eth_utils import decode_hex, encode_hex
+from coincurve import PrivateKey
+from eth_utils import decode_hex
 from ethereum.transactions import Transaction
+from gex_chain.crypto import privkey_to_addr, sign_transaction
 from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput
 from web3.formatters import input_filter_params_formatter, log_array_formatter
 from web3.utils.empty import empty as web3_empty
 from web3.utils.events import get_event_data
 from web3.utils.filters import construct_event_filter_params
-from micro_payments.crypto import privkey_to_addr, sign_transaction
-
 
 DEFAULT_TIMEOUT = 150
 DEFAULT_RETRY_INTERVAL = 3
