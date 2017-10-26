@@ -41,6 +41,45 @@ def check_overspend(deposit: int, balances_data: BalancesData) -> Tuple[bool, in
     return deposit < 0, deposit
 
 
+def get_balances_difference(first_balances: BalancesData, second_balances: BalancesData) -> List[int]:
+    length = len(first_balances) if len(first_balances) <= len(second_balances) else len(second_balances)
+    data = []
+    for i in range(length):
+        if first_balances[i][0] == second_balances[i][0]:
+            data.append(first_balances[i][1] - second_balances[i][1])
+        else:
+            return []
+    return data
+
+
+def is_cheating(right_balances: BalancesData, wrong_balances: BalancesData):
+    difference = get_balances_difference(right_balances, wrong_balances)
+    if len(difference) == 0:
+        return None
+    if len(right_balances) < len(wrong_balances):
+        for entry in difference:
+            if entry < 0:
+                return True
+    elif len(right_balances) > len(wrong_balances):
+        for entry in difference:
+            if entry > 0:
+                return True
+    else:
+        less = False
+        more = False
+        for entry in difference:
+            if entry > 0:
+                more = True
+            if entry < 0:
+                less = True
+        if more and less:
+            return True
+        else:
+            return False
+
+
+
+
 def parse_balance_proof_msg(proxy, receiver, open_block_number, balance, signature):
     return proxy.verifyBalanceProof(receiver, open_block_number, balance, signature)
 

@@ -2,7 +2,7 @@ import logging
 from copy import copy
 
 from gex_chain.crypto import sign_balance_proof
-from gex_chain.utils import convert_balances_data, check_overspend, BalancesData
+from gex_chain.utils import convert_balances_data, check_overspend, BalancesData, is_cheating
 from gex_chain.utils import get_data_for_token
 from micro_payments.channels.channel import Channel, check_sign_with_logger
 
@@ -23,9 +23,10 @@ class MaintainerChannel(Channel):
         log.error('You cannot set new data in MaintainerChannel, use set_new_balances')
         return
 
-    def _is_cheating(self, balance) -> bool:
-
-        pass
+    def _is_cheating(self, balances_data) -> bool:
+        if check_overspend(self.deposit, balances_data)[0]:
+            return True
+        return is_cheating(self.balances_data, balances_data)
 
     def _report_cheating(self, balances_data: BalancesData, balances_data_sig: bytes):
         if self.state == Channel.State.closed:
@@ -66,7 +67,11 @@ class MaintainerChannel(Channel):
 
     @check_sign_with_logger(log)
     def set_new_balances(self, balances_data: BalancesData, balances_data_sig: bytes):
-        if self._is_cheating(balances_data):
+        cheating = self._is_cheating(balances_data)
+        if cheating is None:
+            log.error('Got wrong new balances data (probably wrong order)')
+            return
+        if cheating:
             self._report_cheating(balances_data, balances_data_sig)
         else:
             self._balances_data = balances_data
