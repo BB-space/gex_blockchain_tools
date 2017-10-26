@@ -10,9 +10,6 @@ log = logging.getLogger(__name__)
 
 
 class Channel:
-    """
-    Channel used by the sender
-    """
 
     class State(Enum):
         open = 1
@@ -82,65 +79,19 @@ class Channel:
     def balances_data(self):
         return self._balances_data
 
-    @balances_data.setter
-    def balances_data(self, value: BalancesData):
-        self._balances_data = value
-        self._balances_data_sig = self.sign()
-        self._balances_data_converted = convert_balances_data(value)
-
     @property
     def balances_data_converted(self):
         return self._balances_data_converted
+
+    @balances_data.setter
+    def balances_data(self, value):
+        pass
 
     @property
     def balance_sig(self):
         return self._balances_data_sig
 
-    def sign(self):
-        return sign_balance_proof(self.client.privkey, self.sender, self.block, self._balances_data)
-
-    def top_up(self, deposit):
-        """
-        Attempts to increase the deposit in an existing channel. Block until confirmation.
-        """
-        if self.state != Channel.State.open:
-            log.error('Channel must be open to be topped up.')
-            return
-
-        token_balance = self.client.token_proxy.contract.call().balanceOf(self.client.account)
-        if token_balance < deposit:
-            log.error(
-                'Insufficient tokens available for the specified topup ({}/{})'
-                .format(token_balance, deposit)
-            )
-
-        log.info('Topping up channel created at block #{} by {} tokens.'.format(
-            self.block, deposit
-        ))
-        current_block = self.client.web3.eth.blockNumber
-
-        data = get_data_for_token(1, self.block)
-        tx = self.client.token_proxy.create_signed_transaction(
-            'transfer', [self.client.channel_manager_address, deposit, data]
-        )
-        self.client.web3.eth.sendRawTransaction(tx)
-
-        log.info('Waiting for topup confirmation event...')
-        event = self.client.channel_manager_proxy.get_channel_topped_up_event_blocking(
-            self.sender,
-            self.block,
-            current_block - 1
-        )
-
-        if event:
-            log.info('Successfully topped up channel in block {}.'.format(event['blockNumber']))
-            self.deposit = event['args']['_deposit']
-            return event
-        else:
-            log.error('No event received.')
-            return None
-
-    def close(self, balances_data=None):
+    def close(self):
         """
         Attempts to request close on a channel. An explicit balance can be given to override the
         locally stored balance signature. Blocks until a confirmation event is received or timeout.
@@ -150,9 +101,6 @@ class Channel:
             return
         log.info('Requesting close of channel created at block #{}.'.format(self.block))
         current_block = self.client.web3.eth.blockNumber
-
-        if balances_data is not None:
-            self.balances_data = balances_data
 
         tx = self.client.channel_manager_proxy.create_signed_transaction(
             'close', [self.sender, self.block, self.balances_data_converted, self.balance_sig]
@@ -214,36 +162,5 @@ class Channel:
             log.error('No event received.')
             return None
 
-    def create_transfer(self, balances_data: BalancesData):  # TODO
-        """
-        Updates the given channel's balance and balance signature with the new value. The signature
-        is returned and stored in the channel state.
-        """
-        for pair in balances_data:
-            assert pair[1] >= 0
-
-        overspent, leftover = check_overspend(copy(self.deposit), balances_data)
-        if overspent:
-            log.error(
-                'Insufficient funds on channel. Need {} more'
-                .format(-leftover)
-            )
-            return None
-
-        log.info('Signing new transfer {} on channel created at block #{}.'.format(
-            balances_data, self.block
-        ))
-
-        if self.state == Channel.State.closed:
-            log.error('Channel must be open to create a transfer.')
-            return None
-
-        self.balances_data = balances_data
-
-        return self.balance_sig
-
     def is_valid(self) -> bool:
         return self.sign() == self.balance_sig and not check_overspend(self.deposit, self._balances_data)[0]
-
-    def is_suitable(self, value: int):
-        return check_overspend(self.deposit, self._balances_data)[1] >= value

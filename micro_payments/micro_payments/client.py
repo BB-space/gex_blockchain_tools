@@ -7,19 +7,13 @@ import filelock
 from gex_chain.crypto import privkey_to_addr
 from gex_chain.utils import get_private_key, get_data_for_token
 from micro_payments.config import GAS_LIMIT, GAS_PRICE, \
-    NETWORK_NAMES
+    NETWORK_NAMES, APP_FOLDER
 from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
 from web3 import Web3
 from web3.providers.rpc import RPCProvider
 
-from .channel import Channel
-
-CHANNEL_MANAGER_ABI_NAME = 'channels_abi'
-TOKEN_ABI_NAME = 'token_abi'
-
-with open(os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), 'data/data.json')) as data_file:
-    data = json.load(data_file)
+from micro_payments.channels.sender_channel import SenderChannel
+from micro_payments.channels.channel import Channel
 
 
 log = logging.getLogger(__name__)
@@ -31,16 +25,15 @@ class Client:
             privkey: str = None,
             key_path: str = None,
             key_password_path: str = None,
-            datadir: str = click.get_app_dir('Micro Payments', force_posix=True),  # TODO
-            channel_manager_address: str = data['channels_address'],
-            token_address: str = data['token_address'],
+            channel_manager_address: str = None,
+            token_address: str = None,
             rpc: RPCProvider = None,
             web3: Web3 = None,
             channel_manager_proxy: ChannelContractProxy = None,
             token_proxy: ContractProxy = None,
             rpc_endpoint: str = '127.0.0.1',
             rpc_port: int = 8545,
-            contract_abi_path: str = os.path.join(
+            data_file_path: str = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)), 'data/data.json'
             )
     ) -> None:
@@ -49,7 +42,7 @@ class Client:
 
         # Plain copy initializations.
         self.privkey = privkey
-        self.datadir = datadir
+        self.datadir = APP_FOLDER
         self.channel_manager_address = channel_manager_address
         self.token_address = token_address
         self.web3 = web3
@@ -61,11 +54,13 @@ class Client:
             self.privkey = get_private_key(key_path, key_password_path)
             assert self.privkey is not None
 
-        os.makedirs(datadir, exist_ok=True)
-        assert os.path.isdir(datadir)
+        os.makedirs(self.datadir, exist_ok=True)
+        assert os.path.isdir(self.datadir)
 
         self.account = privkey_to_addr(self.privkey)
-        self.channel = None  # type: Channel
+        self.sender_channel = None
+        self.maintaining_channels = []
+        self.receiving_channels = []
 
         # Create web3 context if none is provided, either by using the proxies' context or creating
         # a new one.
@@ -81,11 +76,15 @@ class Client:
 
         # Create missing contract proxies.
         if not channel_manager_proxy or not token_proxy:
-            with open(contract_abi_path) as abi_file:
-                contract_abis = json.load(abi_file)
+            with open(data_file_path) as abi_file:
+                data_file = json.load(abi_file)
+            if not channel_manager_address:
+                channel_manager_address = data_file['channels_address']
+            if not token_address:
+                token_address = data_file['token_address']
 
             if not channel_manager_proxy:
-                channel_manager_abi = contract_abis[CHANNEL_MANAGER_ABI_NAME]
+                channel_manager_abi = data_file['channels_abi']
                 self.channel_manager_proxy = ChannelContractProxy(
                     self.web3,
                     self.privkey,
@@ -96,7 +95,7 @@ class Client:
                 )
 
             if not token_proxy:
-                token_abi = contract_abis[TOKEN_ABI_NAME]
+                token_abi = data_file['token_abi']
                 self.token_proxy = ContractProxy(
                     self.web3, self.privkey, token_address, token_abi, GAS_PRICE, GAS_LIMIT
                 )
@@ -106,9 +105,9 @@ class Client:
         assert self.token_proxy
         assert self.channel_manager_proxy.web3 == self.web3 == self.token_proxy.web3
 
-        netid = self.web3.version.network
+        net_id = self.web3.version.network
         self.balances_filename = 'balances_{}_{}.json'.format(
-            NETWORK_NAMES.get(netid, netid), self.account[:10]
+            NETWORK_NAMES.get(net_id, net_id), self.account[:10]
         )
 
         self.filelock = filelock.FileLock(os.path.join(self.datadir, self.balances_filename))
@@ -131,7 +130,7 @@ class Client:
         assert isinstance(deposit, int)
         assert channel_fee > 0
         assert channel_fee * 3 < deposit
-        assert self.channel is None or self.channel.state == Channel.State.closed
+        assert self.sender_channel is None or self.sender_channel.state == Channel.State.closed
         assert deposit > 0
 
         token_balance = self.token_proxy.contract.call().balanceOf(self.account)
@@ -159,7 +158,7 @@ class Client:
 
         if event:
             log.info('Event received. Channel created in block {}.'.format(event['blockNumber']))
-            channel = Channel(
+            channel = SenderChannel(
                 self,
                 event['args']['_sender'],
                 event['blockNumber'],
@@ -167,9 +166,14 @@ class Client:
                 event['args']['_channel_fee'],
                 event['args']['_random_n']
             )
-            self.channel = channel
+            self.sender_channel = channel
         else:
             log.info('Error: No event received.')
             channel = None
 
         return channel
+
+    def maintain_channel(self, channel):
+        pass
+
+

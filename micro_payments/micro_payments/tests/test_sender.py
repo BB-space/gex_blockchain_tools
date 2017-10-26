@@ -1,11 +1,8 @@
-import pytest
 import time
-from micro_payments.sender.client import Client
 
-
-signer_key_path = "/tmp/ethereum_dev_mode/keystore/UTC--2017-10-13T07-47-42.456207242Z" \
-                  "--f43b2675fc72ce6e48f7063dcf0ee74ad04d40ff"
-signer_pass_path = '/tmp/ethereum_dev_mode/keystore/f43b2675fc72ce6e48f7063dcf0ee74ad04d40ff'
+import pytest
+from micro_payments.client import Client
+from micro_payments.tests.test_config import *
 
 
 @pytest.fixture(scope='module')

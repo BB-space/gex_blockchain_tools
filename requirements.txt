@@ -5,3 +5,6 @@ pytest
 ethereum
 click
 populus
+coincurve
+typing
+gevent
