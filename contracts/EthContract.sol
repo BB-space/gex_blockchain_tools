@@ -10,7 +10,7 @@ contract EthContract {
     struct Request {
     address addr_to;
     address addr_from;
-    uint amount;
+    uint256 amount;
     // todo
     address[] validators;
     address[] checks;
@@ -30,25 +30,25 @@ contract EthContract {
 
     event TokenMinted(bytes32 event_id);
 
-    event Test3();
+    event GasCost(
+    string _function_name,
+    uint _gaslimit,
+    uint _gas_remaining);
 
-    event Test4(bytes32 event_id, uint counter);
-
-    event Test5();
-
-    event Test6();
 
     function EthContract(address _tokenContract){
         token_address = _tokenContract;
     }
 
+    // 84172 gas
     function mintRequest(
     uint _block_number,
     address _addr_from,
     address _addr_to,
-    uint _amount)
+    uint256 _amount)
     public
     {
+        GasCost('mintRequest start', block.gaslimit, msg.gas);
         //bytes32 event_id = keccak256(msg.sender, amount, block.timestamp);
         bytes32 event_id = sha3(_block_number, _addr_from, _addr_to, _amount);
         requests[event_id].block_number = _block_number;
@@ -56,16 +56,19 @@ contract EthContract {
         requests[event_id].addr_to = _addr_to;
         requests[event_id].amount = _amount;
         SearchNodes(event_id);
+        GasCost('mintRequest end', block.gaslimit, msg.gas);
     }
 
+    // 113719 gas
     function burn(
     bytes32 _event_id,
     uint _block_number,
     address _addr_from,
     address _addr_to,
-    uint _amount)
+    uint256 _amount)
     public
     {
+        GasCost('burn start', block.gaslimit, msg.gas);
         // todo check return value
         require(_amount > 0);
         bytes32 event_id = sha3(_block_number, _addr_from, _addr_to, _amount);
@@ -75,11 +78,14 @@ contract EthContract {
         requests[event_id].addr_to = _addr_to;
         requests[event_id].amount = _amount;
         requests[event_id].block_number = _block_number;
-        token_address.call(bytes4(sha3("burn(address,uint256)")), requests[_event_id].addr_from, requests[_event_id].amount);
+        token_address.call(bytes4(sha3("burn(address,uint256)")), _addr_from, _amount);
         TokenBurned(_event_id);
+        GasCost('burn end', block.gaslimit, msg.gas);
     }
 
+    // 65717 gas
     function register(bytes32 _event_id) public {
+        GasCost('register start', block.gaslimit, msg.gas);
         require(requests[_event_id].amount != 0);
         require(!requests[_event_id].registration_finished);
         if (checkNode(msg.sender)) {
@@ -90,6 +96,7 @@ contract EthContract {
             }
 
         }
+        GasCost('register end', block.gaslimit, msg.gas);
     }
 
     function checkNode(address _validator) private returns (bool){
@@ -97,18 +104,11 @@ contract EthContract {
         return _validator != 0;
     }
 
-    function f() public {
-        token_address.call(bytes4(sha3("t()")));
-    }
-
-    function mintTest(address addr) public {
-        token_address.call(bytes4(sha3("mint(address,uint256)")), addr, 10);
-    }
-
+    // mint for 1 node 117209 gas
     function mint(bytes32 _event_id) public {
+        GasCost('mint start', block.gaslimit, msg.gas);
         require(requests[_event_id].registration_finished);
         if (requests[_event_id].counter < QUORUM_MINIMUM) {
-            Test3();
             // todo rewrite
             for (uint i = 0; i < requests[_event_id].validators.length; i++) {
                 if (requests[_event_id].validators[i] == msg.sender) {
@@ -118,12 +118,9 @@ contract EthContract {
                         }
                     }
                     requests[_event_id].counter++;
-                    Test4(_event_id, requests[_event_id].counter);
                     if (requests[_event_id].counter == QUORUM_MINIMUM) {
-                        Test5();
                         token_address.call(bytes4(sha3("mint(address,uint256)")),
                         requests[_event_id].addr_to, requests[_event_id].amount);
-                        Test6();
                         TokenMinted(_event_id);
                         delete requests[_event_id];
                         // todo if (!token.mint(_beneficiary, tokens)) revert();
@@ -132,5 +129,6 @@ contract EthContract {
                 }
             }
         }
+        GasCost('mint end', block.gaslimit, msg.gas);
     }
 }

@@ -10,7 +10,7 @@ def verify_callback(result):
     print("Argument: " + str(result['args']))
 
 
-with open('data.json') as data_file:
+with open('./../data.json') as data_file:
     data = json.load(data_file)
 
 web3 = Web3(HTTPProvider('http://localhost:8545'))

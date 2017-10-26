@@ -9,7 +9,7 @@ function toHex(str) {
 const Web3 = require('web3');
 const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
 var fs = require('fs');
-var jsonObject = JSON.parse(fs.readFileSync('data.json', 'utf8'));
+var jsonObject = JSON.parse(fs.readFileSync('./../data.json', 'utf8'));
 var Verifier = web3.eth.contract(jsonObject.Verifier_abi).at(jsonObject.Verifier);
 
 const addr = web3.eth.accounts[0];

@@ -1,9 +1,11 @@
 from web3 import Web3, HTTPProvider
 from ecdsa import SigningKey, SECP256k1
-from gex_chain.sign import sha3, check, eth_message_hex
 import binascii
 import json
 from ethereum.utils import encode_hex
+import sys
+sys.path.append('../gex_chain')
+from sign import sha3, check, eth_message_hex
 
 priv_keys = []
 addresses = []
@@ -21,7 +23,7 @@ def create_wallet():
 
 
 def get_data():
-    with open('data.json') as data_file:
+    with open('./../data.json') as data_file:
         data = json.load(data_file)
     return data
 
