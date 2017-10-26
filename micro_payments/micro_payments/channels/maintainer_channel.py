@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 class MaintainerChannel(Channel):
     """
-    Channel used by the sender
+    Channel used by the maintainer
     """
 
     @property
@@ -44,19 +44,21 @@ class MaintainerChannel(Channel):
                 self.block,
                 self.balances_data_converted,
                 self.balance_sig,
+                balances_data,
+                balances_data_sig
             ]
         )
         self.client.web3.eth.sendRawTransaction(tx)
 
-        log.info('Waiting for ClosingBalancesChanged confirmation event...')
-        event = self.client.channel_manager_proxy.get_channel_closing_balances_changed_event_blocking(
+        log.info('Waiting for CheatingReported confirmation event...')
+        event = self.client.channel_manager_proxy.get_cheating_reported_event_blocking(
             self.sender,
             self.block,
             current_block - 1
         )
 
         if event:
-            log.info('Successfully submitted new transaction in block {}.'.format(event['blockNumber']))
+            log.info('Successfully reported cheating in block {}.'.format(event['blockNumber']))
             return event
         else:
             log.error('No event received.')

@@ -67,7 +67,8 @@ contract MicroTransferChannels {
         uint192 _deposit);
 
     event ChannelCloseRequested(
-        bytes32 _key,
+        address indexed _sender,
+        uint32 indexed _open_block_number,
         uint256[] _payment_data);
 
     event ChannelSettled(
@@ -84,15 +85,14 @@ contract MicroTransferChannels {
         uint32 indexed _open_block_number,
         address indexed _topic_holder);
 
-    event CollateralPayed(
+    event ClosingBalancesChanged(
         address indexed _sender,
         uint32 indexed _open_block_number,
-        uint32 _collateral);
-
-    event ClosingBalancesChanged(
-        address _sender,
-        uint32 _open_block_number,
         uint256[] _payment_data);
+
+    event CheatingReported(
+        address indexed _sender,
+        uint32 indexed _open_block_number);
 
 //    event GasCost(
 //        string _function_name,
@@ -270,6 +270,7 @@ contract MicroTransferChannels {
         require(!overspend);
 
         initChallengePeriod(key, _payment_data, ClosingStatus.Good);
+        ChannelCloseRequested(_sender, _open_block_number, _payment_data);
     }
 
     /// very expensive, but the collateral should cover the expenses       350-400k gas
@@ -300,6 +301,7 @@ contract MicroTransferChannels {
         verifyBalanceProof(_sender, _open_block_number, _wrong_payment_data, _wrong_balance_msg_sig);
 
         checkCheating(key, _right_payment_data, _wrong_payment_data);
+        CheatingReported(_sender, _open_block_number);
 //        GasCost('Report cheating end', block.gaslimit, msg.gas);
     }
 
@@ -627,7 +629,6 @@ contract MicroTransferChannels {
         closing_requests[key].settle_block_number = uint32(block.number) + challenge_period;
         closing_requests[key].closing_balances_data = _payment_data;
         closing_requests[key].closing_status = _closing_status;
-        ChannelCloseRequested(key, _payment_data);
 //        GasCost('initChallengePeriod end', block.gaslimit, msg.gas);
     }
 
@@ -637,10 +638,11 @@ contract MicroTransferChannels {
         bytes32 key)
         private
     {
-        require(channels[key].collateral != 0);
-        var coll = channels[key].collateral;
-        channels[key].collateral = 0;
-        payments[msg.sender] += coll;
+        if (channels[key].collateral != 0){
+            var coll = channels[key].collateral;
+            channels[key].collateral = 0;
+            payments[msg.sender] += coll;
+        }
     }
 
     /// @dev Helper method to close or change a channel if sender got caught cheating
