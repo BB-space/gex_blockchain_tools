@@ -19,10 +19,10 @@ class SenderChannel(Channel):
         return self._balances_data
 
     @balances_data.setter
-    def balances_data(self, value: BalancesData):
-        self._balances_data = value
+    def balances_data(self, balances_data: BalancesData):
+        self._balances_data = balances_data
         self._balances_data_sig = self.sign()
-        self._balances_data_converted = convert_balances_data(value)
+        self._balances_data_converted = convert_balances_data(balances_data)
 
     def sign(self):
         return sign_balance_proof(self.client.privkey, self.sender, self.block, self._balances_data)

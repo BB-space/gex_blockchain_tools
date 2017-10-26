@@ -1,16 +1,29 @@
 import logging
-from copy import copy
 from enum import Enum
 
-from gex_chain.crypto import sign_balance_proof
-from gex_chain.utils import convert_balances_data, check_overspend, BalancesData
-from gex_chain.utils import get_data_for_token
+from gex_chain.utils import check_overspend
+from gex_chain.crypto import eth_verify, get_balance_message
 
 log = logging.getLogger(__name__)
 
 
-class Channel:
+def check_sign_with_logger(logger):
+    def check_sign(f):
+        def wrapper(self, balances_data, balances_data_sig):
+            if self.sender != eth_verify(
+                    balances_data_sig,
+                    get_balance_message(self.sender, self.block, balances_data)
+            ):
+                logger.error('The given balances data and signature does not match')
+                return None
+            return f(self, balances_data, balances_data_sig)
 
+        return wrapper
+
+    return check_sign
+
+
+class Channel:
     class State(Enum):
         open = 1
         settling = 2
@@ -40,7 +53,7 @@ class Channel:
         self.channel_fee = channel_fee
         if balances_data is not None:
             self.balances_data = balances_data
-        self.state = state
+        self._state = state
 
         assert self.block is not None
 
@@ -90,6 +103,15 @@ class Channel:
     @property
     def balance_sig(self):
         return self._balances_data_sig
+
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, new_state):
+        assert new_state > self._state
+        self._state = new_state
 
     def close(self):
         """

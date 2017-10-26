@@ -175,6 +175,19 @@ class ChannelContractProxy(ContractProxy):
             'ChannelSettled', from_block, to_block, filters, None, wait, timeout
         )
 
+    def get_channel_closing_balances_changed_event_blocking(
+            self, sender, opening_block,
+            from_block=0, to_block='latest', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
+    ):
+        filters = {
+            '_sender': sender,
+            '_open_block_number': opening_block
+        }
+
+        return self.get_event_blocking(
+            'ClosingBalancesChanged', from_block, to_block, filters, None, wait, timeout
+        )
+
     def get_settle_timeout(self, sender, open_block_number):
         try:
             closing_request_info = self.contract.call().getClosingRequestInfo(sender, open_block_number)
