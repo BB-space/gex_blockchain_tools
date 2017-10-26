@@ -1,4 +1,4 @@
-FILE_PATH = 'data.json'
+FILE_PATH = '../micro_payments/data/data.json'
 CHAIN_NAME = 'privtest'
 SENDERS = 11
 D160 = 2 ** 160
@@ -19,5 +19,5 @@ token_assign = int(supply / (len(sender_addresses) + SENDERS))
 txn_wait = 250
 event_wait = txn_wait
 signer_key_path = "/tmp/ethereum_dev_mode/keystore/UTC--2017-10-13T07-47-42.456207242Z" \
-                  "--f43b2675fc72ce6e48f7063dcf0ee74ad04d40ff "
+                  "--f43b2675fc72ce6e48f7063dcf0ee74ad04d40ff"
 signer_pass_path = '/tmp/ethereum_dev_mode/keystore/f43b2675fc72ce6e48f7063dcf0ee74ad04d40ff'

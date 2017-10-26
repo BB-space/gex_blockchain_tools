@@ -1,5 +1,6 @@
 import gevent
 import rlp
+from coincurve import PrivateKey, PublicKey
 from eth_utils import decode_hex, encode_hex
 from ethereum.transactions import Transaction
 from web3 import Web3
@@ -11,7 +12,7 @@ from web3.utils.filters import construct_event_filter_params
 from micro_payments.crypto import privkey_to_addr, sign_transaction
 
 
-DEFAULT_TIMEOUT = 60
+DEFAULT_TIMEOUT = 150
 DEFAULT_RETRY_INTERVAL = 3
 
 
@@ -33,15 +34,20 @@ class ContractProxy:
     def create_signed_transaction(self, func_name, args, nonce_offset=0, value=0):
         tx = self.create_transaction(func_name, args, nonce_offset, value)
         sign_transaction(tx, self.privkey, self.web3.version.network)
-        return encode_hex(rlp.encode(tx))
+        pk = PrivateKey.from_hex(self.privkey[2:])
+        tx.sign(pk.secret)
+        raw_tx = rlp.encode(tx)
+        return self.web3.toHex(raw_tx)
+        # return encode_hex(rlp.encode(tx))
 
     def create_transaction(self, func_name, args, nonce_offset=0, value=0):
         data = self.create_transaction_data(func_name, args)
-        nonce = self.web3.eth.getTransactionCount(self.caller_address, 'pending') + nonce_offset
+        nonce = self.web3.eth.getTransactionCount(self.caller_address, 'latest') + nonce_offset
         tx = Transaction(nonce, self.gas_price, self.gas_limit, self.address, value, data)
         # v = CHAIN_ID according to EIP 155.
-        tx.v = self.web3.version.network
-        tx.sender = decode_hex(self.caller_address)
+        # tx.v = self.web3.version.network
+        # tx.sender = decode_hex(self.caller_address)
+
         return tx
 
     def create_transaction_data(self, func_name, args):
@@ -74,7 +80,7 @@ class ContractProxy:
         return logs
 
     def get_event_blocking(
-            self, event_name, from_block=0, to_block='pending', filters=None, condition=None,
+            self, event_name, from_block=0, to_block='latest', filters=None, condition=None,
             wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
     ):
         for i in range(0, timeout + wait, wait):
@@ -125,7 +131,7 @@ class ChannelContractProxy(ContractProxy):
             wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
     ):
         filters = {
-            '_sender': sender
+           '_sender': sender
         }
         return self.get_event_blocking(
             'ChannelCreated', from_block, to_block, filters, None, wait, timeout
@@ -133,7 +139,7 @@ class ChannelContractProxy(ContractProxy):
 
     def get_channel_topped_up_event_blocking(
             self, sender, opening_block,
-            from_block=0, to_block='pending', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
+            from_block=0, to_block='latest', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
     ):
         filters = {
             '_sender': sender,
@@ -146,7 +152,7 @@ class ChannelContractProxy(ContractProxy):
 
     def get_channel_close_requested_event_blocking(
             self, sender, opening_block,
-            from_block=0, to_block='pending', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
+            from_block=0, to_block='latest', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
     ):
         filters = {
             '_sender': sender,
@@ -159,7 +165,7 @@ class ChannelContractProxy(ContractProxy):
 
     def get_channel_settle_event_blocking(
             self, sender, opening_block,
-            from_block=0, to_block='pending', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
+            from_block=0, to_block='latest', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
     ):
         filters = {
             '_sender': sender,

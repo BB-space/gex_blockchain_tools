@@ -96,14 +96,18 @@ def deploy_contracts():
         # for sender in sender_addresses:
         #     token(token_address).transact({'from': owner}).transfer(sender, token_assign)
 
-    write_to_file(token_address=token_address, channels_address=channels_address)
+    write_to_file(
+        channels_abi=channel_factory.abi,
+        token_abi=token.abi,
+        token_address=token_address,
+        channels_address=channels_address)
     print('Deployed')
 
 
-def generate_data(amounts):
+def generate_data(amounts, address_list=addresses):
     data = []
     for i in range(len(amounts)):
-        data.append(D160 * amounts[i] + int(addresses[i], 0))
+        data.append(D160 * amounts[i] + int(address_list[i], 0))
     return data
 
 
@@ -352,15 +356,13 @@ class TestMTC():
         self.get_all_events()
         self.test_right_sign()
         self.test_create_channel()
+        self.test_top_up()
         self.test_close_channel()
         self.test_send_new_transaction()
         self.test_settle_channel()
         self.test_withdraw()
 
     def test_top_up(self):
-        self.set_up()
-        self.test_create_channel()
-        self.logger.info('Topping up a channel')
         data_bytes = b'\x01\x00\x00\x00\x00'
         data_int = int.from_bytes(data_bytes, byteorder='big') + self.open_block
         data_bytes = (data_int).to_bytes(5, byteorder='big')
@@ -383,34 +385,47 @@ class TestMTC():
 
     def get_all_events(self):
         names = [
-            # 'ChannelCreated',
+            'ChannelCreated',
             'ChannelToppedUp',
             'ChannelCloseRequested',
             'ChannelSettled',
-            # 'MaintainerRegistered',
-            # 'ChannelTopicCreated',
-            # 'CollateralPayed',
-            # 'ClosingBalancesChanged',
-            'GasCost']
+            'MaintainerRegistered',
+            'ChannelTopicCreated',
+            'CollateralPayed',
+            'ClosingBalancesChanged',
+        ]
         for i in names:
             event_filter = self.channel.on(i)
             event_filter.watch(lambda x: self.logger.info(
                 'Event: {}, Transaction: {}, Args: {}'.format(x['event'], x['transactionHash'], x['args'])))
 
 if __name__ == '__main__':
-    generate_wallets()
+    # generate_wallets()
     deploy_contracts()
-    threads =  [Thread(name='Simple_Cycle', target=TestMTC('Simple_Cycle').simple_cycle)]#,
-               # Thread(name='Overspend', target=TestMTC('Overspend').test_overspend),
-               # Thread(name='Cheating1', target=TestMTC('Cheating1').test_cheating1),
-               # Thread(name='Cheating2', target=TestMTC('Cheating2').test_cheating2),
-               # Thread(name='Cheating3', target=TestMTC('Cheating3').test_cheating3),
-               # Thread(name='Ten_Payees', target=TestMTC('Ten_Payees').test_ten_payee_close),
-               # Thread(name='Ten_Cheating', target=TestMTC('Ten_Cheating').test_ten_cheating),
-               # Thread(name='Top_Up', target=TestMTC('Top_Up').test_top_up)]
-    for thread in threads:
-        thread.start()
-        time.sleep(25)
+    # threads =  [Thread(name='Simple_Cycle', target=TestMTC('Simple_Cycle').simple_cycle),
+    #            Thread(name='Overspend', target=TestMTC('Overspend').test_overspend),
+    #            Thread(name='Cheating1', target=TestMTC('Cheating1').test_cheating1),
+    #            Thread(name='Cheating2', target=TestMTC('Cheating2').test_cheating2),
+    #            Thread(name='Cheating3', target=TestMTC('Cheating3').test_cheating3),
+    #            Thread(name='Ten_Payees', target=TestMTC('Ten_Payees').test_ten_payee_close),
+    #            Thread(name='Ten_Cheating', target=TestMTC('Ten_Cheating').test_ten_cheating)]
+    # for thread in threads:
+    #     thread.start()
+    #     time.sleep(25)
+    #
+    # for thread in threads:
+    #     thread.join()
+    heh = TestMTC('asd')
+    heh.set_up()
+    print(heh.channel.call().getBalanceMessage('0xf43b2675fc72ce6e48f7063dcf0ee74ad04d40ff', 87848, generate_data(
+        [41550],
+        ['0x6eb92ee56fec153d9efd2ab0a2f566af9b68cbcf']
+    )))
+    print(generate_data(
+        [41550],
+        ['0x6eb92ee56fec153d9efd2ab0a2f566af9b68cbcf']
+    ))
+    heh.get_all_events()
 
-    for thread in threads:
-        thread.join()
+    while True:
+        pass

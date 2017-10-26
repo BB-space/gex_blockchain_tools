@@ -2,6 +2,7 @@ import logging
 from copy import copy
 from enum import Enum
 
+import time
 from eth_utils import decode_hex, is_same_address
 from micro_payments.crypto import sign_balance_proof, verify_balance_proof
 from gex_chain.utils import get_data_for_token
@@ -11,6 +12,10 @@ log = logging.getLogger(__name__)
 
 
 class Channel:
+    """
+    Channel used by the sender
+    """
+
     class State(Enum):
         open = 1
         settling = 2
@@ -18,7 +23,7 @@ class Channel:
 
     def __init__(
             self,
-            client,  # what is client?
+            client,
             sender: str,
             block: int,
             deposit=0,
@@ -84,7 +89,6 @@ class Channel:
         self._balances_data = value
         self._balances_data_sig = self.sign()
         self._balances_data_converted = convert_balances_data(value)
-        self.client.store_channels()
 
     @property
     def balances_data_converted(self):
@@ -127,13 +131,12 @@ class Channel:
         event = self.client.channel_manager_proxy.get_channel_topped_up_event_blocking(
             self.sender,
             self.block,
-            current_block + 1
+            current_block - 1
         )
 
         if event:
             log.info('Successfully topped up channel in block {}.'.format(event['blockNumber']))
-            self.deposit = event['_deposit']
-            self.client.store_channels()
+            self.deposit = event['args']['_deposit']
             return event
         else:
             log.error('No event received.')
@@ -160,7 +163,7 @@ class Channel:
 
         log.info('Waiting for close confirmation event...')
         event = self.client.channel_manager_proxy.get_channel_close_requested_event_blocking(
-            self.sender, self.block, current_block + 1
+            self.sender, self.block, current_block - 1
         )
 
         if event:
@@ -168,7 +171,6 @@ class Channel:
                 event['blockNumber']
             ))
             self.state = Channel.State.settling
-            self.client.store_channels()
             return event
         else:
             log.error('No event received.')
@@ -202,7 +204,7 @@ class Channel:
 
         log.info('Waiting for settle confirmation event...')
         event = self.client.channel_manager_proxy.get_channel_settle_event_blocking(
-            self.sender, self.block, current_block + 1
+            self.sender, self.block, current_block
         )
 
         if event:

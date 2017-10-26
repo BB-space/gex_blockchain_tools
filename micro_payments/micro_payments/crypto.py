@@ -125,6 +125,7 @@ def eth_verify(sig: bytes, msg: str) -> str:
 
 def get_balance_message(sender: str, open_block_number: int, balances_data: BalancesData) -> str:
     balances_data = [str(i) for i in convert_balances_data(balances_data)]
+    print(balances_data)
     return 'Sender: {}, Block: {}, Data: {}'.format(sender, open_block_number, ', '.join(balances_data))  # TODO test
 
 
@@ -141,3 +142,12 @@ def verify_balance_proof(
 ) -> str:
     msg = get_balance_message(sender, open_block_number, balances_data)
     return eth_verify(balance_sig, msg)
+
+
+
+if __name__ == '__main__':
+    print(get_balance_message(
+        '0xf43b2675fc72ce6e48f7063dcf0ee74ad04d40ff',
+        87848,
+        [('0xf43b2675fc72ce6e48f7063dcf0ee74ad04d40ff', 15235)])
+    )

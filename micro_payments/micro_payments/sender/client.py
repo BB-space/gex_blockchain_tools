@@ -16,13 +16,15 @@ from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
 from micro_payments.crypto import privkey_to_addr
 from .channel import Channel
 
-CHANNEL_MANAGER_ABI_NAME = 'MicroTransferChannels'
-TOKEN_ABI_NAME = 'GEXToken'
+CHANNEL_MANAGER_ABI_NAME = 'channels_abi'
+TOKEN_ABI_NAME = 'token_abi'
+
+with open(os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 'data/data.json')) as data_file:
+    data = json.load(data_file)
+
 
 log = logging.getLogger(__name__)
-
-
-
 
 
 class Client:
@@ -31,17 +33,17 @@ class Client:
             privkey: str = None,
             key_path: str = None,
             key_password_path: str = None,
-            datadir: str = click.get_app_dir('micro_payments'), # TODO
-            channel_manager_address: str = CHANNEL_MANAGER_ADDRESS,
-            token_address: str = TOKEN_ADDRESS,
+            datadir: str = click.get_app_dir('Micro Payments', force_posix=True),  # TODO
+            channel_manager_address: str = data['channels_address'],
+            token_address: str = data['token_address'],
             rpc: RPCProvider = None,
             web3: Web3 = None,
             channel_manager_proxy: ChannelContractProxy = None,
             token_proxy: ContractProxy = None,
-            rpc_endpoint: str = 'localhost',
+            rpc_endpoint: str = '127.0.0.1',
             rpc_port: int = 8545,
             contract_abi_path: str = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), 'data/contracts.json'
+                os.path.dirname(os.path.dirname(__file__)), 'data/data.json'
             )
     ) -> None:
         assert privkey or key_path
@@ -85,7 +87,7 @@ class Client:
                 contract_abis = json.load(abi_file)
 
             if not channel_manager_proxy:
-                channel_manager_abi = contract_abis[CHANNEL_MANAGER_ABI_NAME]['abi']
+                channel_manager_abi = contract_abis[CHANNEL_MANAGER_ABI_NAME]
                 self.channel_manager_proxy = ChannelContractProxy(
                     self.web3,
                     self.privkey,
@@ -96,7 +98,7 @@ class Client:
                 )
 
             if not token_proxy:
-                token_abi = contract_abis[TOKEN_ABI_NAME]['abi']
+                token_abi = contract_abis[TOKEN_ABI_NAME]
                 self.token_proxy = ContractProxy(
                     self.web3, self.privkey, token_address, token_abi, GAS_PRICE, GAS_LIMIT
                 )
@@ -113,7 +115,6 @@ class Client:
 
         self.filelock = filelock.FileLock(os.path.join(self.datadir, self.balances_filename))
         self.filelock.acquire(timeout=0)
-
 
     def __enter__(self):
         return self
@@ -155,7 +156,7 @@ class Client:
 
         log.info('Waiting for channel creation event on the blockchain...')
         event = self.channel_manager_proxy.get_channel_created_event_blocking(
-            self.account, current_block + 1
+            self.account, current_block-1
         )
 
         if event:

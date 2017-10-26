@@ -155,7 +155,7 @@ contract MicroTransferChannels {
         str = concat(str, ", Data: ");
         for (uint i = 0; i < _payment_data.length; i++){
             if (i != 0) str = concat(str, ", ");
-            str = concat(str, uintToString(uint256(_payment_data[i])));
+            str = concat(str, uintToString(_payment_data[i]));
         }
         return str;
     }
@@ -827,61 +827,21 @@ contract MicroTransferChannels {
     }
 
 
-    // 9613 gas
-    function uintToString(
-        uint v)
-        internal
-        constant
-        returns (string)
-    {
-        bytes32 ret;
-        if (v == 0) {
-            ret = '0';
+    function uintToString(uint v) constant returns (string str) {
+        uint maxlength = 100;
+        bytes memory reversed = new bytes(maxlength);
+        uint i = 0;
+        while (v != 0) {
+            uint remainder = v % 10;
+            v = v / 10;
+            reversed[i++] = byte(48 + remainder);
         }
-        else {
-             while (v > 0) {
-                ret = bytes32(uint(ret) / (2 ** 8));
-                ret |= bytes32(((v % 10) + 48) * 2 ** (8 * 31));
-                v /= 10;
-            }
+        bytes memory s = new bytes(i);
+        i = i - 1;
+        for (uint j = 0; j <= i; j++) {
+            s[j] = reversed[i - j];
         }
-
-        bytes memory bytesString = new bytes(32);
-        uint charCount = 0;
-        for (uint j=0; j<32; j++) {
-            byte char = byte(bytes32(uint(ret) * 2 ** (8 * j)));
-            if (char != 0) {
-                bytesString[j] = char;
-                charCount++;
-            }
-        }
-        bytes memory bytesStringTrimmed = new bytes(charCount);
-        for (j = 0; j < charCount; j++) {
-            bytesStringTrimmed[j] = bytesString[j];
-        }
-
-        return string(bytesStringTrimmed);
-    }
-
-    function bytes32ToString(
-        bytes32 x)
-        internal
-        constant
-        returns (string) {
-        bytes memory bytesString = new bytes(32);
-        uint charCount = 0;
-        for (uint j = 0; j < 32; j++) {
-            byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
-            if (char != 0) {
-                bytesString[charCount] = char;
-                charCount++;
-            }
-        }
-        bytes memory bytesStringTrimmed = new bytes(charCount);
-        for (j = 0; j < charCount; j++) {
-            bytesStringTrimmed[j] = bytesString[j];
-        }
-        return string(bytesStringTrimmed);
+        str = string(s);
     }
 
     function char(byte b)

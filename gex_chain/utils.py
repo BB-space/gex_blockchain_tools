@@ -35,6 +35,15 @@ def convert_balances_data(balances_data: BalancesData) -> BalancesDataConverted:
     return data
 
 
+def convert_balances_data_for_message(balances_data: BalancesData):  # TODO test
+    data = []
+    for pair in balances_data:
+        bts = (D160 * pair[1] + int(pair[0], 0)).to_bytes(32, 'big')
+        datum = [chr(int(bt)) for bt in bts]
+        data.append(''.join(datum))
+    return data
+
+
 def check_overspend(deposit: int, balances_data: BalancesData) -> Tuple[bool, int]:
     for pair in balances_data:
         deposit -= pair[1]
