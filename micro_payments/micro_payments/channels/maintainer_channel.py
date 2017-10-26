@@ -55,7 +55,7 @@ class MaintainerChannel(Channel):
         event = self.client.channel_manager_proxy.get_cheating_reported_event_blocking(
             self.sender,
             self.block,
-            current_block - 1
+            current_block + 1
         )
 
         if event:
@@ -101,7 +101,7 @@ class MaintainerChannel(Channel):
         event = self.client.channel_manager_proxy.get_channel_closing_balances_changed_event_blocking(
             self.sender,
             self.block,
-            current_block - 1
+            current_block + 1
         )
 
         if event:

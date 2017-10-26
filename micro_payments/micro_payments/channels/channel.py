@@ -131,7 +131,7 @@ class Channel:
 
         log.info('Waiting for close confirmation event...')
         event = self.client.channel_manager_proxy.get_channel_close_requested_event_blocking(
-            self.sender, self.block, current_block - 1
+            self.sender, self.block, current_block + 1
         )
 
         if event:
@@ -172,7 +172,7 @@ class Channel:
 
         log.info('Waiting for settle confirmation event...')
         event = self.client.channel_manager_proxy.get_channel_settle_event_blocking(
-            self.sender, self.block, current_block
+            self.sender, self.block, current_block + 1
         )
 
         if event:

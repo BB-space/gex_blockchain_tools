@@ -20,3 +20,4 @@ NETWORK_NAMES = {
 }
 
 APP_FOLDER = click.get_app_dir('Micro Payments', force_posix=True)
+DATA_FILE_NAME = 'data.json'

@@ -57,7 +57,7 @@ class SenderChannel(Channel):
         event = self.client.channel_manager_proxy.get_channel_topped_up_event_blocking(
             self.sender,
             self.block,
-            current_block - 1
+            current_block + 1
         )
 
         if event:

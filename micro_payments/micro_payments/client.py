@@ -7,14 +7,14 @@ import filelock
 from gex_chain.crypto import privkey_to_addr
 from gex_chain.utils import get_private_key, get_data_for_token
 from micro_payments.config import GAS_LIMIT, GAS_PRICE, \
-    NETWORK_NAMES, APP_FOLDER
+    NETWORK_NAMES, APP_FOLDER, DATA_FILE_NAME
 from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
 from web3 import Web3
 from web3.providers.rpc import RPCProvider
 
 from micro_payments.channels.sender_channel import SenderChannel
+from micro_payments.channels.maintainer_channel import MaintainerChannel
 from micro_payments.channels.channel import Channel
-
 
 log = logging.getLogger(__name__)
 
@@ -33,9 +33,8 @@ class Client:
             token_proxy: ContractProxy = None,
             rpc_endpoint: str = '127.0.0.1',
             rpc_port: int = 8545,
-            data_file_path: str = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), 'data/data.json'
-            )
+            data_file_path: str = DATA_FILE_NAME
+
     ) -> None:
         assert privkey or key_path
         assert not privkey or isinstance(privkey, str)
@@ -75,6 +74,7 @@ class Client:
                 self.web3 = Web3(rpc)
 
         # Create missing contract proxies.
+        data_file_path = os.path.join(self.datadir, data_file_path)
         if not channel_manager_proxy or not token_proxy:
             with open(data_file_path) as abi_file:
                 data_file = json.load(abi_file)
@@ -122,6 +122,9 @@ class Client:
     def close(self):
         self.filelock.release()
 
+    def register_maintainer_listeners(self):
+        pass
+
     def open_channel(self, deposit: int, channel_fee: int):
         """
         Attempts to open a new channel with the given deposit. Blocks until the
@@ -137,7 +140,7 @@ class Client:
         if token_balance < deposit:
             log.error(
                 'Insufficient tokens available for the specified deposit ({}/{})'
-                .format(token_balance, deposit)
+                    .format(token_balance, deposit)
             )
 
         current_block = self.web3.eth.blockNumber
@@ -153,7 +156,7 @@ class Client:
 
         log.info('Waiting for channel creation event on the blockchain...')
         event = self.channel_manager_proxy.get_channel_created_event_blocking(
-            self.account, current_block-1
+            self.account, current_block + 1
         )
 
         if event:
@@ -173,7 +176,30 @@ class Client:
 
         return channel
 
-    def maintain_channel(self, channel):
+    def maintain_channel(self, sender: str, open_block: int):
+        channel = MaintainerChannel(self, sender, open_block)
+
+        current_block = self.web3.eth.blockNumber
+        tx = self.channel_manager_proxy.create_signed_transaction(
+            'registerMaintainer', [sender, open_block]
+        )
+
+        self.web3.eth.sendRawTransaction(tx)
+
+        log.info('Waiting for channel creation event on the blockchain...')
+        event = self.channel_manager_proxy.get_channel_created_event_blocking(
+            self.account, current_block + 1
+        )
+        if event:
+            self.maintaining_channels.append(channel)
+            # new listener for channel
+            return channel
+        else:
+            log.error('No event received')
+            return None
+
+    def get_receiving_channel(self, sender):
         pass
 
-
+    def add_receiving_channel(self, sender, open_block):
+        pass
