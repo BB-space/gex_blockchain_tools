@@ -4,21 +4,28 @@ import time
 
 class Receiver:
     def __init__(self):
-        self.messages = []
+        self.list_messages = []
+        self.dict_messages = []
 
-    def add_message(self, message):
-        self.messages.append(message.value)
+    def add_message_list(self, message):
+        self.list_messages.append(message.value)
+
+    def add_message_dict(self, **kwargs):
+        assert kwargs['some_other_argument'] == 'hello'
+        self.dict_messages.append(kwargs['message'].value)
 
 
 def test_main(create_sender, create_receiver):
     messages = [b'first', b'second', b'third']
     r = Receiver()
 
-    create_receiver.add_listener_function(r.add_message)
+    create_receiver.add_listener_function(r.add_message_list)
+    create_receiver.add_listener_function(r.add_message_dict, {'some_other_argument': 'hello'})
     thread = create_receiver.start()
     for message in messages:
         create_sender.send(message)
     time.sleep(2)
     create_receiver.stop()
     thread.join()
-    assert messages == r.messages
+    assert messages == r.list_messages
+    assert messages == r.dict_messages
