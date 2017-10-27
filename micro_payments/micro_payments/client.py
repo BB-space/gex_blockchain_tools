@@ -2,7 +2,6 @@ import json
 import logging
 import os
 
-import click
 import filelock
 from gex_chain.crypto import privkey_to_addr
 from gex_chain.utils import get_private_key, get_data_for_token
@@ -40,8 +39,8 @@ class Client:
         assert not privkey or isinstance(privkey, str)
 
         # Plain copy initializations.
-        self.privkey = privkey
-        self.datadir = APP_FOLDER
+        self.private_key = privkey
+        self.data_dir = APP_FOLDER
         self.channel_manager_address = channel_manager_address
         self.token_address = token_address
         self.web3 = web3
@@ -50,13 +49,13 @@ class Client:
 
         # Load private key from file if none is specified on command line.
         if not privkey:
-            self.privkey = get_private_key(key_path, key_password_path)
-            assert self.privkey is not None
+            self.private_key = get_private_key(key_path, key_password_path)
+            assert self.private_key is not None
 
-        os.makedirs(self.datadir, exist_ok=True)
-        assert os.path.isdir(self.datadir)
+        os.makedirs(self.data_dir, exist_ok=True)
+        assert os.path.isdir(self.data_dir)
 
-        self.account = privkey_to_addr(self.privkey)
+        self.account = privkey_to_addr(self.private_key)
         self.sender_channel = None
         self.maintaining_channels = []
         self.receiving_channels = []
@@ -74,7 +73,7 @@ class Client:
                 self.web3 = Web3(rpc)
 
         # Create missing contract proxies.
-        data_file_path = os.path.join(self.datadir, data_file_path)
+        data_file_path = os.path.join(self.data_dir, data_file_path)
         if not channel_manager_proxy or not token_proxy:
             with open(data_file_path) as abi_file:
                 data_file = json.load(abi_file)
@@ -87,7 +86,7 @@ class Client:
                 channel_manager_abi = data_file['channels_abi']
                 self.channel_manager_proxy = ChannelContractProxy(
                     self.web3,
-                    self.privkey,
+                    self.private_key,
                     channel_manager_address,
                     channel_manager_abi,
                     GAS_PRICE,
@@ -97,7 +96,7 @@ class Client:
             if not token_proxy:
                 token_abi = data_file['token_abi']
                 self.token_proxy = ContractProxy(
-                    self.web3, self.privkey, token_address, token_abi, GAS_PRICE, GAS_LIMIT
+                    self.web3, self.private_key, token_address, token_abi, GAS_PRICE, GAS_LIMIT
                 )
 
         assert self.web3
@@ -110,8 +109,8 @@ class Client:
             NETWORK_NAMES.get(net_id, net_id), self.account[:10]
         )
 
-        self.filelock = filelock.FileLock(os.path.join(self.datadir, self.balances_filename))
-        self.filelock.acquire(timeout=0)
+        self.file_lock = filelock.FileLock(os.path.join(self.data_dir, self.balances_filename))
+        self.file_lock.acquire(timeout=0)
 
     def __enter__(self):
         return self
@@ -120,7 +119,7 @@ class Client:
         self.close()
 
     def close(self):
-        self.filelock.release()
+        self.file_lock.release()
 
     def register_maintainer_listeners(self):
         pass
@@ -170,11 +169,14 @@ class Client:
                 event['args']['_random_n']
             )
             self.sender_channel = channel
+            # TODO think where to add the kafka_sender
         else:
             log.info('Error: No event received.')
             channel = None
 
         return channel
+
+    # TODO think where to add KafkaReceivers
 
     def maintain_channel(self, sender: str, open_block: int):  # TODO create a channel if I'm the first one
         channel = MaintainerChannel(self, sender, open_block)

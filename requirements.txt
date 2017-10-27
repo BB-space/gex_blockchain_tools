@@ -8,4 +8,4 @@ populus
 coincurve
 typing
 gevent
-kafka-python
+kafka-python==1.3.5

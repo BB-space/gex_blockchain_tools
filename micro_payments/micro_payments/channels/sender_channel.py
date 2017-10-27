@@ -117,6 +117,8 @@ class SenderChannel(Channel):
             return None
 
         self.balances_data = balances_data
+        message = {'balances_data': self.balances_data, 'balances_sig': self._balances_data_sig}
+        self._kafka_sender.send(message)  # TODO test
 
         return self.balance_sig
 

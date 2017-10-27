@@ -16,11 +16,11 @@ DEFAULT_RETRY_INTERVAL = 3
 
 
 class ContractProxy:
-    def __init__(self, web3: Web3, privkey, contract_address, abi, gas_price, gas_limit,
+    def __init__(self, web3: Web3, private_key, contract_address, abi, gas_price, gas_limit,
                  tester_mode=False) -> None:
         self.web3 = web3
-        self.privkey = privkey
-        self.caller_address = privkey_to_addr(privkey)
+        self.private_key = private_key
+        self.caller_address = privkey_to_addr(private_key)
         if self.web3.eth.defaultAccount == web3_empty:
             self.web3.eth.defaultAccount = self.caller_address
         self.address = contract_address
@@ -32,8 +32,8 @@ class ContractProxy:
 
     def create_signed_transaction(self, func_name, args, nonce_offset=0, value=0):
         tx = self.create_transaction(func_name, args, nonce_offset, value)
-        sign_transaction(tx, self.privkey, self.web3.version.network)
-        pk = PrivateKey.from_hex(self.privkey[2:])
+        sign_transaction(tx, self.private_key, self.web3.version.network)
+        pk = PrivateKey.from_hex(self.private_key[2:])
         tx.sign(pk.secret)
         raw_tx = rlp.encode(tx)
         return self.web3.toHex(raw_tx)
@@ -97,9 +97,9 @@ class ContractProxy:
 
 
 class ChannelContractProxy(ContractProxy):
-    def __init__(self, web3, privkey, contract_address, abi, gas_price, gas_limit,
+    def __init__(self, web3, private_key, contract_address, abi, gas_price, gas_limit,
                  tester_mode=False):
-        super().__init__(web3, privkey, contract_address, abi, gas_price, gas_limit, tester_mode)
+        super().__init__(web3, private_key, contract_address, abi, gas_price, gas_limit, tester_mode)
 
     def get_channel_created_logs(self, from_block=0, to_block='latest', filters=None):
         return self.get_logs('ChannelCreated', from_block, to_block, filters)
