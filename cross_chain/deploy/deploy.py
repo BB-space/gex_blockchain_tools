@@ -77,13 +77,11 @@ def deploy_contracts():
         eth_contract_address = receipt['contractAddress']
         print('EthContract deployed')
         # Ownership
-        gex_token = chain.provider.get_contract_factory('GEXToken')(gex_token_address)
-        #gex_token = GEXToken(gex_token_address)
+        gex_token = GEXToken(gex_token_address)
         tx_hash = gex_token.transact({'from': owner}).transferOwnership(gex_contract_address)
         check_successful_tx(chain.web3, tx_hash, txn_wait)
         print('GEXToken ownership is established')
-        eth_token = chain.provider.get_contract_factory('ETHToken')(eth_token_address)
-        #eth_token = GEXToken(gex_token_address)
+        eth_token = ETHToken(eth_token_address)
         tx_hash = eth_token.transact({'from': owner}).transferOwnership(eth_contract_address)
         check_successful_tx(chain.web3, tx_hash, txn_wait)
         print('ETHToken ownership is established')
