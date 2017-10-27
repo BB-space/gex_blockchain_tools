@@ -176,7 +176,7 @@ class Client:
 
         return channel
 
-    def maintain_channel(self, sender: str, open_block: int):
+    def maintain_channel(self, sender: str, open_block: int):  # TODO create a channel if I'm the first one
         channel = MaintainerChannel(self, sender, open_block)
 
         current_block = self.web3.eth.blockNumber

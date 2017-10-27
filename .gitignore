@@ -3,6 +3,7 @@
 *.pyc
 build/
 data.json
+tmp.py
 
 #cross_chain
 cross_chain/build/
@@ -17,6 +18,5 @@ micro_payments/env
 /micro_payments/docker/
 /micro_payments/microraiden/
 /micro_payments/micro_payments/tests/.cache/
-/micro_payments/micro_payments/tmp.py
 micro_payments/*.egg-info
 micro_payments/__pycache__
