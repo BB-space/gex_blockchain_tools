@@ -20,10 +20,11 @@ class ReceivingChannel(MaintainerChannel):
             channel_fee=0,
             random_n=b'',
             balances_data=None,
-            state=Channel.State.open
+            state=Channel.State.open,
+            my_balance: int = 0
     ):
         MaintainerChannel.__init__(self, client, sender, block, deposit, channel_fee, random_n, balances_data, state)
-        self._my_balance = 0
+        self._my_balance = my_balance
 
     @property
     def my_balance(self):

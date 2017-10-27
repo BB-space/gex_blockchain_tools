@@ -17,6 +17,7 @@ class SenderKafka:
         self._producer = KafkaProducer(bootstrap_servers=bootstrap_servers)
         self._closed = False
         self.topic = topic
+        self.bootstrap_servers = bootstrap_servers
 
     def send(self, message, topic=None):
         if self._closed:

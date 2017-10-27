@@ -1,7 +1,6 @@
 from kafka import KafkaConsumer
 from threading import Thread
 from copy import deepcopy
-import json
 import logging
 
 log = logging.getLogger(__name__)
@@ -39,22 +38,28 @@ class ReceivingKafka:
             bootstrap_servers=bootstrap_servers,
             value_deserializer=value_deserializer
         )
+        self.bootstrap_servers = bootstrap_servers
         self.listeners = []
         self._stopped = False
+        self._running = False
 
     def add_listener_function(self, f, args=None) -> bool:
+        if self._stopped or self._running:
+            return False
         if args is None:
             args = []
-        if self._stopped:
-            return False
 
         self.listeners.append([f, args])
         return True
 
     def start(self):
-        thread = Thread(target=self.run)
-        thread.start()
-        return thread
+        if self._stopped or self._running:
+            return None
+        else:
+            self._running = True
+            thread = Thread(target=self.run)
+            thread.start()
+            return thread
 
     def run(self):
         try:
@@ -77,6 +82,7 @@ class ReceivingKafka:
                 raise error
 
     def stop(self):
-        if not self._stopped:
+        if self._running and not self._stopped:
             self._stopped = True
+            self._running = False
             self._consumer.close()

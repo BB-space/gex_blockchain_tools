@@ -5,6 +5,7 @@ from gex_chain.crypto import sign_balance_proof
 from gex_chain.utils import convert_balances_data, check_overspend, BalancesData
 from gex_chain.utils import get_data_for_token
 from micro_payments.channels.channel import Channel
+from micro_payments.kafka_lib.sender_kafka import SenderKafka
 
 log = logging.getLogger(__name__)
 
@@ -13,6 +14,22 @@ class SenderChannel(Channel):
     """
     Channel used by the sender
     """
+
+    def __init__(
+            self,
+            client,
+            sender: str,
+            block: int,
+            deposit=0,
+            channel_fee=0,
+            random_n=b'',
+            balances_data=None,
+            state=Channel.State.open,
+            kafka_sender: SenderKafka = None
+    ):
+
+        super().__init__(client, sender, block, deposit, channel_fee, random_n, balances_data, state)
+        self._kafka_sender = kafka_sender
 
     @property
     def balances_data(self):
@@ -23,6 +40,9 @@ class SenderChannel(Channel):
         self._balances_data = balances_data
         self._balances_data_sig = self.sign()
         self._balances_data_converted = convert_balances_data(balances_data)
+
+    def set_kafka_sender(self, kafka_sender: SenderKafka):
+        self._kafka_sender = kafka_sender
 
     def sign(self):
         return sign_balance_proof(self.client.privkey, self.sender, self.block, self._balances_data)
@@ -73,6 +93,10 @@ class SenderChannel(Channel):
         Updates the given channel's balance and balance signature with the new value. The signature
         is returned and stored in the channel state.
         """
+        if self._kafka_sender is None or not isinstance(self._kafka_sender, SenderKafka):
+            log.error('Kafka sender is not set or is set incorrectly')
+            return None
+
         for pair in balances_data:
             assert pair[1] >= 0
 

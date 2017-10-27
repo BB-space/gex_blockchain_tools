@@ -10,9 +10,9 @@ class Receiver:
     def add_message_list(self, message):
         self.list_messages.append(message.value)
 
-    def add_message_dict(self, **kwargs):
-        assert kwargs['some_other_argument'] == 'hello'
-        self.dict_messages.append(kwargs['message'].value)
+    def add_message_dict(self, message=None, some_other_argument=None):
+        assert some_other_argument == 'hello'
+        self.dict_messages.append(message.value)
 
 
 def test_main(create_sender, create_receiver):
