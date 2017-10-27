@@ -1,4 +1,8 @@
 from kafka import KafkaProducer
+import logging
+import json
+
+log = logging.getLogger(__name__)
 
 
 class SenderKafka:
@@ -10,12 +14,37 @@ class SenderKafka:
 
         assert isinstance(bootstrap_servers, list)
 
-        self.producer = KafkaProducer(bootstrap_servers=bootstrap_servers)
+        self._producer = KafkaProducer(bootstrap_servers=bootstrap_servers)
+        self._closed = False
         self.topic = topic
 
     def send(self, message, topic=None):
+        if self._closed:
+            log.error('The sender is closed, create a new one to send a message')
+            return None
         if topic is None:
             topic = self.topic
-        self.producer.send(topic, message)
-        self.producer.flush()
+        if isinstance(message, dict):
+            try:
+                message = json.dumps(message)
+            except ValueError:
+                log.error('Could not convert {} to json string'.format(message))
+                return None
+        if isinstance(message, str):
+            try:
+                message = message.encode('utf-8')
+            except ValueError:
+                log.error('Could not convert {} to bytes'.format(message))
+                return None
+        if isinstance(message, bytes):
+            result = self._producer.send(topic, message)
+            self._producer.flush()
+            return result
+        else:
+            log.error('The message must be either bytes, utf-8 string or a dict')
+            return None
 
+    def close(self):
+        if not self._closed:
+            self._closed = True
+            self._producer.close()
