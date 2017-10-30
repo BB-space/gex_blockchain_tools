@@ -93,7 +93,7 @@ class User:
         #    print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
         #       result['args']['_gas_remaining']))
 
-
+''''
 def mint_callback(result):
     print("Mint")
 
@@ -128,3 +128,4 @@ while True:
           + str(eth_token.call().balanceOf(web3.eth.accounts[0])) + "   " + str(
         eth_token.call().balanceOf(web3.eth.accounts[1])))
     time.sleep(30)
+'''

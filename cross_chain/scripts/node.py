@@ -82,8 +82,9 @@ class Node:
         # todo check that added
         self.events.append(event_id)
 
-
+''''
 node = Node()
 print("Node started")
 while True:
     pass
+'''
