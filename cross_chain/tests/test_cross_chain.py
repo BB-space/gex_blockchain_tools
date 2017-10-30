@@ -1,10 +1,9 @@
-import logging
+
 import threading
 
-import datetime
 from scripts.node import Node
 from scripts.user import User
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider
 import pytest
 import sys
 import json
