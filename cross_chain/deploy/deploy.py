@@ -1,20 +1,13 @@
 import json
 from populus import Project
-from populus.utils.wait import wait_for_transaction_receipt
-from web3 import Web3
-from config import *
-
+import sys
 try:
     from .config import *
-except:
-    pass
+except SystemError:
+    from config import *
 
-
-def check_successful_tx(web3: Web3, txid: str, timeout=180) -> dict:
-    receipt = wait_for_transaction_receipt(web3, txid, timeout=timeout)
-    txinfo = web3.eth.getTransaction(txid)
-    # assert txinfo['gas'] != receipt['gasUsed']  # why does this work?
-    return receipt
+sys.path.append('../../gex_chain')
+from populus_utils import *
 
 
 def write_to_file(**kwargs):
@@ -39,6 +32,7 @@ def deploy_test():
             Test=test_address
         )
     print('Deployed')
+
 
 def deploy_contracts():
     print('Deploying contracts')
@@ -100,4 +94,4 @@ def deploy_contracts():
 
 if __name__ == '__main__':
     deploy_contracts()
-    #deploy_test()
+    # deploy_test()

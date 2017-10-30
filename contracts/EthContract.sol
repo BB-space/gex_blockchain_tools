@@ -40,6 +40,16 @@ contract EthContract {
         token_address = _tokenContract;
     }
 
+    function generateEventID(
+    uint _block_number,
+    address _addr_from,
+    address _addr_to,
+    uint256 _amount)
+    returns (bytes32){
+        //bytes32 event_id = keccak256(msg.sender, amount, block.timestamp);
+        return sha3(_block_number, _addr_from, _addr_to, _amount);
+    }
+
     // 84172 gas
     function mintRequest(
     uint _block_number,
@@ -49,8 +59,7 @@ contract EthContract {
     public
     {
         GasCost('mintRequest start', block.gaslimit, msg.gas);
-        //bytes32 event_id = keccak256(msg.sender, amount, block.timestamp);
-        bytes32 event_id = sha3(_block_number, _addr_from, _addr_to, _amount);
+        bytes32 event_id = generateEventID(_block_number, _addr_from, _addr_to, _amount);
         requests[event_id].block_number = _block_number;
         requests[event_id].addr_from = _addr_from;
         requests[event_id].addr_to = _addr_to;
@@ -71,7 +80,7 @@ contract EthContract {
         GasCost('burn start', block.gaslimit, msg.gas);
         // todo check return value
         require(_amount > 0);
-        bytes32 event_id = sha3(_block_number, _addr_from, _addr_to, _amount);
+        bytes32 event_id = generateEventID(_block_number, _addr_from, _addr_to, _amount);
         // todo
         require(event_id == _event_id);
         requests[event_id].addr_from = _addr_from;
