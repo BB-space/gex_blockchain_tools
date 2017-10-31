@@ -50,7 +50,6 @@ class Node:
     def minted_event_callback(self, result):
         print("Token minted")
 
-
     def burned_event_callback(self, result, is_gex_net):
         print("Token burned")
         event_id = self.web3gex.toHex(result['args']['event_id'])

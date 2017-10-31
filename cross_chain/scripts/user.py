@@ -89,11 +89,11 @@ class User:
                 transfer.amount)
 
     def gas_callback(self, result):
-        pass
-        #    print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
-        #       result['args']['_gas_remaining']))
+        #pass
+        print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
+            result['args']['_gas_remaining']))
 
-''''
+
 def mint_callback(result):
     print("Mint")
 
@@ -101,7 +101,7 @@ def mint_callback(result):
 def burn_callback(result):
     print("Burn")
 
-
+''''
 web3 = Web3(HTTPProvider('http://localhost:8545'))
 
 with open('../data.json') as data_file:
