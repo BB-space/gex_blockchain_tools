@@ -38,6 +38,7 @@ class SenderKafka:
                 log.error('Could not convert {} to bytes'.format(message))
                 return None
         if isinstance(message, bytes):
+            log.debug('Sending {}'.format(message))
             result = self._producer.send(topic, message)
             self._producer.flush()
             return result

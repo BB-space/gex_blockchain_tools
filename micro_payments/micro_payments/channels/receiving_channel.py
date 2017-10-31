@@ -2,6 +2,8 @@ import logging
 from gex_chain.utils import convert_balances_data, check_overspend, BalancesData, is_cheating
 from micro_payments.channels.maintainer_channel import MaintainerChannel
 from micro_payments.channels.channel import Channel, check_sign_with_logger
+from micro_payments.kafka_lib.receiving_kafka import ReceivingKafka
+
 
 log = logging.getLogger(__name__)
 
@@ -21,10 +23,24 @@ class ReceivingChannel(MaintainerChannel):
             random_n=b'',
             balances_data=None,
             state=Channel.State.open,
-            my_balance: int = 0
+            my_balance: int = 0,
+            receiving_kafka: ReceivingKafka = None
+
     ):
-        MaintainerChannel.__init__(self, client, sender, block, deposit, channel_fee, random_n, balances_data, state)
+        MaintainerChannel.__init__(
+            self,
+            client,
+            sender,
+            block,
+            deposit,
+            channel_fee,
+            random_n,
+            balances_data,
+            state,
+            receiving_kafka
+        )
         self._my_balance = my_balance
+        # create kafka channels
 
     @property
     def my_balance(self):

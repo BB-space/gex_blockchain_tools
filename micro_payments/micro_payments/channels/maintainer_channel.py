@@ -5,6 +5,7 @@ from gex_chain.crypto import sign_balance_proof
 from gex_chain.utils import convert_balances_data, check_overspend, BalancesData, is_cheating
 from gex_chain.utils import get_data_for_token
 from micro_payments.channels.channel import Channel, check_sign_with_logger
+from micro_payments.kafka_lib.receiving_kafka import ReceivingKafka
 
 log = logging.getLogger(__name__)
 
@@ -14,6 +15,21 @@ class MaintainerChannel(Channel):
     Channel used by the maintainer
     """
 
+    def __init__(
+            self,
+            client,
+            sender: str,
+            block: int,
+            deposit=0,
+            channel_fee=0,
+            random_n=b'',
+            balances_data=None,
+            state=Channel.State.open,
+            receiving_kafka: ReceivingKafka = None
+    ):
+        Channel.__init__(self, client, sender, block, deposit, channel_fee, random_n, balances_data, state)
+        self._receiving_kafka = receiving_kafka
+
     @property
     def balances_data(self):
         return self._balances_data
@@ -22,6 +38,17 @@ class MaintainerChannel(Channel):
     def balances_data(self, value: BalancesData):
         log.error('You cannot set new data, use set_new_balances')
         return
+
+    @property
+    def receiving_kafka(self):
+        return self._receiving_kafka
+
+    @receiving_kafka.setter
+    def receiving_kafka(self, receiving_kafka: ReceivingKafka):
+        if self._receiving_kafka is not None:
+            self._receiving_kafka.stop()
+            del self._receiving_kafka
+        self._receiving_kafka = receiving_kafka
 
     def _is_cheating(self, balances_data) -> bool:
         if check_overspend(self.deposit, balances_data)[0]:

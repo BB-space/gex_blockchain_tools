@@ -1,4 +1,5 @@
 import pytest
+import json
 from micro_payments.client import Client
 from micro_payments.tests.config import signer_pass_path, signer_key_path
 from micro_payments.kafka_lib.sender_kafka import SenderKafka
@@ -34,7 +35,13 @@ def create_sender(request):
 
 @pytest.fixture('module')
 def create_receiver(request):
-    receiver = ReceivingKafka(topic, client_id, group_id, bootstrap_servers)
+    receiver = ReceivingKafka(
+        topic,
+        client_id,
+        group_id,
+        bootstrap_servers,
+        # value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+    )
 
     def finalizer():
         receiver.stop()
