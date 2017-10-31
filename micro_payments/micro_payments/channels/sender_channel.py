@@ -25,10 +25,11 @@ class SenderChannel(Channel):
             random_n=b'',
             balances_data=None,
             state=Channel.State.open,
+            topic_holder=None,
             kafka_sender: SenderKafka = None
     ):
 
-        super().__init__(client, sender, block, deposit, channel_fee, random_n, balances_data, state)
+        super().__init__(client, sender, block, deposit, channel_fee, random_n, balances_data, state, topic_holder)
         self._kafka_sender = kafka_sender
 
     @property
@@ -41,7 +42,15 @@ class SenderChannel(Channel):
         self._balances_data_sig = self.sign()
         self._balances_data_converted = convert_balances_data(balances_data)
 
-    def set_kafka_sender(self, kafka_sender: SenderKafka):
+    @property
+    def kafka_sender(self):
+        return self._kafka_sender
+
+    @kafka_sender.setter
+    def kafka_sender(self, kafka_sender: SenderKafka):
+        if self._kafka_sender is not None:
+            self._kafka_sender.close()
+            del self._kafka_sender
         self._kafka_sender = kafka_sender
 
     def sign(self):
@@ -117,8 +126,8 @@ class SenderChannel(Channel):
             return None
 
         self.balances_data = balances_data
-        message = {'balances_data': self.balances_data, 'balances_sig': self._balances_data_sig}
-        self._kafka_sender.send(message) # TODO tes
+        message = {'balances_data': self.balances_data, 'balances_data_sig': self._balances_data_sig}
+        self._kafka_sender.send(message)  # TODO test
 
         return self.balance_sig
 

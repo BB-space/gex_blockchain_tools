@@ -38,7 +38,8 @@ class Channel:
             channel_fee=0,
             random_n=b'',
             balances_data=None,
-            state=State.open
+            state=State.open,
+            topic_holder=None
     ):
 
         self._balances_data = [('0x0', 0)]
@@ -54,6 +55,7 @@ class Channel:
         if balances_data is not None:
             self.balances_data = balances_data
         self._state = state
+        self.topic_holder = topic_holder
 
         assert self.block is not None
 
@@ -87,6 +89,10 @@ class Channel:
 
             } for c in channels
         ]
+
+    @property
+    def topic_name(self):
+        return self.sender
 
     @property
     def balances_data(self):

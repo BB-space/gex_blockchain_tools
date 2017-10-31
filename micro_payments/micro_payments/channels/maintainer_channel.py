@@ -1,3 +1,4 @@
+import json
 import logging
 from copy import copy
 
@@ -25,9 +26,21 @@ class MaintainerChannel(Channel):
             random_n=b'',
             balances_data=None,
             state=Channel.State.open,
+            topic_holder=None,
             receiving_kafka: ReceivingKafka = None
     ):
-        Channel.__init__(self, client, sender, block, deposit, channel_fee, random_n, balances_data, state)
+        Channel.__init__(
+            self,
+            client,
+            sender,
+            block,
+            deposit,
+            channel_fee,
+            random_n,
+            balances_data,
+            state,
+            topic_holder
+        )
         self._receiving_kafka = receiving_kafka
 
     @property
@@ -43,12 +56,52 @@ class MaintainerChannel(Channel):
     def receiving_kafka(self):
         return self._receiving_kafka
 
-    @receiving_kafka.setter
-    def receiving_kafka(self, receiving_kafka: ReceivingKafka):
-        if self._receiving_kafka is not None:
+    def create_receiving_kafka(self):
+        if self._receiving_kafka is not None and isinstance(self._receiving_kafka, ReceivingKafka):
+            log.error('Kafka is already set, remove it first')
+            return
+        self._receiving_kafka = ReceivingKafka(
+            self.topic_name,
+            self.client.account,
+            '',
+            self.client.get_node_ip(self.topic_holder)
+        )
+
+    def stop_kafka(self):
+        if self._receiving_kafka is not None and \
+                isinstance(self._receiving_kafka, ReceivingKafka) and self._receiving_kafka.running:
             self._receiving_kafka.stop()
             del self._receiving_kafka
-        self._receiving_kafka = receiving_kafka
+        else:
+            log.error('Kafka is not set or not running')
+
+    def force_remove_kafka(self):
+        if self._receiving_kafka is not None:
+            try:
+                self._receiving_kafka.stop()
+            except:
+                log.error('There was an error stopping Receiving kafka')
+            del self._receiving_kafka
+
+    def config_and_start_kafka(self):
+        if self._receiving_kafka is None or not isinstance(self._receiving_kafka, ReceivingKafka):
+            log.error('Kafka receiver is not set or set incorrectly')
+            return
+
+        if self._receiving_kafka.running:
+            log.error('Kafka receiver is already running')
+            return
+
+        if self._receiving_kafka.stopped:
+            log.error('Kafka receiver was stopped, create a new one to continue')
+            return
+
+        def kafka_helper(message):
+            message_value = json.loads(message.value.decode('utf-8'))
+            self.set_new_balances(**message_value)  # TODO test
+
+        self._receiving_kafka.add_listener_function(kafka_helper)
+        self._receiving_kafka.start()
 
     def _is_cheating(self, balances_data) -> bool:
         if check_overspend(self.deposit, balances_data)[0]:

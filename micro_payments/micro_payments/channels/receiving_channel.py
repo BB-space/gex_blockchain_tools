@@ -23,8 +23,9 @@ class ReceivingChannel(MaintainerChannel):
             random_n=b'',
             balances_data=None,
             state=Channel.State.open,
-            my_balance: int = 0,
-            receiving_kafka: ReceivingKafka = None
+            topic_holder=None,
+            receiving_kafka: ReceivingKafka = None,
+            my_balance: int = 0
 
     ):
         MaintainerChannel.__init__(
@@ -37,6 +38,7 @@ class ReceivingChannel(MaintainerChannel):
             random_n,
             balances_data,
             state,
+            topic_holder,
             receiving_kafka
         )
         self._my_balance = my_balance

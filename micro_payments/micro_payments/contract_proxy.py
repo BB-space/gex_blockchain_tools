@@ -202,12 +202,13 @@ class ChannelContractProxy(ContractProxy):
         )
 
     def get_maintainer_registered_event_blocking(
-            self, sender, opening_block,
+            self, sender, opening_block, maintainer,
             from_block=0, to_block='latest', wait=DEFAULT_RETRY_INTERVAL, timeout=DEFAULT_TIMEOUT
     ):
         filters = {
             '_sender': sender,
-            '_open_block_number': opening_block
+            '_open_block_number': opening_block,
+            '_maintainer': maintainer
         }
 
         return self.get_event_blocking(

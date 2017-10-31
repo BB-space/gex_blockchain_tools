@@ -39,8 +39,7 @@ def create_receiver(request):
         topic,
         client_id,
         group_id,
-        bootstrap_servers,
-        # value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+        bootstrap_servers
     )
 
     def finalizer():

@@ -18,18 +18,12 @@ import random
 import unittest
 from ethereum.utils import encode_hex
 import microraiden.utils as utils
+from gex_chain.populus_utils import check_successful_tx
 from config import *
 try:
     from .config import *
 except:
     pass
-
-def check_successful_tx(web3: Web3, txid: str, timeout=180) -> dict:
-    receipt = wait_for_transaction_receipt(web3, txid, timeout=timeout)
-    txinfo = web3.eth.getTransaction(txid)
-    # assert txinfo['gas'] != receipt['gasUsed']  # why does this work?
-    return receipt
-
 
 def generate_wallets():
     for i in range(SENDERS - 1):

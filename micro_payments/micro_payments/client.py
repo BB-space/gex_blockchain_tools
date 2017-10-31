@@ -12,6 +12,7 @@ from web3 import Web3
 from web3.providers.rpc import RPCProvider
 
 from micro_payments.channels.sender_channel import SenderChannel
+from micro_payments.channels.receiving_channel import ReceivingChannel
 from micro_payments.channels.maintainer_channel import MaintainerChannel
 from micro_payments.channels.channel import Channel
 
@@ -26,10 +27,12 @@ class Client:
             key_password_path: str = None,
             channel_manager_address: str = None,
             token_address: str = None,
+            node_info_address: str = None,
             rpc: RPCProvider = None,
             web3: Web3 = None,
             channel_manager_proxy: ChannelContractProxy = None,
             token_proxy: ContractProxy = None,
+            node_info_proxy: ContractProxy = None,
             rpc_endpoint: str = '127.0.0.1',
             rpc_port: int = 8545,
             data_file_path: str = DATA_FILE_NAME
@@ -46,6 +49,7 @@ class Client:
         self.web3 = web3
         self.channel_manager_proxy = channel_manager_proxy
         self.token_proxy = token_proxy
+        self.node_info_proxy = node_info_proxy
 
         # Load private key from file if none is specified on command line.
         if not privkey:
@@ -74,13 +78,15 @@ class Client:
 
         # Create missing contract proxies.
         data_file_path = os.path.join(self.data_dir, data_file_path)
-        if not channel_manager_proxy or not token_proxy:
+        if not channel_manager_proxy or not token_proxy or not node_info_proxy:
             with open(data_file_path) as abi_file:
                 data_file = json.load(abi_file)
             if not channel_manager_address:
                 channel_manager_address = data_file['channels_address']
             if not token_address:
                 token_address = data_file['token_address']
+            if not node_info_address:
+                node_info_address = data_file['node_info_address']
 
             if not channel_manager_proxy:
                 channel_manager_abi = data_file['channels_abi']
@@ -97,6 +103,12 @@ class Client:
                 token_abi = data_file['token_abi']
                 self.token_proxy = ContractProxy(
                     self.web3, self.private_key, token_address, token_abi, GAS_PRICE, GAS_LIMIT
+                )
+
+            if not node_info_proxy:
+                node_info_abi = data_file['node_info_abi']
+                self.node_info_proxy = ContractProxy(
+                    self.web3, self.private_key, node_info_address, node_info_abi, GAS_PRICE, GAS_LIMIT
                 )
 
         assert self.web3
@@ -169,16 +181,14 @@ class Client:
                 event['args']['_random_n']
             )
             self.sender_channel = channel
-            # TODO think where to add the kafka_sender
+            # TODO add a listener and listen for a topic created event to create a sender_kafka
         else:
             log.info('Error: No event received.')
             channel = None
 
         return channel
 
-    # TODO think where to add KafkaReceivers
-
-    def maintain_channel(self, sender: str, open_block: int):  # TODO create a channel if I'm the first one
+    def maintain_channel(self, sender: str, open_block: int):
         channel = MaintainerChannel(self, sender, open_block)
 
         current_block = self.web3.eth.blockNumber
@@ -188,20 +198,74 @@ class Client:
 
         self.web3.eth.sendRawTransaction(tx)
 
-        log.info('Waiting for channel creation event on the blockchain...')
-        event = self.channel_manager_proxy.get_channel_created_event_blocking(
-            self.account, current_block + 1
+        log.info('Waiting for MaintainerRegistered event on the blockchain...')
+        maintainer_event = self.channel_manager_proxy.get_maintainer_registered_event_blocking(
+            sender, open_block, self.account, current_block + 1
         )
-        if event:
+        topic_created_event = self.channel_manager_proxy.get_channel_topic_created_logs(
+            current_block + 1, filters={
+                '_sender': sender,
+                '_open_block_number': open_block,
+                '_topic_holder': self.account
+            }
+        )
+        if maintainer_event:
+            if len(topic_created_event) > 0:
+                event = topic_created_event.pop(0)
+                # test check
+                assert event['args']['_topic_holder'] == self.account
+                # TODO create a topic here!
+
             self.maintaining_channels.append(channel)
-            # new listener for channel
+            channel.create_receiving_kafka()
+            channel.config_and_start_kafka()
+            # TODO register event listeners
+
             return channel
         else:
             log.error('No event received')
             return None
 
     def get_receiving_channel(self, sender):
-        pass
+        current_block = self.web3.eth.blockNumber
+
+        log.info('Waiting for channel creation event on the blockchain...')
+        event = self.channel_manager_proxy.get_channel_created_event_blocking(
+            sender, current_block + 1
+        )
+
+        if event:
+            log.info('Event received. Channel was created in block {}.'.format(event['blockNumber']))
+            channel = ReceivingChannel(
+                self,
+                event['args']['_sender'],
+                event['blockNumber'],
+                event['args']['_deposit'],
+                event['args']['_channel_fee'],
+                event['args']['_random_n']
+            )
+            self.receiving_channels.append(channel)
+            # TODO add a listener and listen for a topic created event to create a receiving_kafka
+        else:
+            log.info('Error: No event received.')
+            channel = None
+
+        return channel
 
     def add_receiving_channel(self, sender, open_block):
-        pass
+        try:
+            channel_info = self.channel_manager_proxy.contract.call().getChannelInfo(sender, open_block)
+        except ValueError:  # TODO check what error is actually raised
+            log.error('Channel for sender {} and block {} was not yet created or no maintainers registered'.format(
+                sender, open_block
+            ))
+            return None
+        channel = ReceivingChannel(self, sender, open_block, channel_info[1], channel_info[3], topic_holder=channel_info[4])
+        channel.create_receiving_kafka()
+        channel.config_and_start_kafka()
+        # TODO add a listener and listen
+        self.receiving_channels.append(channel)
+        return channel
+
+    def get_node_ip(self, node_address):
+        return self.node_info_proxy.contract.call().getIp(node_address)  # TODO test

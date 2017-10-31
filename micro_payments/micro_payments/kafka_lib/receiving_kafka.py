@@ -46,6 +46,14 @@ class ReceivingKafka:
         self._stopped = False
         self._running = False
 
+    @property
+    def running(self):
+        return self._running
+
+    @property
+    def stopped(self):
+        return self._stopped
+
     def add_listener_function(self, f, filters: dict = None, args=None) -> bool:
         if filters is None:
             filters = {}
@@ -73,7 +81,7 @@ class ReceivingKafka:
                     log.warning('Got message of type None')
                 else:
                     log.debug('Got message: {}'.format(message))
-                    self.handle_message(message)
+                    self._handle_message(message)
 
         except (ValueError, OSError) as error:
             if self._stopped:
@@ -88,7 +96,7 @@ class ReceivingKafka:
         elif isinstance(new_args, dict):
             Thread(target=listener[0], kwargs=new_args, daemon=True).start()
 
-    def handle_message(self, message):
+    def _handle_message(self, message):
         try:
             message_value = json.loads(message.value)
         except JSONDecodeError:
