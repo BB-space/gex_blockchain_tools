@@ -89,9 +89,9 @@ class User:
                 transfer.amount)
 
     def gas_callback(self, result):
-        #pass
-        print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
-            result['args']['_gas_remaining']))
+        pass
+        #print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
+        #    result['args']['_gas_remaining']))
 
 
 def mint_callback(result):
