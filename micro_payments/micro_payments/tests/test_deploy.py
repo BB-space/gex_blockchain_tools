@@ -5,108 +5,18 @@ from threading import Thread
 import os
 import logging
 from populus import Project
-from populus.utils.wait import wait_for_transaction_receipt
-from web3 import Web3
-from web3.utils.compat import (
-    Timeout,
-)
-from ecdsa import SigningKey, SECP256k1
-import sha3
+
 import sign
 import binascii
 import random
-import unittest
-from ethereum.utils import encode_hex
 import microraiden.utils as utils
 from gex_chain.populus_utils import check_successful_tx
-from config import *
-try:
-    from .config import *
-except:
-    pass
-
-def generate_wallets():
-    for i in range(SENDERS - 1):
-        priv_key, address = create_wallet()
-        private_keys.append(priv_key)
-        addresses.append('0x'+ address)
+from micro_payments.deploy.utils import read_from_file, generate_data, generate_wallets
+from micro_payments.deploy.config import CHAIN_NAME, signer_key_path, signer_pass_path,\
+    addresses, SENDERS, D160, private_keys, txn_wait, channel_lifetime, challenge_period
 
 
-def create_wallet():
-    keccak = sha3.keccak_256()
-    priv = SigningKey.generate(curve=SECP256k1)
-    pub = priv.get_verifying_key().to_string()
-    keccak.update(pub)
-    address = keccak.hexdigest()[24:]
-    return (encode_hex(priv.to_string()), address)
-
-
-def write_to_file(**kwargs):
-    path = kwargs.pop('file_path', FILE_PATH)
-    with open(path, 'w') as data_file:
-        json.dump(kwargs, data_file)
-
-
-def read_from_file():
-    with open(FILE_PATH) as data_file:
-        data = json.load(data_file)
-    return data
-
-
-def wait(transfer_filter, timeout=30):
-    with Timeout(timeout) as timeout:
-        while not transfer_filter.get(False):
-            timeout.sleep(2)
-
-
-def deploy_contracts():
-    if os.path.isfile(FILE_PATH) and \
-                    os.path.getmtime(FILE_PATH) > os.path.getmtime('../../contracts/MicroTransferChannels.sol'):
-        return
-
-    logging.info('Deploying new contracts')
-    project = Project()
-    with project.get_chain(CHAIN_NAME) as chain:
-        web3 = chain.web3
-        owner = web3.eth.accounts[0]
-        print(chain.provider)
-        token = chain.provider.get_contract_factory('GEXToken')  # This will be the abi of the token
-        tx_hash = token.deploy(transaction={'from': owner})  # the way we deploy contracts
-        receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)
-        token_address = receipt['contractAddress']
-        logging.info('{} address is {}'.format(token_name, token_address))
-
-        channel_factory = chain.provider.get_contract_factory('MicroTransferChannels')
-        tx_hash = channel_factory.deploy(
-            args=[token_address, challenge_period, channel_lifetime],
-            transaction={'from': owner}
-        )
-        receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)
-        channels_address = receipt['contractAddress']
-        logging.info('MicroTransferChannels address is {}'.format(channels_address))
-
-        # for sender in addresses:
-        #     token(token_address).transact({'from': owner}).transfer(sender, token_assign)
-        # for sender in sender_addresses:
-        #     token(token_address).transact({'from': owner}).transfer(sender, token_assign)
-
-    write_to_file(
-        channels_abi=channel_factory.abi,
-        token_abi=token.abi,
-        token_address=token_address,
-        channels_address=channels_address)
-    print('Deployed')
-
-
-def generate_data(amounts, address_list=addresses):
-    data = []
-    for i in range(len(amounts)):
-        data.append(D160 * amounts[i] + int(address_list[i], 0))
-    return data
-
-
-class TestMTC():
-
+class TestMTC:
     def __init__(self, name):
         self.name = name
 
@@ -393,33 +303,23 @@ class TestMTC():
             event_filter.watch(lambda x: self.logger.info(
                 'Event: {}, Transaction: {}, Args: {}'.format(x['event'], x['transactionHash'], x['args'])))
 
-if __name__ == '__main__':
-    # generate_wallets()
-    deploy_contracts()
-    # threads =  [Thread(name='Simple_Cycle', target=TestMTC('Simple_Cycle').simple_cycle),
-    #            Thread(name='Overspend', target=TestMTC('Overspend').test_overspend),
-    #            Thread(name='Cheating1', target=TestMTC('Cheating1').test_cheating1),
-    #            Thread(name='Cheating2', target=TestMTC('Cheating2').test_cheating2),
-    #            Thread(name='Cheating3', target=TestMTC('Cheating3').test_cheating3),
-    #            Thread(name='Ten_Payees', target=TestMTC('Ten_Payees').test_ten_payee_close),
-    #            Thread(name='Ten_Cheating', target=TestMTC('Ten_Cheating').test_ten_cheating)]
-    # for thread in threads:
-    #     thread.start()
-    #     time.sleep(25)
-    #
-    # for thread in threads:
-    #     thread.join()
-    heh = TestMTC('asd')
-    heh.set_up()
-    print(heh.channel.call().getBalanceMessage('0xf43b2675fc72ce6e48f7063dcf0ee74ad04d40ff', 87848, generate_data(
-        [41550],
-        ['0x6eb92ee56fec153d9efd2ab0a2f566af9b68cbcf']
-    )))
-    print(generate_data(
-        [41550],
-        ['0x6eb92ee56fec153d9efd2ab0a2f566af9b68cbcf']
-    ))
-    heh.get_all_events()
 
-    while True:
-        pass
+def run_all_tests():
+    generate_wallets()
+    threads = [Thread(name='Simple_Cycle', target=TestMTC('Simple_Cycle').simple_cycle),
+               Thread(name='Overspend', target=TestMTC('Overspend').test_overspend),
+               Thread(name='Cheating1', target=TestMTC('Cheating1').test_cheating1),
+               Thread(name='Cheating2', target=TestMTC('Cheating2').test_cheating2),
+               Thread(name='Cheating3', target=TestMTC('Cheating3').test_cheating3),
+               Thread(name='Ten_Payees', target=TestMTC('Ten_Payees').test_ten_payee_close),
+               Thread(name='Ten_Cheating', target=TestMTC('Ten_Cheating').test_ten_cheating)]
+
+    for thread in threads:
+        thread.start()
+        time.sleep(25)
+
+    for thread in threads:
+        thread.join()
+
+if __name__ == '__main__':
+    run_all_tests()
