@@ -103,9 +103,10 @@ contract MicroTransferChannels {
      *  Constructor
      */
 
-    /// @dev Constructor for creating the Raiden microtransfer channels contract.
+    /// @dev Constructor for creating the MicroTransfer channels contract.
     /// @param _token The address of the token_223 used by the channels.
-    /// @param _challenge_period A fixed number of blocks representing the challenge period after a sender requests the closing of the channel without the receivers's signature.
+    /// @param _challenge_period A fixed number of blocks representing the challenge period after someone requests the closing of the channel
+    /// @param _channel_lifetime A fixed number of blocks representing the time that has to pass from the opening of a channel before it can be closed
     function MicroTransferChannels(address _token, uint8 _challenge_period, uint8 _channel_lifetime) {
         require(_token != 0x0);
         require(_challenge_period > 0);

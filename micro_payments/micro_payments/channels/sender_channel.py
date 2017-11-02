@@ -6,6 +6,7 @@ from gex_chain.utils import convert_balances_data, check_overspend, BalancesData
 from gex_chain.utils import get_data_for_token
 from micro_payments.channels.channel import Channel
 from micro_payments.kafka_lib.sender_kafka import SenderKafka
+from micro_payments.event_listener.listener import Listener
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class SenderChannel(Channel):
 
         super().__init__(client, sender, block, deposit, channel_fee, random_n, balances_data, state, topic_holder)
         self._kafka_sender = kafka_sender
+        self._topic_event_listener = None  # type: Listener
 
     @property
     def balances_data(self):
@@ -46,12 +48,28 @@ class SenderChannel(Channel):
     def kafka_sender(self):
         return self._kafka_sender
 
-    @kafka_sender.setter
-    def kafka_sender(self, kafka_sender: SenderKafka):
+    def _create_kafka_sender(self, bootstrap_server):
         if self._kafka_sender is not None:
             self._kafka_sender.close()
             del self._kafka_sender
-        self._kafka_sender = kafka_sender
+        self._kafka_sender = SenderKafka(self.topic_name, bootstrap_server)
+
+    def topic_created_callback(self, event):
+        assert event['event'] == 'ChannelTopicCreated'
+        event_args = event['args']
+        assert event_args['_sender'] == self.sender
+        assert event_args['_open_block_number'] == self.block
+        self._topic_event_listener.stop()
+        del self._topic_event_listener
+        self.topic_holder = event_args['_topic_holder']
+        ip = self.client.get_node_ip(self.topic_holder)
+        self._create_kafka_sender(ip)
+
+    def set_topic_event_listener(self, listener: Listener):
+        if listener.stopped:
+            log.error('The listener you are trying to set was stopped')
+            return
+        self._topic_event_listener = listener
 
     def sign(self):
         return sign_balance_proof(self.client.privkey, self.sender, self.block, self._balances_data)
@@ -67,9 +85,10 @@ class SenderChannel(Channel):
         token_balance = self.client.token_proxy.contract.call().balanceOf(self.client.account)
         if token_balance < deposit:
             log.error(
-                'Insufficient tokens available for the specified topup ({}/{})'
+                'Insufficient tokens available for the specified top up ({}/{})'
                 .format(token_balance, deposit)
             )
+            return
 
         log.info('Topping up channel created at block #{} by {} tokens.'.format(
             self.block, deposit

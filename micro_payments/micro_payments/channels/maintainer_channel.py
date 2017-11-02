@@ -1,12 +1,11 @@
 import json
 import logging
-from copy import copy
 
-from gex_chain.crypto import sign_balance_proof
-from gex_chain.utils import convert_balances_data, check_overspend, BalancesData, is_cheating
-from gex_chain.utils import get_data_for_token
+from gex_chain.utils import convert_balances_data, check_overspend, BalancesData, is_cheating,\
+    get_balances_data, compare_balances_data
 from micro_payments.channels.channel import Channel, check_sign_with_logger
 from micro_payments.kafka_lib.receiving_kafka import ReceivingKafka
+from micro_payments.event_listener.listener import Listener
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +41,7 @@ class MaintainerChannel(Channel):
             topic_holder
         )
         self._receiving_kafka = receiving_kafka
+        self._event_listeners = []
 
     @property
     def balances_data(self):
@@ -49,12 +49,20 @@ class MaintainerChannel(Channel):
 
     @balances_data.setter
     def balances_data(self, value: BalancesData):
-        log.error('You cannot set new data, use set_new_balances')
+        log.error('One does not simply set new data, use set_new_balances')
         return
 
     @property
     def receiving_kafka(self):
         return self._receiving_kafka
+
+    def _if_not_closed(self, f):
+        def decorated(*args, **kwargs):
+            if self.state == Channel.State.closed:
+                log.error('The channel is already closed')
+                return None
+            return f(*args, **kwargs)
+        return decorated
 
     def create_receiving_kafka(self):
         if self._receiving_kafka is not None and isinstance(self._receiving_kafka, ReceivingKafka):
@@ -79,8 +87,8 @@ class MaintainerChannel(Channel):
         if self._receiving_kafka is not None:
             try:
                 self._receiving_kafka.stop()
-            except:
-                log.error('There was an error stopping Receiving kafka')
+            except Exception as ex:
+                log.error('There was an error stopping Receiving kafka: {}'.format(ex))
             del self._receiving_kafka
 
     def config_and_start_kafka(self):
@@ -145,19 +153,25 @@ class MaintainerChannel(Channel):
             log.error('No event received.')
             return None
 
+    @_if_not_closed
     @check_sign_with_logger(log)
     def set_new_balances(self, balances_data: BalancesData, balances_data_sig: bytes):
         cheating = self._is_cheating(balances_data)
         if cheating is None:
-            log.error('Got wrong new balances data (probably wrong order)')
-            return
+            log.error('Got wrong balances data (probably wrong order)')
+            return None
         if cheating:
             self._report_cheating(balances_data, balances_data_sig)
+            return None
         else:
-            self._balances_data = balances_data
-            self._balances_data_converted = convert_balances_data(balances_data)
-            self._balances_data_sig = balances_data_sig
+            balances_diff = compare_balances_data(self.balances_data, balances_data)
+            if balances_diff and balances_diff > 0:
+                self._balances_data = balances_data
+                self._balances_data_converted = convert_balances_data(balances_data)
+                self._balances_data_sig = balances_data_sig
+            return self.balances_data
 
+    @_if_not_closed
     def submit_later_transaction(self):
         if self.balances_data_converted is None:
             log.error('No data to send!')
@@ -190,3 +204,33 @@ class MaintainerChannel(Channel):
         else:
             log.error('No event received.')
             return None
+
+    def balances_changed_callback(self, event):
+        assert event['event'] == 'ClosingBalancesChanged'
+        event_args = event['args']
+        assert event_args['_sender'] == self.sender
+        assert event_args['_open_block_number'] == self.block
+        new_balances = get_balances_data(event_args['_payment_data'])
+        if new_balances == self.balances_data:
+            return
+        else:
+            balances_diff = compare_balances_data(self.balances_data, new_balances)
+            if balances_diff and balances_diff < 0:
+                self.submit_later_transaction()
+
+    def settle_callback(self, event):
+        assert event['event'] == 'ChannelSettled'
+        event_args = event['args']
+        assert event_args['_sender'] == self.sender
+        assert event_args['_open_block_number'] == self.block
+        for listener in self._event_listeners:
+            listener.stop()
+        log.info('Channel with sender {} open on block {} was settled in block {}. Removing channel'.format(
+            self.sender, self.block, event['blockNumber']
+        ))
+        self.client.maintaining_channels.remove(self)
+
+    @_if_not_closed
+    def add_listener(self, listener: Listener):
+        if self.state != Channel.State.closed:
+            self._event_listeners.append(listener)

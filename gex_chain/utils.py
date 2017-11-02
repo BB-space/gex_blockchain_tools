@@ -13,7 +13,8 @@ from typing import List, Tuple
 
 Address = str
 Balance = int
-BalancesData = List[Tuple[Address, Balance]]
+BalancePair = Tuple[Address, Balance]
+BalancesData = List[BalancePair]
 BalancesDataConverted = List[int]
 D160 = 2 ** 160
 
@@ -22,9 +23,9 @@ log = logging.getLogger(__name__)
 
 
 def get_data_for_token(first_byte: int, last_bytes: int) -> bytes:
-    data_bytes = (first_byte).to_bytes(5, byteorder='little')
+    data_bytes = first_byte.to_bytes(5, byteorder='little')
     data_int = int.from_bytes(data_bytes, byteorder='big') + last_bytes
-    data_bytes = (data_int).to_bytes(5, byteorder='big')
+    data_bytes = data_int.to_bytes(5, byteorder='big')
     return data_bytes
 
 
@@ -33,6 +34,31 @@ def convert_balances_data(balances_data: BalancesData) -> BalancesDataConverted:
     for pair in balances_data:
         data.append(D160 * pair[1] + int(pair[0], 0))
     return data
+
+
+def get_balances_data(balances_data_converted: BalancesDataConverted) -> BalancesData:
+    data = BalancesData()
+    for entry in balances_data_converted:
+        data.append(BalancePair(address_from_int(entry % D160), entry / D160))
+    return data
+
+
+def compare_balances_data(old_balances: BalancesData, new_balances: BalancesData) -> int or None:
+    balance = 0
+    for i in range(len(old_balances)):
+        if old_balances[i][0] == new_balances[i][0]:
+            balance += new_balances[i][1]
+            balance -= old_balances[i][1]
+        else:
+            return None
+    if len(new_balances) > len(old_balances):
+        for i in range(len(new_balances) - len(old_balances) + 1, len(new_balances)):
+            balance += new_balances[i][1]
+    return balance
+
+
+def address_from_int(number) -> Address:
+    return hex(number)
 
 
 def check_overspend(deposit: int, balances_data: BalancesData) -> Tuple[bool, int]:
@@ -76,8 +102,6 @@ def is_cheating(right_balances: BalancesData, wrong_balances: BalancesData):
             return True
         else:
             return False
-
-
 
 
 def parse_balance_proof_msg(proxy, receiver, open_block_number, balance, signature):

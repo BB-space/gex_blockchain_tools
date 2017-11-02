@@ -11,6 +11,17 @@ from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
 from web3 import Web3
 from web3.providers.rpc import RPCProvider
 
+
+from micro_payments.event_listener.listener import (
+    listen_for_balances_change,
+    listen_for_channel_closing,
+    listen_for_channel_creation,
+    listen_for_channel_settle,
+    listen_for_channel_top_up,
+    listen_for_cheating_report,
+    listen_for_maintainer_registration,
+    listen_for_topic_creation
+)
 from micro_payments.channels.sender_channel import SenderChannel
 from micro_payments.channels.receiving_channel import ReceivingChannel
 from micro_payments.channels.maintainer_channel import MaintainerChannel
@@ -181,7 +192,12 @@ class Client:
                 event['args']['_random_n']
             )
             self.sender_channel = channel
-            # TODO add a listener and listen for a topic created event to create a sender_kafka
+            channel.set_topic_event_listener(listen_for_topic_creation(
+                self.channel_manager_proxy.contract,
+                {'filters': {'_sender': self.account, '_open_block_number': channel.block}},
+                channel.topic_created_callback
+            ))
+
         else:
             log.info('Error: No event received.')
             channel = None
@@ -213,12 +229,18 @@ class Client:
             if len(topic_created_event) > 0:
                 event = topic_created_event.pop(0)
                 # test check
-                assert event['args']['_topic_holder'] == self.account
-                # TODO create a topic here!
+                if event['args']['_topic_holder'] == self.account:
+                    log.info('I am the topic_holder of the channel {}, {}'.format(
+                        event['args']['_sender'],
+                        event['args']['_open_block_number']
+                    ))
+                    pass
+                    # TODO create a topic here!
 
             self.maintaining_channels.append(channel)
             channel.create_receiving_kafka()
             channel.config_and_start_kafka()
+            channel.set
             # TODO register event listeners
 
             return channel

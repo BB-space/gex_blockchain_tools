@@ -48,20 +48,12 @@ class ReceivingChannel(MaintainerChannel):
     def my_balance(self):
         return self._my_balance
 
-    @check_sign_with_logger(log)
     def set_new_balances(self, balances_data: BalancesData, balances_data_sig: bytes):
-        cheating = self._is_cheating(balances_data)
-        if cheating is None:
-            log.error('Got wrong new balances data (probably wrong order)')
-            return
-        if cheating:
-            self._report_cheating(balances_data, balances_data_sig)
-        else:
-            self._balances_data = balances_data
-            self._balances_data_converted = convert_balances_data(balances_data)
-            self._balances_data_sig = balances_data_sig
+        value = super(self.__class__, self).set_new_balances(balances_data, balances_data_sig)  # TODO test
+        if value:
             for pair in balances_data:
                 if pair[0] == self.client.account:
                     self._my_balance = pair[1]
-
-        return self.my_balance
+            return self.my_balance
+        else:
+            return None

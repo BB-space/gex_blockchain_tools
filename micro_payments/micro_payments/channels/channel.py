@@ -92,7 +92,7 @@ class Channel:
 
     @property
     def topic_name(self):
-        return self.sender
+        return "{}_{}".format(self.sender, self.block)
 
     @property
     def balances_data(self):
