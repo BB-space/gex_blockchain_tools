@@ -18,7 +18,6 @@ def deploy_contracts():
     with project.get_chain(CHAIN_NAME) as chain:
         web3 = chain.web3
         owner = web3.eth.accounts[0]
-        print(chain.provider)
 
         token_factory = chain.provider.get_contract_factory('GEXToken')  # This will be the abi of the token
         tx_hash = token_factory.deploy(transaction={'from': owner})  # the way we deploy contracts
