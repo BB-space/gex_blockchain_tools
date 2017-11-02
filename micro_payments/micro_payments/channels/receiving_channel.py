@@ -1,7 +1,7 @@
 import logging
-from gex_chain.utils import convert_balances_data, check_overspend, BalancesData, is_cheating
+from gex_chain.utils import BalancesData
 from micro_payments.channels.maintainer_channel import MaintainerChannel
-from micro_payments.channels.channel import Channel, check_sign_with_logger
+from micro_payments.channels.channel import Channel
 from micro_payments.kafka_lib.receiving_kafka import ReceivingKafka
 
 

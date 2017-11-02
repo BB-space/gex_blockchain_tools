@@ -240,8 +240,18 @@ class Client:
             self.maintaining_channels.append(channel)
             channel.create_receiving_kafka()
             channel.config_and_start_kafka()
-            channel.set
-            # TODO register event listeners
+            settle_listener = listen_for_channel_settle(
+                self.channel_manager_proxy.contract,
+                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+                channel.settle_callback
+            )
+            balances_listener = listen_for_balances_change(
+                self.channel_manager_proxy.contract,
+                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+                channel.balances_changed_callback
+            )
+            channel.add_listener(settle_listener)
+            channel.add_listener(balances_listener)
 
             return channel
         else:
@@ -267,6 +277,18 @@ class Client:
                 event['args']['_random_n']
             )
             self.receiving_channels.append(channel)
+            settle_listener = listen_for_channel_settle(
+                self.channel_manager_proxy.contract,
+                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+                channel.settle_callback
+            )
+            balances_listener = listen_for_balances_change(
+                self.channel_manager_proxy.contract,
+                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+                channel.balances_changed_callback
+            )
+            channel.add_listener(settle_listener)
+            channel.add_listener(balances_listener)
             # TODO add a listener and listen for a topic created event to create a receiving_kafka
         else:
             log.info('Error: No event received.')

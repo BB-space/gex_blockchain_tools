@@ -64,6 +64,7 @@ class MaintainerChannel(Channel):
             return f(*args, **kwargs)
         return decorated
 
+    @_if_not_closed
     def create_receiving_kafka(self):
         if self._receiving_kafka is not None and isinstance(self._receiving_kafka, ReceivingKafka):
             log.error('Kafka is already set, remove it first')
@@ -91,6 +92,7 @@ class MaintainerChannel(Channel):
                 log.error('There was an error stopping Receiving kafka: {}'.format(ex))
             del self._receiving_kafka
 
+    @_if_not_closed
     def config_and_start_kafka(self):
         if self._receiving_kafka is None or not isinstance(self._receiving_kafka, ReceivingKafka):
             log.error('Kafka receiver is not set or set incorrectly')

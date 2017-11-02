@@ -116,7 +116,7 @@ class SenderChannel(Channel):
             log.error('No event received.')
             return None
 
-    def create_transfer(self, balances_data: BalancesData):  # TODO
+    def create_transfer(self, balances_data: BalancesData):
         """
         Updates the given channel's balance and balance signature with the new value. The signature
         is returned and stored in the channel state.

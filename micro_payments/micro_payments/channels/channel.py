@@ -58,6 +58,7 @@ class Channel:
         self.topic_holder = topic_holder
 
         assert self.block is not None
+        self.update()
 
     @staticmethod
     def deserialize(client, channels_raw: dict):
@@ -118,6 +119,23 @@ class Channel:
     def state(self, new_state):
         assert new_state > self._state
         self._state = new_state
+
+    def update(self):
+        try:
+            info = self.client.channel_manager_proxy.contract.call().getChannelInfo(self.sender, self.block)
+            self.deposit = info[1]
+            self.channel_fee = info[3]
+            self.topic_holder = info[4]
+        except Exception as ex:
+            log.error('Could not get Channel info. Either the channel does not exist, or no maintainers are '
+                      'registered yet')
+            return
+
+        try:
+            self.client.channel_manager_proxy.contract.call().getChannelInfo(self.sender, self.block)
+            self.state = Channel.State.settling
+        except Exception as ex:
+            log.error('Could not get Closing requests info. The request does not exist')
 
     def close(self):
         """
