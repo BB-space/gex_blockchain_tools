@@ -1,6 +1,6 @@
 {
   "chains": {
-    "privtest": {
+    "localtest": {
       "chain": {
         "class": "populus.chain.ExternalChain"
       },
@@ -25,6 +25,36 @@
           "class": "web3.providers.rpc.RPCProvider",
           "settings": {
             "host": "127.0.0.1",
+            "port": 8545
+          }
+        }
+      }
+    },
+    "privtest": {
+      "chain": {
+        "class": "populus.chain.ExternalChain"
+      },
+      "contracts": {
+        "backends": {
+          "JSONFile": {
+            "$ref": "contracts.backends.JSONFile"
+          },
+          "Memory": {
+            "$ref": "contracts.backends.Memory"
+          },
+          "ProjectContracts": {
+            "$ref": "contracts.backends.ProjectContracts"
+          },
+          "TestContracts": {
+            "$ref": "contracts.backends.TestContracts"
+          }
+        }
+      },
+      "web3": {
+        "provider": {
+          "class": "web3.providers.rpc.RPCProvider",
+          "settings": {
+            "host": "10.1.0.57",
             "port": 8545
           }
         }

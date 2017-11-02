@@ -9,4 +9,4 @@ loadScript("/media/khotkevych/594caf8b-ae44-489c-a7f2-b2633048db85/projects/cros
 
 ethereumwallet --rpc http://localhost:8545
 
-geth --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" console
+geth --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" --rpcaddr "0.0.0.0" console

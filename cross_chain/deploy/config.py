@@ -1,3 +1,4 @@
 FILE_PATH = '../data.json'
-CHAIN_NAME = 'privtest'
+LOCAL_CHAIN_NAME = 'localtest'
+REMOTE_CHAIN_NAME = 'privtest'
 txn_wait = 250
