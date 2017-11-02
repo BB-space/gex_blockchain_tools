@@ -7,8 +7,6 @@ miner.stop()
 solc --abi contracts/ExampleContract.sol
 loadScript("/media/khotkevych/594caf8b-ae44-489c-a7f2-b2633048db85/projects/cross-chain/sign_test.js")
 
-
-geth --dev --rpc --rpcaddr "0.0.0.0" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" console
 ethereumwallet --rpc http://localhost:8545
 
 geth --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" console

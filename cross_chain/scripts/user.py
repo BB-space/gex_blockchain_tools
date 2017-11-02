@@ -5,6 +5,10 @@ import sys
 
 sys.path.append('../../gex_chain')
 from sign import sha3
+try:
+    from .config import *
+except SystemError:
+    from config import *
 
 
 # 'is_gex_net' means that token is transferring (burning) from GEX network to Ethereum network (minting).
@@ -32,19 +36,17 @@ class Transfer:
 
 # todo save events to db
 # todo single instance
+# todo save passwords
 class User:
-    # todo save passwords
-    password = "123"
-    password_unlock_duration = 120
-    flask_port = 3333
+
     transfers = {}
 
     def __init__(self):
-        with open('../data.json') as data_file:
+        with open(FILE_PATH) as data_file:
             data = json.load(data_file)
 
-        self.web3gex = Web3(HTTPProvider('http://localhost:8545'))
-        self.web3eth = Web3(HTTPProvider('http://localhost:8545'))
+        self.web3gex = Web3(HTTPProvider(gex_chain))
+        self.web3eth = Web3(HTTPProvider(eth_chain))
         self.gexContract = self.web3gex.eth.contract(contract_name='GexContract', address=data['GexContract'],
                                                      abi=data['GexContract_abi'])
         self.ethContract = self.web3eth.eth.contract(contract_name='EthContract', address=data['EthContract'],
@@ -70,9 +72,9 @@ class User:
         transfer = Transfer(addr_from, addr_to, amount, is_gex_net, self.web3gex, self.web3eth, self.gexContract,
                             self.ethContract)
         # todo change address
-        transfer.minting_net.personal.unlockAccount(transfer.minting_net.eth.accounts[0], self.password,
-                                                    self.password_unlock_duration)
-        transfer.minting_contract.transact({'from': transfer.minting_net.eth.accounts[0]}).mintRequest(
+        transfer.minting_net.personal.unlockAccount(transfer.addr_to, password,
+                                                    password_unlock_duration)
+        transfer.minting_contract.transact({'from': transfer.addr_to}).mintRequest(
             transfer.block_number, transfer.addr_from, transfer.addr_to, transfer.amount)
         self.transfers[transfer.event_id] = transfer
 
@@ -82,18 +84,17 @@ class User:
         if event_id in self.transfers:
             print("Burning")
             transfer = self.transfers[event_id]
-            transfer.burning_net.personal.unlockAccount(transfer.burning_net.eth.accounts[0], self.password,
-                                                        self.password_unlock_duration)
-            transfer.burning_contract.transact({'from': transfer.burning_net.eth.accounts[0]}).burn(
+            transfer.burning_net.personal.unlockAccount(transfer.addr_from, password,password_unlock_duration)
+            transfer.burning_contract.transact({'from': transfer.addr_from}).burn(
                 result['args']['event_id'], transfer.block_number, transfer.addr_from, transfer.addr_to,
                 transfer.amount)
 
     def gas_callback(self, result):
         pass
-        #    print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
-        #       result['args']['_gas_remaining']))
+        #print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
+        #    result['args']['_gas_remaining']))
 
-''''
+
 def mint_callback(result):
     print("Mint")
 
@@ -101,7 +102,7 @@ def mint_callback(result):
 def burn_callback(result):
     print("Burn")
 
-
+''''
 web3 = Web3(HTTPProvider('http://localhost:8545'))
 
 with open('../data.json') as data_file:
