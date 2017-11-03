@@ -34,6 +34,38 @@ class SenderChannel(Channel):
         self._kafka_sender = kafka_sender
         self._topic_event_listener = None  # type: Listener
 
+    @staticmethod
+    def deserialize(client, channels_raw: dict):
+        return [
+            Channel(
+                client,
+                craw['sender'],
+                craw['block'],
+                craw['deposit'],
+                craw['channel_fee'],
+                craw['random_n'],
+                craw['balances_data'],
+                Channel.State(craw['state'])
+            )
+            for craw in channels_raw
+        ]
+
+    @staticmethod
+    def serialize(channels):
+        return [
+            {
+                'sender': c.sender,
+                'deposit': c.deposit,
+                'block': c.block,
+                'channel_fee': c.channel_fee,
+                'random_n': c.random_n,
+                'balances_data': c.balances_data,
+                'balances_data_sig': c.balances_data_sig,
+                'state': c.state
+
+            } for c in channels
+        ]
+
     @property
     def balances_data(self):
         return self._balances_data

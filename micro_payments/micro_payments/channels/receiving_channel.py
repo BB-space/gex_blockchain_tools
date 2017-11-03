@@ -22,6 +22,7 @@ class ReceivingChannel(MaintainerChannel):
             channel_fee=0,
             random_n=b'',
             balances_data=None,
+            balances_data_sig=None,
             state=Channel.State.open,
             topic_holder=None,
             receiving_kafka: ReceivingKafka = None,
@@ -37,6 +38,7 @@ class ReceivingChannel(MaintainerChannel):
             channel_fee,
             random_n,
             balances_data,
+            balances_data_sig,
             state,
             topic_holder,
             receiving_kafka

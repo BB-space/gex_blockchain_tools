@@ -7,7 +7,9 @@ def test_create_channel(create_client):
 
 
 def test_create_transfer(create_client):
-    assert create_client.sender_channel.create_transfer([(create_client.web3.eth.accounts[1], create_client.sender_channel.deposit - 100)])
+    assert create_client.sender_channel.create_transfer(
+        [(create_client.web3.eth.accounts[1], create_client.sender_channel.deposit - 100)]
+    )
     assert create_client.channel_manager_proxy.contract.call().verifyBalanceProof(
         create_client.web3.eth.accounts[0],
         create_client.sender_channel.block,

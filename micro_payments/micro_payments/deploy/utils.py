@@ -5,6 +5,7 @@ import json
 from ecdsa import SigningKey, SECP256k1
 import sha3
 
+
 def generate_data(amounts, address_list=addresses):
     data = []
     for i in range(len(amounts)):

@@ -1,5 +1,6 @@
 import logging
 from enum import Enum
+from typing import List
 
 from gex_chain.utils import check_overspend
 from gex_chain.crypto import eth_verify, get_balance_message
@@ -56,6 +57,7 @@ class Channel:
             self.balances_data = balances_data
         self._state = state
         self.topic_holder = topic_holder
+        self.close_listener = None
 
         assert self.block is not None
         self.update()
@@ -71,13 +73,14 @@ class Channel:
                 craw['channel_fee'],
                 craw['random_n'],
                 craw['balances_data'],
-                craw['state']
+                Channel.State(craw['state']),
+                craw['topic_holder']
             )
             for craw in channels_raw
         ]
 
     @staticmethod
-    def serialize(channels):
+    def serialize(channels: List[__class__]):
         return [
             {
                 'sender': c.sender,
@@ -86,7 +89,8 @@ class Channel:
                 'channel_fee': c.channel_fee,
                 'random_n': c.random_n,
                 'balances_data': c.balances_data,
-                'state': c.state
+                'state': c.state,
+                'topic_holder': c.topic_holder
 
             } for c in channels
         ]
@@ -163,6 +167,9 @@ class Channel:
                 event['blockNumber']
             ))
             self.state = Channel.State.settling
+            if self.close_listener:
+                self.close_listener.stop()
+                del self.close_listener
             return event
         else:
             log.error('No event received.')
@@ -207,6 +214,16 @@ class Channel:
         else:
             log.error('No event received.')
             return None
+
+    def close_callback(self, event):
+        assert event['event'] == 'ChannelCloseRequested'
+        event_args = event['args']
+        assert event_args['_sender'] == self.sender
+        assert event_args['_open_block_number'] == self.block
+        self.state = Channel.State.settling
+        log.info('Channel with sender {} open on block {} was settled in block {}. Removing channel'.format(
+            self.sender, self.block, event['blockNumber']
+        ))
 
     def is_valid(self) -> bool:
         return self.sign() == self.balance_sig and not check_overspend(self.deposit, self._balances_data)[0]

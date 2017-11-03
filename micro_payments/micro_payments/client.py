@@ -147,6 +147,33 @@ class Client:
     def register_maintainer_listeners(self):
         pass
 
+    def add_listeners_to_channel(self, channel):
+        settle_listener = listen_for_channel_settle(
+            self.channel_manager_proxy.contract,
+            {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+            channel.settle_callback
+        )
+        balances_listener = listen_for_balances_change(
+            self.channel_manager_proxy.contract,
+            {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+            channel.balances_changed_callback
+        )
+        close_listener = listen_for_channel_closing(
+            self.channel_manager_proxy.contract,
+            {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+            channel.close_callback
+        )
+        if channel.topic_holder is None:
+            topic_listener = listen_for_topic_creation(
+                self.channel_manager_proxy.contract,
+                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
+                channel.topic_created_callback
+            )
+            channel._topic_event_listener = topic_listener
+        channel.close_listener = close_listener
+        channel.add_listener(settle_listener)
+        channel.add_listener(balances_listener)
+
     def open_channel(self, deposit: int, channel_fee: int):
         """
         Attempts to open a new channel with the given deposit. Blocks until the
@@ -240,18 +267,7 @@ class Client:
             self.maintaining_channels.append(channel)
             channel.create_receiving_kafka()
             channel.config_and_start_kafka()
-            settle_listener = listen_for_channel_settle(
-                self.channel_manager_proxy.contract,
-                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
-                channel.settle_callback
-            )
-            balances_listener = listen_for_balances_change(
-                self.channel_manager_proxy.contract,
-                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
-                channel.balances_changed_callback
-            )
-            channel.add_listener(settle_listener)
-            channel.add_listener(balances_listener)
+            self.add_listeners_to_channel(channel)
 
             return channel
         else:
@@ -277,19 +293,7 @@ class Client:
                 event['args']['_random_n']
             )
             self.receiving_channels.append(channel)
-            settle_listener = listen_for_channel_settle(
-                self.channel_manager_proxy.contract,
-                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
-                channel.settle_callback
-            )
-            balances_listener = listen_for_balances_change(
-                self.channel_manager_proxy.contract,
-                {'filters': {'_sender': channel.sender, '_open_block_number': channel.block}},
-                channel.balances_changed_callback
-            )
-            channel.add_listener(settle_listener)
-            channel.add_listener(balances_listener)
-            # TODO add a listener and listen for a topic created event to create a receiving_kafka
+            self.add_listeners_to_channel(channel)
         else:
             log.info('Error: No event received.')
             channel = None
@@ -307,7 +311,6 @@ class Client:
         channel = ReceivingChannel(self, sender, open_block, channel_info[1], channel_info[3], topic_holder=channel_info[4])
         channel.create_receiving_kafka()
         channel.config_and_start_kafka()
-        # TODO add a listener and listen
         self.receiving_channels.append(channel)
         return channel
 

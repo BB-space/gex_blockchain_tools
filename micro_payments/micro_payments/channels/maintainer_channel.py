@@ -1,6 +1,8 @@
 import json
 import logging
+from typing import List
 
+from gex_chain.crypto import eth_verify, get_balance_message
 from gex_chain.utils import convert_balances_data, check_overspend, BalancesData, is_cheating,\
     get_balances_data, compare_balances_data
 from micro_payments.channels.channel import Channel, check_sign_with_logger
@@ -24,6 +26,7 @@ class MaintainerChannel(Channel):
             channel_fee=0,
             random_n=b'',
             balances_data=None,
+            balances_data_sig=None,
             state=Channel.State.open,
             topic_holder=None,
             receiving_kafka: ReceivingKafka = None
@@ -40,8 +43,54 @@ class MaintainerChannel(Channel):
             state,
             topic_holder
         )
+        if balances_data_sig is not None and balances_data is not None:
+            if self.sender != eth_verify(
+                    balances_data_sig,
+                    get_balance_message(self.sender, self.block, balances_data)
+            ):
+                log.error('The given balances data and signature does not match')
+            else:
+                self._balances_data = balances_data
+                self._balances_data_sig = balances_data_sig
+        self._topic_event_listener = None
         self._receiving_kafka = receiving_kafka
         self._event_listeners = []
+
+    @staticmethod
+    def deserialize(client, channels_raw: List[dict]):
+        channels = [
+            MaintainerChannel(
+                client,
+                craw['sender'],
+                craw['block'],
+                craw['deposit'],
+                craw['channel_fee'],
+                craw['random_n'],
+                craw['balances_data'],
+                craw['balances_data_sig'],
+                Channel.State(craw['state']),
+                craw['topic_holder']
+            )
+            for craw in channels_raw
+        ]
+        return channels
+
+    @staticmethod
+    def serialize(channels: List[__class__]):
+        return [
+            {
+                'sender': c.sender,
+                'deposit': c.deposit,
+                'block': c.block,
+                'channel_fee': c.channel_fee,
+                'random_n': c.random_n,
+                'balances_data': c.balances_data,
+                'balances_data_sig': c.balance_sig,
+                'state': c.state,
+                'topic_holder': c.topic_holder
+
+            } for c in channels
+        ]
 
     @property
     def balances_data(self):
@@ -227,10 +276,26 @@ class MaintainerChannel(Channel):
         assert event_args['_open_block_number'] == self.block
         for listener in self._event_listeners:
             listener.stop()
+        if self.close_listener:
+            self.close_listener.stop()
+            del self.close_listener
         log.info('Channel with sender {} open on block {} was settled in block {}. Removing channel'.format(
             self.sender, self.block, event['blockNumber']
         ))
+        self.state = Channel.State.closed
         self.client.maintaining_channels.remove(self)
+
+    def topic_created_callback(self, event):
+        assert event['event'] == 'ChannelTopicCreated'
+        event_args = event['args']
+        assert event_args['_sender'] == self.sender
+        assert event_args['_open_block_number'] == self.block
+        self._topic_event_listener.stop()
+        del self._topic_event_listener
+        self.topic_holder = event_args['_topic_holder']
+        self.create_receiving_kafka()
+        self.config_and_start_kafka()
+
 
     @_if_not_closed
     def add_listener(self, listener: Listener):
