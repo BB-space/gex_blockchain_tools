@@ -6,10 +6,6 @@ data.json
 tmp.py
 .cache
 
-#cross_chain
-cross_chain/node_modules/
-cross_chain/package.json
-
 # micro_payments
 micro_payments/env
 /micro_payments/docs/

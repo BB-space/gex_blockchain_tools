@@ -52,8 +52,32 @@ class TestGeneral:
         sha3_solidity = web3.toHex(gex_contract.call().generateEventID(block_number, addr_from, addr_to, amount))
         assert sha3_python == sha3_solidity
 
-# remote "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313" "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662"
-# local  "0xb4b6ce377ce9ac66e84417b2a463f45e49262b0d" "0x12d959f34cab3d5db2559403ab474e1c1af143f8"
+    def xor_strings(self, xs, ys):
+        return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(xs, ys))
+
+    @pytest.mark.parametrize(('block_number', 'addr_from', 'addr_to', 'amount', 'node_addr'), [
+        (319, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 100,
+         "0x12d959f34cab3d5db2559403ab474e1c1af143f8"),
+        (319, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 100,
+         "0xb4b6ce377ce9ac66e84417b2a463f45e49262b0d"),
+        (319, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 100,
+         "0xd88f5b60ab616a56db76ed893cde448daae00de8")
+    ])
+    def test_check_node(self, block_number, addr_from, addr_to, amount, node_addr):
+        web3 = Web3(HTTPProvider(gex_chain))
+        event_id = web3.toHex(sha3(block_number, addr_from, addr_to, amount))
+        print(event_id)
+        new_block_number = web3.eth.blockNumber
+        new_id = web3.toHex(sha3(new_block_number, node_addr))
+        print(new_id)
+        result = hex(int(event_id, 16) ^ int(new_id, 16))
+        print(int(result, 16))
+        print(result)
+
+
+'''
+    # remote "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313" "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662"
+    # local  "0xb4b6ce377ce9ac66e84417b2a463f45e49262b0d" "0x12d959f34cab3d5db2559403ab474e1c1af143f8"
     @pytest.mark.parametrize(('is_gex_net', 'addr_from', 'addr_to', 'amount', 'wait_sec'), [
         (True, "0xb4b6ce377ce9ac66e84417b2a463f45e49262b0d", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 50, 60),
         (False, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x12d959f34cab3d5db2559403ab474e1c1af143f8", 50, 60)])
@@ -80,3 +104,4 @@ class TestGeneral:
         print(str(balance_from_after) + " " + str(balance_to_after))
         assert balance_from_after == balance_from_before - amount
         assert balance_to_after == balance_to_before + amount
+'''
