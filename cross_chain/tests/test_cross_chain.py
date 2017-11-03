@@ -1,5 +1,7 @@
 import threading
 import multiprocessing
+from random import randint
+from ecdsa import SigningKey, SECP256k1
 from scripts.node import Node
 from scripts.user import User
 from web3 import HTTPProvider
@@ -7,9 +9,10 @@ import pytest
 import sys
 import json
 import time
+import sha3
 
 sys.path.append('../../gex_chain')
-from gex_chain.sign import sha3
+from gex_chain.sign import sha3 as custom_sha3
 from populus_utils import *
 
 try:
@@ -21,6 +24,14 @@ except SystemError:
 def start_node():
     node = Node()
     print("Node started " + str(int(round(time.time() * 1000))))
+
+
+def generate_address():
+    keccak = sha3.keccak_256()
+    priv = SigningKey.generate(curve=SECP256k1)
+    pub = priv.get_verifying_key().to_string()
+    keccak.update(pub)
+    return keccak.hexdigest()[24:]
 
 
 class TestGeneral:
@@ -46,33 +57,31 @@ class TestGeneral:
     def test_sha3(self, block_number, addr_from, addr_to, amount):
         web3 = Web3(HTTPProvider(gex_chain))
 
-        sha3_python = web3.toHex(sha3(block_number, addr_from, addr_to, amount))
+        sha3_python = web3.toHex(custom_sha3(block_number, addr_from, addr_to, amount))
         gex_contract = web3.eth.contract(contract_name='GexContract', address=self.data['GexContract'],
                                          abi=self.data['GexContract_abi'])
         sha3_solidity = web3.toHex(gex_contract.call().generateEventID(block_number, addr_from, addr_to, amount))
         assert sha3_python == sha3_solidity
 
-    def xor_strings(self, xs, ys):
-        return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(xs, ys))
-
-    @pytest.mark.parametrize(('block_number', 'addr_from', 'addr_to', 'amount', 'node_addr'), [
-        (319, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 100,
-         "0x12d959f34cab3d5db2559403ab474e1c1af143f8"),
-        (319, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 100,
-         "0xb4b6ce377ce9ac66e84417b2a463f45e49262b0d"),
-        (319, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 100,
-         "0xd88f5b60ab616a56db76ed893cde448daae00de8")
-    ])
-    def test_check_node(self, block_number, addr_from, addr_to, amount, node_addr):
+    @pytest.mark.parametrize(('iterations_number', 'nodes_number', 'nodes_needed'), [(50, 50, 10)])
+    def test_check_node(self, iterations_number, nodes_number, nodes_needed):
         web3 = Web3(HTTPProvider(gex_chain))
-        event_id = web3.toHex(sha3(block_number, addr_from, addr_to, amount))
-        print(event_id)
-        new_block_number = web3.eth.blockNumber
-        new_id = web3.toHex(sha3(new_block_number, node_addr))
-        print(new_id)
-        result = hex(int(event_id, 16) ^ int(new_id, 16))
-        print(int(result, 16))
-        print(result)
+        for i in range(1, iterations_number):
+            print("Iteration " + str(i))
+            event_id = web3.toHex(
+                custom_sha3(randint(0, 100000), generate_address(), generate_address(), randint(0, 100000)))
+            count = 0
+            for j in range(1, nodes_number):
+                new_id = web3.toHex(custom_sha3(generate_address()))
+                result = hex(int(event_id, 16) ^ int(new_id, 16))
+                num = int(result, 16)
+                # print(num % 10000 > 1000)
+                if num % 1000 > 500:
+                    count += 1
+                    if count == nodes_needed:
+                        print(j)
+                        break
+
 
 
 '''
