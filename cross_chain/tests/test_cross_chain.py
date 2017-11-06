@@ -57,8 +57,7 @@ class TestGeneral:
         sha3_solidity = web3.toHex(gex_contract.call().generateEventID(block_number, addr_from, addr_to, amount))
         assert sha3_python == sha3_solidity
 
-
-    @pytest.mark.parametrize(('iterations_number', 'nodes_number', 'nodes_needed'), [(50, 50, 10)])
+    @pytest.mark.parametrize(('iterations_number', 'nodes_number', 'nodes_needed'), [(50, 40, 10)])
     def test_check_node(self, iterations_number, nodes_number, nodes_needed):
         web3 = Web3(HTTPProvider(gex_chain))
         for i in range(1, iterations_number):
@@ -70,7 +69,7 @@ class TestGeneral:
                 new_id = web3.toHex(custom_sha3(generate_address()))
                 result = hex(int(event_id, 16) ^ int(new_id, 16))
                 num = int(result, 16)
-                if num % 1000 > 500:
+                if num % 10000 > 5000:
                     count += 1
                     if count == nodes_needed:
                         print(j)
