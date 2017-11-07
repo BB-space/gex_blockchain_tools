@@ -75,26 +75,21 @@ class TestGeneral:
                         print(j)
                         break
 
-
-'''
-    # remote "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313" "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662"
-    # local  "0xb4b6ce377ce9ac66e84417b2a463f45e49262b0d" "0x12d959f34cab3d5db2559403ab474e1c1af143f8"
     @pytest.mark.parametrize(('is_gex_net', 'addr_from', 'addr_to', 'amount', 'wait_sec'), [
-        (True, "0xb4b6ce377ce9ac66e84417b2a463f45e49262b0d", "0x65bdc28b5c50f31cb06a4b0ffa6511cd3d7b1662", 50, 60),
-        (False, "0x1fcfd3afe7f20efb2f8b6ca53a411e2447004313", "0x12d959f34cab3d5db2559403ab474e1c1af143f8", 50, 60)])
+        (True, gex_address, eth_address, 50, 60), (False, eth_address, gex_address, 50, 60)])
     def test_workflow(self, is_gex_net, addr_from, addr_to, amount, wait_sec):
         gex_web3 = Web3(HTTPProvider(gex_chain))
         eth_web3 = Web3(HTTPProvider(eth_chain))
         if is_gex_net:
             burn_token = gex_web3.eth.contract(contract_name='GEXToken', address=self.data['GEXToken'],
-                                           abi=self.data['GEXToken_abi'])
+                                               abi=self.data['GEXToken_abi'])
             mint_token = eth_web3.eth.contract(contract_name='ETHToken', address=self.data['ETHToken'],
-                                           abi=self.data['ETHToken_abi'])
+                                               abi=self.data['ETHToken_abi'])
         else:
             mint_token = gex_web3.eth.contract(contract_name='GEXToken', address=self.data['GEXToken'],
-                                           abi=self.data['GEXToken_abi'])
+                                               abi=self.data['GEXToken_abi'])
             burn_token = eth_web3.eth.contract(contract_name='ETHToken', address=self.data['ETHToken'],
-                                           abi=self.data['ETHToken_abi'])
+                                               abi=self.data['ETHToken_abi'])
         balance_from_before = burn_token.call().balanceOf(addr_from)
         balance_to_before = mint_token.call().balanceOf(addr_to)
         print(str(balance_from_before) + " " + str(balance_to_before))
@@ -105,4 +100,3 @@ class TestGeneral:
         print(str(balance_from_after) + " " + str(balance_to_after))
         assert balance_from_after == balance_from_before - amount
         assert balance_to_after == balance_to_before + amount
-'''
