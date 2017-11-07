@@ -11,7 +11,6 @@ from micro_payments.contract_proxy import ContractProxy, ChannelContractProxy
 from web3 import Web3
 from web3.providers.rpc import RPCProvider
 
-
 from micro_payments.event_listener.listener import (
     listen_for_balances_change,
     listen_for_channel_closing,
@@ -188,8 +187,9 @@ class Client:
         token_balance = self.token_proxy.contract.call().balanceOf(self.account)
         if token_balance < deposit:
             log.error(
-                'Insufficient tokens available for the specified deposit ({}/{})'
-                    .format(token_balance, deposit)
+                'Insufficient tokens available for the specified deposit ({}/{})'.format(
+                    token_balance, deposit
+                )
             )
 
         current_block = self.web3.eth.blockNumber
@@ -308,11 +308,12 @@ class Client:
                 sender, open_block
             ))
             return None
-        channel = ReceivingChannel(self, sender, open_block, channel_info[1], channel_info[3], topic_holder=channel_info[4])
+        channel = ReceivingChannel(self, sender, open_block, channel_info[1], channel_info[3],
+                                   topic_holder=channel_info[4])
         channel.create_receiving_kafka()
         channel.config_and_start_kafka()
         self.receiving_channels.append(channel)
         return channel
 
     def get_node_ip(self, node_address):
-        return self.node_info_proxy.contract.call().getIp(node_address)  # TODO test
+        return self.node_info_proxy.contract.call().getIp(node_address)

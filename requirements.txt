@@ -9,3 +9,4 @@ coincurve
 typing
 gevent
 kafka-python==1.3.5
+peewee
