@@ -107,6 +107,6 @@ def deploy(gex_chain_name, eth_chain_name):
 
 
 if __name__ == '__main__':
-    deploy_remote()
-    # deploy_local()
+    #deploy_remote()
+    deploy_local()
     # deploy_test()

@@ -46,7 +46,6 @@ contract GexContract {
     address _addr_to,
     uint256 _amount)
     returns (bytes32){
-        //bytes32 event_id = keccak256(msg.sender, amount, block.timestamp);
         return sha3(_block_number, _addr_from, _addr_to, _amount);
     }
 
@@ -78,10 +77,9 @@ contract GexContract {
     public
     {
         GasCost('burn start', block.gaslimit, msg.gas);
-        // todo check return value
+        // todo catch require failure
         require(_amount > 0);
         bytes32 event_id = generateEventID(_block_number, _addr_from, _addr_to, _amount);
-        // todo
         require(event_id == _event_id);
         requests[event_id].addr_from = _addr_from;
         requests[event_id].addr_to = _addr_to;
@@ -109,7 +107,7 @@ contract GexContract {
     }
 
     function checkNode(address _validator) private returns (bool){
-        //todo check that node is registered and move to library
+        //todo check that node is registered
         return _validator != 0;
     }
 
@@ -118,7 +116,6 @@ contract GexContract {
         GasCost('mint start', block.gaslimit, msg.gas);
         require(requests[_event_id].registration_finished);
         if (requests[_event_id].counter < QUORUM_MINIMUM) {
-            // todo rewrite
             for (uint i = 0; i < requests[_event_id].validators.length; i++) {
                 if (requests[_event_id].validators[i] == msg.sender) {
                     for (uint j = 0; j < requests[_event_id].checks.length; j++) {
@@ -132,7 +129,6 @@ contract GexContract {
                         requests[_event_id].addr_to, requests[_event_id].amount);
                         TokenMinted(_event_id);
                         delete requests[_event_id];
-                        // todo if (!token.mint(_beneficiary, tokens)) revert();
                     }
                     break;
                 }

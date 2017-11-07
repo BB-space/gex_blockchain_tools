@@ -34,7 +34,7 @@ class Node:
         eth_token_minted_event.watch(self.minted_event_callback)
 
     def is_validator(self, event_id):
-        # todo
+        # todo check node address
         return True
 
     def eth_token_burned_callback(self, result):
@@ -58,10 +58,10 @@ class Node:
         if event_id in self.events:
             print("Minting")
             if is_gex_net:
-                self.web3eth.personal.unlockAccount(eth_node_transact_account, password, password_unlock_duration)  # todo unsecure
+                self.web3eth.personal.unlockAccount(eth_node_transact_account, password, password_unlock_duration)
                 self.ethContract.transact({'from': eth_node_transact_account}).mint(result['args']['event_id'])
             else:
-                self.web3gex.personal.unlockAccount(gex_node_transact_account, password, password_unlock_duration)  # todo unsecure
+                self.web3gex.personal.unlockAccount(gex_node_transact_account, password, password_unlock_duration)
                 self.gexContract.transact({'from': gex_node_transact_account}).mint(result['args']['event_id'])
 
     def search_nodes_callback(self, result, is_gex_net):
@@ -70,13 +70,11 @@ class Node:
         if self.is_validator(event_id):
             print("Node is validator")
             if is_gex_net:
-                self.web3gex.personal.unlockAccount(gex_node_transact_account, password, password_unlock_duration)  # todo unsecure
+                self.web3gex.personal.unlockAccount(gex_node_transact_account, password, password_unlock_duration)
                 self.gexContract.transact({'from': gex_node_transact_account}).register(result['args']['event_id'])
             else:
-                self.web3eth.personal.unlockAccount(eth_node_transact_account, password, password_unlock_duration)  # todo unsecure
+                self.web3eth.personal.unlockAccount(eth_node_transact_account, password, password_unlock_duration)
                 self.ethContract.transact({'from': eth_node_transact_account}).register(result['args']['event_id'])
-        # todo if the same in 2 nets
-        # todo check that added
         self.events.append(event_id)
 
 ''''

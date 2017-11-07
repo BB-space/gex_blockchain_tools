@@ -5,6 +5,7 @@ import sys
 
 sys.path.append('../../gex_chain')
 from sign import sha3
+
 try:
     from .config import *
 except SystemError:
@@ -35,10 +36,8 @@ class Transfer:
 
 
 # todo save events to db
-# todo single instance
 # todo save passwords
 class User:
-
     transfers = {}
 
     def __init__(self):
@@ -64,16 +63,13 @@ class User:
         eth_gas_event.watch(self.gas_callback)
 
     def create_transfer(self, is_gex_net, addr_from, addr_to, amount):
-        if amount <= 0:
-            print("Amount must be > 0")
-            # todo remove exit
-            exit(1)
         # todo check other fields
+        if amount <= 0:
+            raise ValueError("Amount must be > 0")
         transfer = Transfer(addr_from, addr_to, amount, is_gex_net, self.web3gex, self.web3eth, self.gexContract,
                             self.ethContract)
         # todo change address
-        transfer.minting_net.personal.unlockAccount(transfer.addr_to, password,
-                                                    password_unlock_duration)
+        transfer.minting_net.personal.unlockAccount(transfer.addr_to, password, password_unlock_duration)
         transfer.minting_contract.transact({'from': transfer.addr_to}).mintRequest(
             transfer.block_number, transfer.addr_from, transfer.addr_to, transfer.amount)
         self.transfers[transfer.event_id] = transfer
@@ -84,14 +80,15 @@ class User:
         if event_id in self.transfers:
             print("Burning")
             transfer = self.transfers[event_id]
-            transfer.burning_net.personal.unlockAccount(transfer.addr_from, password,password_unlock_duration)
-            transfer.burning_contract.transact({'from': transfer.addr_from}).burn(
-                result['args']['event_id'], transfer.block_number, transfer.addr_from, transfer.addr_to,
-                transfer.amount)
+            transfer.burning_net.personal.unlockAccount(transfer.addr_from, password, password_unlock_duration)
+            transfer.burning_contract.transact({'from': transfer.addr_from}).burn(result['args']['event_id'],
+                                                                                  transfer.block_number,
+                                                                                  transfer.addr_from, transfer.addr_to,
+                                                                                  transfer.amount)
 
     def gas_callback(self, result):
         pass
-        #print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
+        # print(result['args']['_function_name'] + "  " + str(result['args']['_gaslimit']) + "  " + str(
         #    result['args']['_gas_remaining']))
 
 
@@ -101,6 +98,7 @@ def mint_callback(result):
 
 def burn_callback(result):
     print("Burn")
+
 
 ''''
 web3 = Web3(HTTPProvider('http://localhost:8545'))
