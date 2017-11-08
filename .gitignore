@@ -5,6 +5,7 @@ build/
 data.json
 tmp.py
 .cache
+tmp.sol
 
 # micro_payments
 micro_payments/env
