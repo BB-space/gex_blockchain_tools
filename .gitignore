@@ -15,3 +15,11 @@ micro_payments/env
 /micro_payments/micro_payments/tests/.cache/
 micro_payments/*.egg-info
 micro_payments/__pycache__
+
+#viper
+viper/viper/
+viper/bin
+viper/include
+viper/lib
+viper/Python-3.6.2
+viper/pip-selfcheck.json
