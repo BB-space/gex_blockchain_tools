@@ -2,35 +2,33 @@ class Token():
     def transferFrom(_from: address, _to: address, _value: num(num256)) -> bool: pass
 
 
+NodeCreated: __log__({node_id: num256, node_ip: bytes32, user_port: num, cluster_port: num})
 BasicChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
 AggregationChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
 
 #   Node status:
-#   0 - ACTIVE
-#   1 - LEAVING
-#   2 - DEAD
-
+#   0 - NOT SET
+#   1 - ACTIVE
+#   2 - LEAVING
+#   3 - DEAD
 
 # Information about nodes
 nodes: public({
                   deposit: num,  # type ? num decimal(wei) wei_value currency_value
-                  node_ip: bytes <= 100,
+                  node_ip: bytes32,
                   user_port: num,
                   cluster_port: num,
                   status: num,
                   deposit_date: timestamp
-              }[num])
+              }[num256])
 
-# Number of nodes
-next_node_index: public(num)
-# Chennel indexes
+next_node_index: public(num256)
 next_basic_channel_index: public(num256)
 next_aggregation_channel_index: public(num256)
-
 # Mapping of node's signature address to their index number
-node_indexes: public(num[address])
+node_indexes: public(num256[address])
 
 token_address: public(address)
 
@@ -64,7 +62,7 @@ def _init_(token: address):
 
 @public
 @payable
-def deposit(owner: address, amount: num, node_ip: bytes <= 100, user_port: num, cluster_port: num):
+def deposit(owner: address, amount: num, node_ip: bytes32, user_port: num, cluster_port: num):
     assert amount >= 100
     # in client call 'token_contract.transact({'from': <from_address>}).approve(<this_contract_address>, amount)' first
     Token(self.token_address).transferFrom(msg.sender, self, as_num256(amount))
@@ -76,10 +74,11 @@ def deposit(owner: address, amount: num, node_ip: bytes <= 100, user_port: num, 
         status: 0,
         deposit_date: block.timestamp
     }
-    self.next_node_index += 1
+    log.NodeCreated(self.next_node_index, node_ip, user_port, cluster_port)
     # user can make another person a deposit owner
-    # one nobe can have only one node
+    # one none can have only one node
     self.node_indexes[owner] = self.next_node_index
+    self.next_node_index = num256_add(self.next_node_index, as_num256(1))
     # todo save address to immutable list
 
 
@@ -99,15 +98,6 @@ def createBasicChannel(owner: address, storage_bytes: num256, lifetime: timedelt
 
 @public
 def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num):
-    # self.aggregation_channel[self.next_aggregation_channel_index] = {
-    #    owner: owner,
-    #    storage_bytes: storage_bytes,
-    #    lifetime: lifetime,
-    #    number_of_nodes: number_of_nodes,
-    #    starttime: block.timestamp,
-    #    basic_channels: None,  # null
-    #    next_aggregated_basic_channel_index: 0
-    # }
     self.aggregation_channel[self.next_aggregation_channel_index].owner = owner
     self.aggregation_channel[self.next_aggregation_channel_index].storage_bytes = storage_bytes
     self.aggregation_channel[self.next_aggregation_channel_index].lifetime = lifetime
@@ -115,24 +105,28 @@ def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: ti
     self.aggregation_channel[self.next_aggregation_channel_index].number_of_nodes = number_of_nodes
     self.aggregation_channel[self.next_aggregation_channel_index].next_aggregated_basic_channel_index = 1
     # todo add some unique property
-    # todo add basic_chennels list
     log.AggregationChannelCreated(self.next_aggregation_channel_index, owner, storage_bytes, lifetime, number_of_nodes)
     self.next_aggregation_channel_index = num256_add(self.next_aggregation_channel_index, as_num256(1))
 
 
 @public
-def addToAggregationChannel(new_basic_channel: num256, aggregation_channel_id: num256):
-    # todo for array
-    # check this assert
+def addToAggregationChannel(aggregation_channel_id: num256, basic_channel_id: num256):
+    assert not not self.aggregation_channel[basic_channel_id].owner
     assert not not self.aggregation_channel[aggregation_channel_id].owner
+    # basic channel must expire before aggregation channel
+    assert (self.basic_channel[basic_channel_id].starttime + self.basic_channel[basic_channel_id].lifetime) < \
+           (self.aggregation_channel[aggregation_channel_id].starttime + self.aggregation_channel[
+               aggregation_channel_id].lifetime)
     self.aggregation_channel[aggregation_channel_id].basic_channels[
         self.aggregation_channel[aggregation_channel_id].next_aggregated_basic_channel_index] = \
-        new_basic_channel
+        basic_channel_id
     self.aggregation_channel[aggregation_channel_id].next_aggregated_basic_channel_index += 1
 
 
 @public
 def garbageCollectBasticChannel(channel_id: num256):
+    assert not not self.basic_channel[channel_id].owner
+    assert (self.basic_channel[channel_id].starttime + self.basic_channel[channel_id].lifetime) < block.timestamp
     self.basic_channel[channel_id] = {
         owner: None,
         storage_bytes: as_num256(0),
@@ -144,31 +138,41 @@ def garbageCollectBasticChannel(channel_id: num256):
 
 @public
 def garbageCollectAggregationChannel(channel_id: num256):
-    # check that all other channels are closed
+    assert not not self.aggregation_channel[channel_id].owner
+    # because basic channel can be added to an aggregation channel only if its lifetime is less then an aggregation channel lifetime
+    # there is no need to check basic channels lifetime
+    assert (self.aggregation_channel[channel_id].starttime + self.aggregation_channel[
+        channel_id].lifetime) < block.timestamp
     self.aggregation_channel[self.next_aggregation_channel_index].owner = None
     self.aggregation_channel[self.next_aggregation_channel_index].storage_bytes = as_num256(0)
     self.aggregation_channel[self.next_aggregation_channel_index].lifetime = 0
     self.aggregation_channel[self.next_aggregation_channel_index].starttime = 0
     self.aggregation_channel[self.next_aggregation_channel_index].number_of_nodes = 0
     self.aggregation_channel[self.next_aggregation_channel_index].next_aggregated_basic_channel_index = 0
-    # basic_channels
+    # todo delete basic_channels
 
 
-# Withdraw node deposit, and remove the node from the node list.
 @public
-def initWithdrawDeposit(node_number: num):
+def initWithdrawDeposit(node_number: num256):
     assert self.node_indexes[msg.sender] == node_number
-    assert self.nodes[node_number].status == 0
-    # todo add node status check to other methods
-    self.nodes[node_number].status = 1
-    # only owner can withdraw? if somebody make another person an owner. who will withdraw?
+    assert self.nodes[node_number].status == 1
+    self.nodes[node_number].status = 2
 
 
 @public
-def completeWithdrawDeposit(node_number: num):
-    assert self.nodes[node_number].status == 1
-    # tdo check that channels are closed
-    # send money
+def completeWithdrawDeposit(node_number: num256):
+    assert self.node_indexes[msg.sender] == node_number
+    assert self.nodes[node_number].status == 2
+    # todo check that channels are closed
     # remove from list
-    self.nodes[node_number].status = 2
+    Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))
+    self.nodes[node_number].deposit = 0
+    self.nodes[node_number].status = 3
+
+
+@public
+@constant
+def getNodeStatus(node_number: num256) -> num:
+    assert self.nodes[node_number].status != 0
+    return self.nodes[node_number].status
 
