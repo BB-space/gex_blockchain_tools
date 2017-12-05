@@ -26,8 +26,8 @@ def before_callback(result):
 with open('../data.json') as data_file:
     data = json.load(data_file)
 web3 = Web3(HTTPProvider('http://localhost:8545'))
-c1 = web3.eth.contract(contract_name='c1', address=data['c1_address'], abi=data['c1_abi'])
-c2 = web3.eth.contract(contract_name='c2', address=data['c2_address'], abi=data['c2_abi'])
+#c1 = web3.eth.contract(contract_name='c1', address=data['c1_address'], abi=data['c1_abi'])
+#c2 = web3.eth.contract(contract_name='c2', address=data['c2_address'], abi=data['c2_abi'])
 # print(c1.call().array())
 # print(c2.call().get_array(data['c1_address']))
 token = web3.eth.contract(contract_name='token', address=data['token_address'], abi=data['token_abi'])

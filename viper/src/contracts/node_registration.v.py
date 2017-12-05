@@ -7,6 +7,7 @@ BasicChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
 AggregationChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
+NewNumber: __log__({name: num})
 
 #   Node status:
 #   0 - NOT SET
@@ -50,6 +51,7 @@ aggregation_channel: public({
                                 next_aggregated_basic_channel_index: num
                             }[num])
 
+new_number: public(num)
 
 @public
 def _init_(token: address):
@@ -58,6 +60,7 @@ def _init_(token: address):
     self.next_node_index = as_num256(1)
     self.next_basic_channel_index = as_num256(1)
     self.next_aggregation_channel_index = as_num256(1)
+    self.new_number = 1
 
 
 @public
@@ -76,7 +79,7 @@ def deposit(owner: address, amount: num, node_ip: bytes32, user_port: num, clust
     }
     log.NodeCreated(self.next_node_index, node_ip, user_port, cluster_port)
     # user can make another person a deposit owner
-    # one none can have only one node
+    # one node can have only one node
     self.node_indexes[owner] = self.next_node_index
     self.next_node_index = num256_add(self.next_node_index, as_num256(1))
     # todo save address to immutable list
@@ -176,3 +179,19 @@ def getNodeStatus(node_number: num256) -> num:
     assert self.nodes[node_number].status != 0
     return self.nodes[node_number].status
 
+
+@public
+def setNumber(n: num):
+    self.new_number = n
+    log.NewNumber(self.new_number)
+
+
+@public
+@constant
+def getNumber() -> num:
+    return self.new_number
+
+@public
+@constant
+def getTokenAddress() -> address:
+    return self.token_address
