@@ -54,9 +54,9 @@ aggregation_channel: public({
 new_number: public(num)
 
 @public
-def _init_(token: address):
+def __init__(_token_address: address):
     # starts with 1 because 0 is an empty value
-    self.token_address = token
+    self.token_address = _token_address
     self.next_node_index = as_num256(1)
     self.next_basic_channel_index = as_num256(1)
     self.next_aggregation_channel_index = as_num256(1)
@@ -74,13 +74,13 @@ def deposit(owner: address, amount: num, node_ip: bytes32, user_port: num, clust
         node_ip: node_ip,
         user_port: user_port,
         cluster_port: cluster_port,
-        status: 0,
+        status: 1,
         deposit_date: block.timestamp
     }
-    log.NodeCreated(self.next_node_index, node_ip, user_port, cluster_port)
     # user can make another person a deposit owner
     # one node can have only one node
     self.node_indexes[owner] = self.next_node_index
+    log.NodeCreated(self.next_node_index, node_ip, user_port, cluster_port)
     self.next_node_index = num256_add(self.next_node_index, as_num256(1))
     # todo save address to immutable list
 
@@ -175,9 +175,9 @@ def completeWithdrawDeposit(node_number: num256):
 
 @public
 @constant
-def getNodeStatus(node_number: num256) -> num:
-    assert self.nodes[node_number].status != 0
-    return self.nodes[node_number].status
+def getNodeStatus(node_number: num) -> num:
+    assert self.nodes[as_num256(node_number)].status != 0
+    return self.nodes[as_num256(node_number)].status
 
 
 @public

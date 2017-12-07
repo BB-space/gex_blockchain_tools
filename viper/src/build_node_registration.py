@@ -26,7 +26,7 @@ token_contract_address, token_contract_abi = deployer.deploy("contracts/vipercoi
                                                               TOKEN_INITIAL_SUPPLY))
 
 registration_contract_address, registration_contract_abi = deployer.deploy("contracts/node_registration.v.py",
-                                                                           token_contract_address)
+                                                                           (token_contract_address,))
 
 data = {}
 data['token_address'] = token_contract_address

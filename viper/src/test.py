@@ -1,52 +1,38 @@
-from web3 import HTTPProvider, Web3
 import json
 import time
 
+from web3 import HTTPProvider, Web3
+
 
 def approval_callback(result):
-    print("Approval")
+    print("Approval. owner: " + result['args']['_owner'] + " spender: " + result['args']['_spender'] + " value: " + str(
+        result['args']['_value']))
 
 
-def after_callback(result):
-    print("After")
-
-
-def transfer_callback(result):
-    print("Transfer")
-
-
-def ad_callback(result):
-    print(result['args']['_owner'])
-
-
-def before_callback(result):
-    print("Before " + result['args']['_owner'])
+def node_created_callback(result):
+    print("Node Created. nodeID: " + str(result['args']['node_id']) + " nodeIP: " + result['args'][
+        'node_ip'] + " user_port: " + str(
+        result['args']['user_port']) + " cluster_port: " + str(result['args']['cluster_port']))
 
 
 with open('../data.json') as data_file:
     data = json.load(data_file)
 web3 = Web3(HTTPProvider('http://localhost:8545'))
-#c1 = web3.eth.contract(contract_name='c1', address=data['c1_address'], abi=data['c1_abi'])
-#c2 = web3.eth.contract(contract_name='c2', address=data['c2_address'], abi=data['c2_abi'])
-# print(c1.call().array())
-# print(c2.call().get_array(data['c1_address']))
-token = web3.eth.contract(contract_name='token', address=data['token_address'], abi=data['token_abi'])
-t = web3.eth.contract(contract_name='t', address=data['t_address'], abi=data['t_abi'])
-event_a = token.on('Approval')
-event_a.watch(approval_callback)
-event_t = token.on('Transfer')
-event_t.watch(transfer_callback)
-event_ad = token.on('Ad')
-event_ad.watch(ad_callback)
-before = t.on('Before')
-before.watch(before_callback)
-after = t.on('After')
-after.watch(after_callback)
-print(str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(web3.eth.accounts[1])))
-web3.personal.unlockAccount(web3.eth.accounts[0], '123', 0)
-#token.transact({'from': web3.eth.accounts[0]}).approve(data['token_address'], 200)
-token.transact({'from': web3.eth.accounts[0]}).approve(data['t_address'], 200)
-time.sleep(5)
-t.transact({'from': web3.eth.accounts[0]}).bar(data['token_address'], web3.eth.accounts[0], web3.eth.accounts[1], 200)
-time.sleep(7)
-print(str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(web3.eth.accounts[1])))
+token = web3.eth.contract(contract_name='Token', address=data['token_address'], abi=data['token_abi'])
+approval = token.on('Approval')
+approval.watch(approval_callback)
+contract = web3.eth.contract(contract_name='Registration', address=data['registration_address'],
+                             abi=data['registration_abi'])
+
+node_created = contract.on('NodeCreated')
+node_created.watch(node_created_callback)
+
+print(
+    str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
+token.transact({'from': web3.eth.accounts[0]}).approve(data['registration_address'], 200)
+time.sleep(25)
+contract.transact({'from': web3.eth.accounts[0]}).deposit(web3.eth.accounts[0], 200, "10.11.0.1", 3333, 4444)
+time.sleep(25)
+print(
+    str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
+print(str(contract.call().getNodeStatus(1)))

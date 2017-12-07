@@ -12,7 +12,7 @@ class Deployer:
         self.cmp = compiler.Compiler()
         self.wait_delta = 5
         self.wait_total = 120
-        self.gas = 2500000
+        self.gas = 3000000
 
     def _get_contract_code(self, contract_path):
         contract = open(contract_path, 'r')
@@ -28,6 +28,8 @@ class Deployer:
 
     def deploy(self, contract_path, params=None):
         print("Deploying contract: " + contract_path)
+        if params is not None:
+            print("Params: " + str(params))
         contract_bytecode, contract_abi = self._compile_contract(contract_path)
         contract = self.web3.eth.contract(contract_abi, bytecode=contract_bytecode)
         tx_hash = contract.deploy(args=params, transaction={'from': self.owner, 'gas': self.gas})
