@@ -1,0 +1,14 @@
+version: '3.3'
+
+services:
+  geth:
+    container_name: geth
+    image: ethereum/client-go
+    command: --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" --rpcaddr "0.0.0.0"
+
+    ports:
+      - 8545:8545
+      - 30303:30303
+#    volumes:
+#      - ./shared/keystore:/root/.ethereum/keystore
+#      - ./shared/passphrase:/root/passphrase
