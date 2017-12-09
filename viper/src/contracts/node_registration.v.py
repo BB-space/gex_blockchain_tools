@@ -7,6 +7,7 @@ BasicChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
 AggregationChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
+BasicChannelAdded: __log__({aggregation_channel_id: num256, basic_channel_id: num256})
 NewNumber: __log__({name: num})
 
 #   Node status:
@@ -41,13 +42,14 @@ basic_channel: public({
                           number_of_nodes: num
                       }[num])
 
+# todo add max number of basic channels
 aggregation_channel: public({
                                 owner: address,
                                 storage_bytes: num256,
                                 lifetime: timedelta,
                                 starttime: timestamp,
                                 number_of_nodes: num,
-                                basic_channels: num256[num],
+                                basic_channels: bool[num256],
                                 next_aggregated_basic_channel_index: num
                             }[num])
 
@@ -55,7 +57,7 @@ new_number: public(num)
 
 @public
 def __init__(_token_address: address):
-    # starts with 1 because 0 is an empty value
+    # starts with 1 because 0 is an empty value ????
     self.token_address = _token_address
     self.next_node_index = as_num256(1)
     self.next_basic_channel_index = as_num256(1)
@@ -114,16 +116,18 @@ def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: ti
 
 @public
 def addToAggregationChannel(aggregation_channel_id: num256, basic_channel_id: num256):
+    # todo check that channel in not expired
     assert not not self.aggregation_channel[basic_channel_id].owner
     assert not not self.aggregation_channel[aggregation_channel_id].owner
     # basic channel must expire before aggregation channel
     assert (self.basic_channel[basic_channel_id].starttime + self.basic_channel[basic_channel_id].lifetime) < \
            (self.aggregation_channel[aggregation_channel_id].starttime + self.aggregation_channel[
                aggregation_channel_id].lifetime)
-    self.aggregation_channel[aggregation_channel_id].basic_channels[
-        self.aggregation_channel[aggregation_channel_id].next_aggregated_basic_channel_index] = \
-        basic_channel_id
+    # check that this channel is not in the aggregation channel
+    assert not self.aggregation_channel[aggregation_channel_id].basic_channels[basic_channel_id]
+    self.aggregation_channel[aggregation_channel_id].basic_channels[basic_channel_id] = true
     self.aggregation_channel[aggregation_channel_id].next_aggregated_basic_channel_index += 1
+    log.BasicChannelAdded(aggregation_channel_id, basic_channel_id)
 
 
 @public

@@ -11,8 +11,8 @@ class Deployer:
         self.owner = owner
         self.cmp = compiler.Compiler()
         self.wait_delta = 5
-        self.wait_total = 120
-        self.gas = 3000000
+        self.wait_total = 200
+        self.gas = 2500000
 
     def _get_contract_code(self, contract_path):
         contract = open(contract_path, 'r')
