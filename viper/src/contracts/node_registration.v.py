@@ -9,7 +9,6 @@ AggregationChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
 BasicChannelAdded: __log__({aggregation_channel_id: num256, basic_channel_id: num256})
 NewNumber: __log__({name: num})
-
 #   Node status:
 #   0 - NOT SET
 #   1 - ACTIVE
@@ -54,6 +53,7 @@ aggregation_channel: public({
                             }[num])
 
 new_number: public(num)
+
 
 @public
 def __init__(_token_address: address):
@@ -116,14 +116,20 @@ def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: ti
 
 @public
 def addToAggregationChannel(aggregation_channel_id: num256, basic_channel_id: num256):
-    # todo check that channel in not expired
+    # basic channel should be present
     assert not not self.aggregation_channel[basic_channel_id].owner
+    # aggregation channel should be present
     assert not not self.aggregation_channel[aggregation_channel_id].owner
+    # aggregation channel must be alive
+    assert (self.aggregation_channel[aggregation_channel_id].starttime + self.aggregation_channel[
+        aggregation_channel_id].lifetime) > block.timestamp
+    # basic channel must be alive
+    assert (self.basic_channel[basic_channel_id].starttime + self.basic_channel[basic_channel_id].lifetime) > block.timestamp
     # basic channel must expire before aggregation channel
     assert (self.basic_channel[basic_channel_id].starttime + self.basic_channel[basic_channel_id].lifetime) < \
            (self.aggregation_channel[aggregation_channel_id].starttime + self.aggregation_channel[
                aggregation_channel_id].lifetime)
-    # check that this channel is not in the aggregation channel
+    # check that basic channel is not present in the aggregation channel already
     assert not self.aggregation_channel[aggregation_channel_id].basic_channels[basic_channel_id]
     self.aggregation_channel[aggregation_channel_id].basic_channels[basic_channel_id] = true
     self.aggregation_channel[aggregation_channel_id].next_aggregated_basic_channel_index += 1
@@ -194,6 +200,16 @@ def setNumber(n: num):
 @constant
 def getNumber() -> num:
     return self.new_number
+
+
+@public
+@constant
+def test() -> num:
+    for i in range(2000000):
+        if i == self.new_number:
+            return msg.gas;
+    return 0;
+
 
 @public
 @constant
