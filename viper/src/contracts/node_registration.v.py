@@ -3,7 +3,7 @@ class Token():
     def transfer(_to: address, _amount: num(num256)) -> bool: pass
 
 
-NodeCreated: __log__({node_id: num256, node_ip: bytes32, user_port: num, cluster_port: num})
+NodeCreated: __log__({node_id: num256, node_ip: bytes32, port: num, nonce: num})
 BasicChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, max_nodes: num})
 AggregationChannelCreated: __log__(
@@ -20,11 +20,10 @@ NewNumber: __log__({name: num})
 nodes: public({
                   deposit: num,  # type ? num decimal(wei) wei_value currency_value
                   node_ip: bytes32,
-                  user_port: num,
-                  cluster_port: num,
+                  port: num,
                   status: num,
                   deposit_date: timestamp,
-                  last_channel: timestamp,
+                  leaving_date: timestamp
               }[num256])
 
 next_node_index: public(num256)
@@ -40,9 +39,7 @@ basic_channel: public({
                           storage_bytes: num256,
                           lifetime: timedelta,
                           starttime: timestamp,
-                          max_nodes: num,
-                          nodes: bool[num256],
-                          next_node_index: num
+                          max_nodes: num
                       }[num])
 
 # todo add max number of basic channels
@@ -52,8 +49,6 @@ aggregation_channel: public({
                                 lifetime: timedelta,
                                 starttime: timestamp,
                                 max_nodes: num,
-                                nodes: bool[num256],
-                                next_node_index: num,
                                 basic_channels: bool[num256],
                                 next_aggregated_basic_channel_index: num
                             }[num])
@@ -63,7 +58,7 @@ new_number: public(num)
 
 @public
 def __init__(_token_address: address):
-    # starts with 1 because 0 is an empty value ????
+    # starts with 1 because 0 is an empty value
     self.token_address = _token_address
     self.next_node_index = as_num256(1)
     self.next_basic_channel_index = as_num256(1)
@@ -73,24 +68,22 @@ def __init__(_token_address: address):
 
 @public
 @payable
-def deposit(owner: address, amount: num, node_ip: bytes32, user_port: num, cluster_port: num):
-    assert amount >= 100
+def deposit(node_ip: bytes32, port: num, nonce: num):
     # in client call 'token_contract.transact({'from': <from_address>}).approve(<this_contract_address>, amount)' first
-    Token(self.token_address).transferFrom(msg.sender, self, as_num256(amount))
+    # todo send in wei
+    Token(self.token_address).transferFrom(msg.sender, self, as_num256(100))
+    #todo save nonce
     self.nodes[self.next_node_index] = {
-        deposit: amount,
+        deposit: 100,
         node_ip: node_ip,
-        user_port: user_port,
-        cluster_port: cluster_port,
+        port: port,
         status: 1,
-        deposit_date: block.timestamp
+        deposit_date: block.timestamp,
+        leaving_date: None
     }
-    # user can make another person a deposit owner
-    # one node can have only one node
-    self.node_indexes[owner] = self.next_node_index
-    log.NodeCreated(self.next_node_index, node_ip, user_port, cluster_port)
+    self.node_indexes[msg.sender] = self.next_node_index
+    log.NodeCreated(self.next_node_index, node_ip, port, nonce)
     self.next_node_index = num256_add(self.next_node_index, as_num256(1))
-    # todo save address to immutable list
 
 
 @public
@@ -100,7 +93,6 @@ def createBasicChannel(owner: address, storage_bytes: num256, lifetime: timedelt
         storage_bytes: storage_bytes,
         lifetime: lifetime,
         max_nodes: max_nodes,
-        next_node_index: 1,
         starttime: block.timestamp
     }
     # todo add some unique property
@@ -116,7 +108,6 @@ def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: ti
     self.aggregation_channel[self.next_aggregation_channel_index].starttime = block.timestamp
     self.aggregation_channel[self.next_aggregation_channel_index].max_nodes = max_nodes
     self.aggregation_channel[self.next_aggregation_channel_index].next_aggregated_basic_channel_index = 1
-    self.aggregation_channel[self.next_aggregation_channel_index].next_node_index = 1
     # todo add some unique property
     log.AggregationChannelCreated(self.next_aggregation_channel_index, owner, storage_bytes, lifetime, max_nodes)
     self.next_aggregation_channel_index = num256_add(self.next_aggregation_channel_index, as_num256(1))
@@ -178,12 +169,14 @@ def initWithdrawDeposit(node_number: num256):
     assert self.node_indexes[msg.sender] == node_number
     assert self.nodes[node_number].status == 1
     self.nodes[node_number].status = 2
+    self.nodes[node_number].leaving_date = block.timestamp
 
 
 @public
 def completeWithdrawDeposit(node_number: num256):
     assert self.node_indexes[msg.sender] == node_number
     assert self.nodes[node_number].status == 2
+    assert block.timestamp - self.nodes[node_number].leaving_date >= 5260000 # 2 month. 3 month will be 7890000
     # todo check that channels are closed
     # remove from list
     #Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))

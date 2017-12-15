@@ -11,8 +11,7 @@ def approval_callback(result):
 
 def node_created_callback(result):
     print("Node Created. nodeID: " + str(result['args']['node_id']) + " nodeIP: " + result['args'][
-        'node_ip'] + " user_port: " + str(
-        result['args']['user_port']) + " cluster_port: " + str(result['args']['cluster_port']))
+        'node_ip'] + " port: " + str(result['args']['port']))
 
 
 def basic_channel_created_callback(result):
@@ -53,10 +52,10 @@ basic_channel_added.watch(basic_channel_added_callback)
 
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
-token.transact({'from': web3.eth.accounts[0]}).approve(data['registration_address'], 200)
+token.transact({'from': web3.eth.accounts[0]}).approve(data['registration_address'], 100)
 time.sleep(30)
 
-contract.transact({'from': web3.eth.accounts[0]}).deposit(web3.eth.accounts[0], 200, "10.11.0.1", 3333, 4444)
+contract.transact({'from': web3.eth.accounts[0]}).deposit("10.11.0.1", 3333, 4444)
 time.sleep(30)
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
@@ -69,7 +68,7 @@ time.sleep(30)
 
 contract.transact({'from': web3.eth.accounts[0]}).addToAggregationChannel(2, 1)
 time.sleep(30)
-'''
+
 contract.transact({'from': web3.eth.accounts[0]}).initWithdrawDeposit(1)
 time.sleep(30)
 print(str(contract.call().getNodeStatus(1)))
@@ -78,3 +77,4 @@ time.sleep(30)
 print(str(contract.call().getNodeStatus(1)))
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
+'''
