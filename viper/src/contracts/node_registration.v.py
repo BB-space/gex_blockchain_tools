@@ -1,5 +1,6 @@
 class Token():
     def transferFrom(_from: address, _to: address, _value: num(num256)) -> bool: pass
+
     def transfer(_to: address, _amount: num(num256)) -> bool: pass
 
 
@@ -10,20 +11,22 @@ AggregationChannelCreated: __log__(
     {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, max_nodes: num})
 BasicChannelAdded: __log__({aggregation_channel_id: num256, basic_channel_id: num256})
 NewNumber: __log__({name: num})
+
 #   Node status:
 #   0 - NOT SET
 #   1 - ACTIVE
 #   2 - LEAVING
 #   3 - DEAD
 
-# Information about nodes
 nodes: public({
                   deposit: num,  # type ? num decimal(wei) wei_value currency_value
                   node_ip: bytes32,
                   port: num,
                   status: num,
                   deposit_date: timestamp,
-                  leaving_date: timestamp
+                  leaving_date: timestamp,
+                  last_reward_date: timestamp,
+                  heartbits: num256[2]
               }[num256])
 
 next_node_index: public(num256)
@@ -33,6 +36,7 @@ next_aggregation_channel_index: public(num256)
 node_indexes: public(num256[address])
 
 token_address: public(address)
+start_epoch: timestamp
 
 basic_channel: public({
                           owner: address,
@@ -64,6 +68,7 @@ def __init__(_token_address: address):
     self.next_basic_channel_index = as_num256(1)
     self.next_aggregation_channel_index = as_num256(1)
     self.new_number = 1
+    self.start_epoch = 1513296000  # 15 December 2017 00:00:00
 
 
 @public
@@ -72,18 +77,36 @@ def deposit(node_ip: bytes32, port: num, nonce: num):
     # in client call 'token_contract.transact({'from': <from_address>}).approve(<this_contract_address>, amount)' first
     # todo send in wei
     Token(self.token_address).transferFrom(msg.sender, self, as_num256(100))
-    #todo save nonce
-    self.nodes[self.next_node_index] = {
-        deposit: 100,
-        node_ip: node_ip,
-        port: port,
-        status: 1,
-        deposit_date: block.timestamp,
-        leaving_date: None
-    }
+    # todo save nonce
+    self.nodes[self.next_node_index].deposit = 100
+    self.nodes[self.next_node_index].node_ip = node_ip
+    self.nodes[self.next_node_index].port = port
+    self.nodes[self.next_node_index].status = 1
+    self.nodes[self.next_node_index].deposit_date = block.timestamp
+    self.nodes[self.next_node_index].last_reward_date = block.timestamp
     self.node_indexes[msg.sender] = self.next_node_index
     log.NodeCreated(self.next_node_index, node_ip, port, nonce)
     self.next_node_index = num256_add(self.next_node_index, as_num256(1))
+
+
+@public
+def heartbit():
+    day = (block.timestamp - self.start_epoch) / 86400  # 24*60*60
+    j = day - 1
+    if j % 2 == 1:
+        if j >= 256 and j % 256 == 0:
+            self.nodes[self.node_indexes[msg.sender]].heartbits[1] = as_num256(0)
+        self.nodes[self.node_indexes[msg.sender]].heartbits[1] = bitwise_or(
+            self.nodes[self.next_node_index].heartbits[1], shift(as_num256(1), j % 256))
+    else:
+        if j >= 256 and j % 256 == 0:
+            self.nodes[self.node_indexes[msg.sender]].heartbits[0] = as_num256(0)
+        self.nodes[self.node_indexes[msg.sender]].heartbits[0] = bitwise_or(
+            self.nodes[self.next_node_index].heartbits[0], shift(as_num256(1), j % 256))
+        # reward
+    if block.timestamp - self.nodes[self.next_node_index].last_reward_date >= 2764800:  # 32*60*60*24
+        self.nodes[self.next_node_index].last_reward_date = block.timestamp
+        # todo send reward
 
 
 @public
@@ -95,7 +118,6 @@ def createBasicChannel(owner: address, storage_bytes: num256, lifetime: timedelt
         max_nodes: max_nodes,
         starttime: block.timestamp
     }
-    # todo add some unique property
     log.BasicChannelCreated(self.next_basic_channel_index, owner, storage_bytes, lifetime, max_nodes)
     self.next_basic_channel_index = num256_add(self.next_basic_channel_index, as_num256(1))
 
@@ -108,7 +130,6 @@ def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: ti
     self.aggregation_channel[self.next_aggregation_channel_index].starttime = block.timestamp
     self.aggregation_channel[self.next_aggregation_channel_index].max_nodes = max_nodes
     self.aggregation_channel[self.next_aggregation_channel_index].next_aggregated_basic_channel_index = 1
-    # todo add some unique property
     log.AggregationChannelCreated(self.next_aggregation_channel_index, owner, storage_bytes, lifetime, max_nodes)
     self.next_aggregation_channel_index = num256_add(self.next_aggregation_channel_index, as_num256(1))
 
@@ -123,7 +144,8 @@ def addToAggregationChannel(aggregation_channel_id: num256, basic_channel_id: nu
     assert (self.aggregation_channel[aggregation_channel_id].starttime + self.aggregation_channel[
         aggregation_channel_id].lifetime) > block.timestamp
     # basic channel must be alive
-    assert (self.basic_channel[basic_channel_id].starttime + self.basic_channel[basic_channel_id].lifetime) > block.timestamp
+    assert (self.basic_channel[basic_channel_id].starttime + self.basic_channel[
+        basic_channel_id].lifetime) > block.timestamp
     # basic channel must expire before aggregation channel
     assert (self.basic_channel[basic_channel_id].starttime + self.basic_channel[basic_channel_id].lifetime) < \
            (self.aggregation_channel[aggregation_channel_id].starttime + self.aggregation_channel[
@@ -135,6 +157,7 @@ def addToAggregationChannel(aggregation_channel_id: num256, basic_channel_id: nu
     log.BasicChannelAdded(aggregation_channel_id, basic_channel_id)
 
 
+# todo remove
 @public
 def garbageCollectBasticChannel(channel_id: num256):
     assert not not self.basic_channel[channel_id].owner
@@ -148,6 +171,7 @@ def garbageCollectBasticChannel(channel_id: num256):
     }
 
 
+# todo remove
 @public
 def garbageCollectAggregationChannel(channel_id: num256):
     assert not not self.aggregation_channel[channel_id].owner
@@ -172,14 +196,15 @@ def initWithdrawDeposit(node_number: num256):
     self.nodes[node_number].leaving_date = block.timestamp
 
 
+# todo remove node number
 @public
 def completeWithdrawDeposit(node_number: num256):
     assert self.node_indexes[msg.sender] == node_number
     assert self.nodes[node_number].status == 2
-    assert block.timestamp - self.nodes[node_number].leaving_date >= 5260000 # 2 month. 3 month will be 7890000
+    assert block.timestamp - self.nodes[node_number].leaving_date >= 5260000  # 2 month. 3 month will be 7890000
     # todo check that channels are closed
     # remove from list
-    #Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))
+    # Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))
     Token(self.token_address).transfer(msg.sender, as_num256(self.nodes[node_number].deposit))
     self.nodes[node_number].deposit = 0
     self.nodes[node_number].status = 3
@@ -202,14 +227,6 @@ def setNumber(n: num):
 @constant
 def getNumber() -> num:
     return self.new_number
-
-
-@public
-def test() -> num:
-    for i in range(2000000):
-        if i == self.new_number:
-            return msg.gas;
-    return 0;
 
 
 @public
