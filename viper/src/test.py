@@ -50,21 +50,31 @@ aggregation_channel_created.watch(aggregation_channel_created_callback)
 basic_channel_added = contract.on('BasicChannelAdded')
 basic_channel_added.watch(basic_channel_added_callback)
 
-'''
+
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
 token.transact({'from': web3.eth.accounts[0]}).approve(data['registration_address'], 200)
 time.sleep(30)
+
 contract.transact({'from': web3.eth.accounts[0]}).deposit(web3.eth.accounts[0], 200, "10.11.0.1", 3333, 4444)
 time.sleep(30)
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
 print(str(contract.call().getNodeStatus(1)))
-
+'''
 contract.transact({'from': web3.eth.accounts[0]}).createBasicChannel(web3.eth.accounts[0], 100, 100, 4)
 time.sleep(30)
 contract.transact({'from': web3.eth.accounts[0]}).createAggregationChannel(web3.eth.accounts[0], 100, 100, 4)
 time.sleep(30)
-'''
+
 contract.transact({'from': web3.eth.accounts[0]}).addToAggregationChannel(2, 1)
 time.sleep(30)
+'''
+contract.transact({'from': web3.eth.accounts[0]}).initWithdrawDeposit(1)
+time.sleep(30)
+print(str(contract.call().getNodeStatus(1)))
+contract.transact({'from': web3.eth.accounts[0]}).completeWithdrawDeposit(1)
+time.sleep(30)
+print(str(contract.call().getNodeStatus(1)))
+print(
+    str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))

@@ -1,12 +1,13 @@
 class Token():
     def transferFrom(_from: address, _to: address, _value: num(num256)) -> bool: pass
+    def transfer(_to: address, _amount: num(num256)) -> bool: pass
 
 
 NodeCreated: __log__({node_id: num256, node_ip: bytes32, user_port: num, cluster_port: num})
 BasicChannelCreated: __log__(
-    {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
+    {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, max_nodes: num})
 AggregationChannelCreated: __log__(
-    {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num})
+    {channel_id: num256, owner: address, storage_bytes: num256, lifetime: timedelta, max_nodes: num})
 BasicChannelAdded: __log__({aggregation_channel_id: num256, basic_channel_id: num256})
 NewNumber: __log__({name: num})
 #   Node status:
@@ -22,7 +23,8 @@ nodes: public({
                   user_port: num,
                   cluster_port: num,
                   status: num,
-                  deposit_date: timestamp
+                  deposit_date: timestamp,
+                  last_channel: timestamp,
               }[num256])
 
 next_node_index: public(num256)
@@ -38,7 +40,9 @@ basic_channel: public({
                           storage_bytes: num256,
                           lifetime: timedelta,
                           starttime: timestamp,
-                          number_of_nodes: num
+                          max_nodes: num,
+                          nodes: bool[num256],
+                          next_node_index: num
                       }[num])
 
 # todo add max number of basic channels
@@ -47,7 +51,9 @@ aggregation_channel: public({
                                 storage_bytes: num256,
                                 lifetime: timedelta,
                                 starttime: timestamp,
-                                number_of_nodes: num,
+                                max_nodes: num,
+                                nodes: bool[num256],
+                                next_node_index: num,
                                 basic_channels: bool[num256],
                                 next_aggregated_basic_channel_index: num
                             }[num])
@@ -88,29 +94,31 @@ def deposit(owner: address, amount: num, node_ip: bytes32, user_port: num, clust
 
 
 @public
-def createBasicChannel(owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num):
+def createBasicChannel(owner: address, storage_bytes: num256, lifetime: timedelta, max_nodes: num):
     self.basic_channel[self.next_basic_channel_index] = {
         owner: owner,
         storage_bytes: storage_bytes,
         lifetime: lifetime,
-        number_of_nodes: number_of_nodes,
+        max_nodes: max_nodes,
+        next_node_index: 1,
         starttime: block.timestamp
     }
     # todo add some unique property
-    log.BasicChannelCreated(self.next_basic_channel_index, owner, storage_bytes, lifetime, number_of_nodes)
+    log.BasicChannelCreated(self.next_basic_channel_index, owner, storage_bytes, lifetime, max_nodes)
     self.next_basic_channel_index = num256_add(self.next_basic_channel_index, as_num256(1))
 
 
 @public
-def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: timedelta, number_of_nodes: num):
+def createAggregationChannel(owner: address, storage_bytes: num256, lifetime: timedelta, max_nodes: num):
     self.aggregation_channel[self.next_aggregation_channel_index].owner = owner
     self.aggregation_channel[self.next_aggregation_channel_index].storage_bytes = storage_bytes
     self.aggregation_channel[self.next_aggregation_channel_index].lifetime = lifetime
     self.aggregation_channel[self.next_aggregation_channel_index].starttime = block.timestamp
-    self.aggregation_channel[self.next_aggregation_channel_index].number_of_nodes = number_of_nodes
+    self.aggregation_channel[self.next_aggregation_channel_index].max_nodes = max_nodes
     self.aggregation_channel[self.next_aggregation_channel_index].next_aggregated_basic_channel_index = 1
+    self.aggregation_channel[self.next_aggregation_channel_index].next_node_index = 1
     # todo add some unique property
-    log.AggregationChannelCreated(self.next_aggregation_channel_index, owner, storage_bytes, lifetime, number_of_nodes)
+    log.AggregationChannelCreated(self.next_aggregation_channel_index, owner, storage_bytes, lifetime, max_nodes)
     self.next_aggregation_channel_index = num256_add(self.next_aggregation_channel_index, as_num256(1))
 
 
@@ -144,7 +152,7 @@ def garbageCollectBasticChannel(channel_id: num256):
         owner: None,
         storage_bytes: as_num256(0),
         lifetime: 0,
-        number_of_nodes: 0,
+        max_nodes: 0,
         starttime: 0
     }
 
@@ -160,7 +168,7 @@ def garbageCollectAggregationChannel(channel_id: num256):
     self.aggregation_channel[self.next_aggregation_channel_index].storage_bytes = as_num256(0)
     self.aggregation_channel[self.next_aggregation_channel_index].lifetime = 0
     self.aggregation_channel[self.next_aggregation_channel_index].starttime = 0
-    self.aggregation_channel[self.next_aggregation_channel_index].number_of_nodes = 0
+    self.aggregation_channel[self.next_aggregation_channel_index].max_nodes = 0
     self.aggregation_channel[self.next_aggregation_channel_index].next_aggregated_basic_channel_index = 0
     # todo delete basic_channels
 
@@ -178,7 +186,8 @@ def completeWithdrawDeposit(node_number: num256):
     assert self.nodes[node_number].status == 2
     # todo check that channels are closed
     # remove from list
-    Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))
+    #Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))
+    Token(self.token_address).transfer(msg.sender, as_num256(self.nodes[node_number].deposit))
     self.nodes[node_number].deposit = 0
     self.nodes[node_number].status = 3
 
@@ -203,7 +212,6 @@ def getNumber() -> num:
 
 
 @public
-@constant
 def test() -> num:
     for i in range(2000000):
         if i == self.new_number:
