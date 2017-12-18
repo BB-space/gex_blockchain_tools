@@ -2,6 +2,9 @@ import logging
 import json
 from web3 import Web3, HTTPProvider
 
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class ContractLoader:
     @staticmethod
@@ -13,6 +16,7 @@ class ContractLoader:
     # todo load from ?
     @staticmethod
     def get_contract_data():
+        logger.info('Loading contract data from `../viper/data.json`')
         with open('../viper/data.json') as data_file:
             return json.load(data_file)
 

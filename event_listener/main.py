@@ -8,6 +8,12 @@ def event_callback(res):
 
 contract = ContractLoader.get_contract('http://localhost:8545')
 
-listener = Listener.listen_for_event(contract, 'NewNumber')
-listener.watch(event_callback)
-listener.join()
+# listener = Listener.listen_for_event(contract, 'NewNumber')
+# listener.watch(event_callback)
+# listener.join()
+
+past_events = Listener.past_event_filter(contract, 'NewNumber')
+past_events.watch(event_callback)
+past_events.join()
+
+print(past_events)
