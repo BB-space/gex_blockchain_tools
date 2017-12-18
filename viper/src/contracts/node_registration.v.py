@@ -91,22 +91,22 @@ def deposit(node_ip: bytes32, port: num, nonce: num):
 
 @public
 def heartbit():
-    day = (block.timestamp - self.start_epoch) / 86400  # 24*60*60
-    j = day - 1
-    if j % 2 == 1:
-        if j >= 256 and j % 256 == 0:
-            self.nodes[self.node_indexes[msg.sender]].heartbits[1] = as_num256(0)
-        self.nodes[self.node_indexes[msg.sender]].heartbits[1] = bitwise_or(
-            self.nodes[self.next_node_index].heartbits[1], shift(as_num256(1), j % 256))
-    else:
-        if j >= 256 and j % 256 == 0:
+    index = (block.timestamp - self.start_epoch) / 86400 - 1  # 24*60*60
+    if index % 2 == 0:
+        if index >= 256 and index % 256 == 0:
             self.nodes[self.node_indexes[msg.sender]].heartbits[0] = as_num256(0)
         self.nodes[self.node_indexes[msg.sender]].heartbits[0] = bitwise_or(
-            self.nodes[self.next_node_index].heartbits[0], shift(as_num256(1), j % 256))
+            self.nodes[self.next_node_index].heartbits[0], shift(as_num256(1), index % 256))
+    else:
+        if index >= 256 and index % 256 == 0:
+            self.nodes[self.node_indexes[msg.sender]].heartbits[1] = as_num256(0)
+        self.nodes[self.node_indexes[msg.sender]].heartbits[1] = bitwise_or(
+            self.nodes[self.next_node_index].heartbits[1], shift(as_num256(1), index % 256))
         # reward
     if block.timestamp - self.nodes[self.next_node_index].last_reward_date >= 2764800:  # 32*60*60*24
         self.nodes[self.next_node_index].last_reward_date = block.timestamp
         # todo send reward
+        # Token(self.token_address).transfer(msg.sender, as_num256(what))
 
 
 @public

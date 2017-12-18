@@ -43,3 +43,14 @@ class Deployer:
             except:
                 i = i + self.wait_delta
         raise Exception("Contract deployment failed.")
+
+    def wait_for_transaction(self, tx_hash):
+        i = 0
+        while i < self.wait_total:
+            try:
+                sleep(self.wait_delta)
+                tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
+                return tx_receipt['gasUsed']
+            except:
+                i = i + self.wait_delta
+        raise Exception("Transaction failed.")
