@@ -10,4 +10,4 @@ web3 = Web3(HTTPProvider('http://localhost:8545'))
 contract = web3.eth.contract(contract_name='TestContract', address=contract_data['registration_address'],
                              abi=contract_data['registration_abi'])
 
-print(contract.transact({'from': web3.eth.accounts[0]}).setNumber(randrange(0,100)))
+print(contract.transact({'from': web3.eth.accounts[0]}).setNumber(randrange(0, 100)))
