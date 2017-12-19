@@ -49,9 +49,6 @@ aggregation_channel_created.watch(aggregation_channel_created_callback)
 basic_channel_added = contract.on('BasicChannelAdded')
 basic_channel_added.watch(basic_channel_added_callback)
 
-#contract.transact({'from': web3.eth.accounts[0]}).setNumber(2)
-time.sleep(10)
-print(str(contract.call().getNumber()))
 '''
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
