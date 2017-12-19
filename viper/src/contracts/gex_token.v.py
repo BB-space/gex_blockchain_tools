@@ -8,6 +8,7 @@ Burn: __log__({ _from: indexed(address), _amount: num})
 name: bytes32
 symbol: bytes32
 totalSupply: num
+# todo do we have cap ?
 cap: num
 decimals: num
 balances: num[address]

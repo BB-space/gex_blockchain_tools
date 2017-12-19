@@ -2,7 +2,7 @@
 .idea
 *.pyc
 build/
-data.json
+#data.json
 tmp.py
 .cache
 tmp.sol
