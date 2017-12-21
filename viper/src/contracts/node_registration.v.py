@@ -75,20 +75,24 @@ def __init__(_token_address: address):
 # todo change num to num256?
 @public
 @constant
-def getNodeIPs(offset: num) -> bytes32[100]:
-    ips: bytes32[101]
-    for i in range(offset, offset + 100):
-        ips[i] = self.nodes[as_num256(i)].node_ip
-    if num256_lt(as_num256(offset + 100), num256_sub(self.next_node_index, as_num256(1))):
-        ips[100] = as_bytes32(1)
-    else:
-        ips[100] = as_bytes32(2)
+def getNodeIPs(offset: num) -> bytes32[6]:
+    ips: bytes32[6]
+    j = 0
+    for i in range(offset, offset + 4):
+        ips[j] = self.nodes[as_num256(i)].node_ip
+        j=j+1
+        #if num256_lt(as_num256(offset + 100), num256_sub(self.next_node_index, as_num256(1))):
+        #   ips[j] = as_bytes32(111111)
+        #else:
+        # ips[j] = as_bytes32(2222222)
+    ips[j] = as_bytes32(msg.sender)
     return ips
 
 
 @public
 @payable
 def deposit(node_ip: bytes32, port: num, nonce: num):
+    assert self.node_indexes[msg.sender] == as_num256(0)
     # in client call 'token_contract.transact({'from': <from_address>}).approve(<this_contract_address>, amount)' first
     # todo send in wei
     Token(self.token_address).transferFrom(msg.sender, self, as_num256(100))
