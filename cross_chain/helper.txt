@@ -9,4 +9,24 @@ loadScript("/media/khotkevych/594caf8b-ae44-489c-a7f2-b2633048db85/projects/cros
 
 ethereumwallet --rpc http://localhost:8545
 
-geth --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" --rpcaddr "0.0.0.0" console
+geth --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" --rpcaddr "0.0.0.0" --ws  --wsorigins="*" --wsaddr="0.0.0.0" --wsapi "personal,eth,net,web3" console
+
+
+
+var mining_threads = 1
+
+function checkWork() {
+    if (eth.getBlock("pending").transactions.length > 0) {
+        if (eth.mining) return;
+        console.log("== Pending transactions! Mining...");
+        miner.start(mining_threads);
+    } else {
+        miner.stop();
+        console.log("== No transactions! Mining stopped.");
+    }
+}
+
+eth.filter("latest", function(err, block) { checkWork(); });
+eth.filter("pending", function(err, block) { checkWork(); });
+
+checkWork();

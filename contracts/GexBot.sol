@@ -1,7 +1,7 @@
 pragma solidity ^0.4.13;
 
-interface Token {
-    function transfer2(address _to, uint256 _value) public returns(bool success);
+interface Token1 {
+    function transfer(address _to, uint256 _value) public returns(bool success);
     function balanceOf(address _owner) public returns(uint balance);
 }
 
@@ -11,7 +11,7 @@ contract GexBot{
     uint256 public currentDay;
     uint256 public numberOfTransactions;
 
-    Token public token;
+    Token1 public token;
 
     struct Order {
     uint256 amount;
@@ -58,7 +58,7 @@ contract GexBot{
         owner = msg.sender;
 
         GexAddress = _address;
-        token = Token(GexAddress);
+        token = Token1(GexAddress);
         EthInitialReserve = msg.value;
         GexInitialReserve = 0;
         currentDay = 1;
@@ -341,7 +341,7 @@ contract GexBot{
     function transferGEX(address _sender, uint256 _amount) private returns(uint256 amount) {
         amount = _amount;
         transferGexDone(_sender, _amount);
-        require(token.transfer2(_sender, _amount));
+        require(token.transfer(_sender, _amount));
     }
 
     function transferETH(address _sender, uint256 _amount) private returns(uint256 amount) {

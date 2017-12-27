@@ -1,28 +1,55 @@
-# Viper Port of MyToken
-# THIS CONTRACT HAS NOT BEEN AUDITED!
-# ERC20 details at:
-# https://theethereum.wiki/w/index.php/ERC20_Token_Standard
-# https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20-token-standard.md
 # Events of the token.
 Transfer: __log__({_from: indexed(address), _to: indexed(address), _value: num256})
 Approval: __log__({_owner: indexed(address), _spender: indexed(address), _value: num256})
+Mint: __log__({ _to: indexed(address), _amount: num})
+Burn: __log__({ _from: indexed(address), _amount: num})
 
 # Variables of the token.
 name: bytes32
 symbol: bytes32
 totalSupply: num
+# todo do we have cap ?
+cap: num
 decimals: num
 balances: num[address]
 allowed: num[address][address]
-
+# todo
+owners: address[2]
 
 @public
-def __init__(_name: bytes32, _symbol: bytes32, _decimals: num, _initialSupply: num):
+def __init__(_name: bytes32, _symbol: bytes32, _decimals: num, _cap: num, _initialSupply: num):
     self.name = _name
     self.symbol = _symbol
     self.decimals = _decimals
     self.totalSupply = _initialSupply * 10 ** _decimals
+    self.cap = _cap * 10 ** _decimals
     self.balances[msg.sender] = self.totalSupply
+    self.owners[0] = msg.sender
+
+@public
+def set_owner(i: num, new_owner: address):
+    assert msg.sender in self.owners
+    self.owners[i] = new_owner
+
+@public
+def is_owner() -> bool:
+    return msg.sender in self.owners
+
+@public
+def mint(_to: address, _amount: num):
+    assert self.is_owner(msg.sender)
+    assert self.totalSupply + _amount <= self.cap
+    self.totalSupply = self.totalSupply + _amount
+    self.balances[_to] = self.balances[_to] + _amount
+    log.Mint(_to, _amount)
+
+@public
+def burn(_from: address, _amount: num):
+    assert self.is_owner(msg.sender)
+    assert self.balances[_from] >= _amount
+    self.balances[_from] = self.balances[_from] - _amount
+    self.totalSupply = self.totalSupply - _amount
+    log.Burn(_from, _amount)
 
 
 @public
@@ -36,6 +63,10 @@ def symbol() -> bytes32:
 def name() -> bytes32:
     return self.name
 
+@public
+@constant
+def cap() -> num:
+    return self.cap
 
 # What is the balance of a particular account?
 @public

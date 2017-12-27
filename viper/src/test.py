@@ -31,15 +31,17 @@ def basic_channel_added_callback(result):
         result['args']['aggregation_channel_id']) + " basicChannelID: " + str(result['args']['basic_channel_id']))
 
 
-with open('../data.json') as data_file:
+with open('/media/khotkevych/594caf8b-ae44-489c-a7f2-b2633048db85/projects/gex_blockchain_tools/viper/data.json') as data_file:
     data = json.load(data_file)
 web3 = Web3(HTTPProvider('http://localhost:8545'))
+#print(web3.fromAscii('12345'))
+
 token = web3.eth.contract(contract_name='Token', address=data['token_address'], abi=data['token_abi'])
 approval = token.on('Approval')
 approval.watch(approval_callback)
 contract = web3.eth.contract(contract_name='Registration', address=data['registration_address'],
                              abi=data['registration_abi'])
-
+'''
 node_created = contract.on('NodeCreated')
 node_created.watch(node_created_callback)
 basic_channel_created = contract.on('BasicChannelCreated')
@@ -53,14 +55,14 @@ basic_channel_added.watch(basic_channel_added_callback)
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
 token.transact({'from': web3.eth.accounts[0]}).approve(data['registration_address'], 100)
-time.sleep(30)
+time.sleep(40)
 
 contract.transact({'from': web3.eth.accounts[0]}).deposit("10.11.0.1", 3333, 4444)
-time.sleep(30)
+time.sleep(40)
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
 print(str(contract.call().getNodeStatus(1)))
-'''
+
 contract.transact({'from': web3.eth.accounts[0]}).createBasicChannel(web3.eth.accounts[0], 100, 100, 4)
 time.sleep(30)
 contract.transact({'from': web3.eth.accounts[0]}).createAggregationChannel(web3.eth.accounts[0], 100, 100, 4)
@@ -78,3 +80,6 @@ print(str(contract.call().getNodeStatus(1)))
 print(
     str(token.call().balanceOf(web3.eth.accounts[0])) + " " + str(token.call().balanceOf(data['registration_address'])))
 '''
+ips = contract.call().getNodeIPs(1)
+for ip in ips:
+    print(ip)

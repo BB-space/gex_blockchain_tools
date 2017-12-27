@@ -4,7 +4,7 @@ services:
   geth:
     container_name: geth
     image: ethereum/client-go
-    command: --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" --rpcaddr "0.0.0.0"
+    command: --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" --rpcaddr "0.0.0.0" --ws  --wsorigins="*" --wsaddr="0.0.0.0" --wsapi "personal,eth,net,web3"
 
     ports:
       - 8545:8545
