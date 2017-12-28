@@ -140,15 +140,23 @@ contract NodeRegistration {
         require(node_indexes[msg.sender] == node_number);
         require(nodes[node_number].status == 2);
         require(block.timestamp - nodes[node_number].leaving_date >= 5260000);  // 2 month. 3 month will be 7890000
+        nodes[node_number].deposit = 0;
+        nodes[node_number].status = 3;
         // todo check that channels are closed
         // remove from list
         // Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))
         token_address.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, 100);
-        nodes[node_number].deposit = 0;
-        nodes[node_number].status = 3;
     }
 
-    //function getNodeIPs() public returns (bytes32[]) {
-    //    return null;
-    //}
+    function getNodeIPs() public returns (bytes32[]) {
+        bytes32[] arr;
+        uint j =0;
+        for (uint i = 0; i < next_node_index; i++) {
+            if(nodes[i].status == 1){
+                arr[j] = nodes[i].ip;
+                j++;
+            }
+        }
+        return arr;
+    }
 }
