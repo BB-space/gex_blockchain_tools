@@ -6,6 +6,8 @@ contract NodeRegistration {
     address public token_address;
 
     uint start_epoch;
+    uint256 annual_mint;
+    uint256 daily_mint;
 
     struct Node {
         uint256 deposit;
@@ -22,7 +24,7 @@ contract NodeRegistration {
         address owner;
         uint256 storage_bytes;
         uint lifetime;
-        uint starttime;
+        uint start_time;
         uint max_nodes;
     }
 
@@ -30,7 +32,7 @@ contract NodeRegistration {
         address owner;
         uint256 storage_bytes;
         uint lifetime;
-        uint starttime;
+        uint start_time;
         uint max_nodes;
         mapping (uint256 => bool) basic_channels;
         uint next_aggregated_basic_channel_index;
@@ -58,9 +60,11 @@ contract NodeRegistration {
 
     event BasicChannelAdded(uint256 aggregation_channel_id, uint256 basic_channel_id);
 
-    function NodeRegistration(address _tokenContract){
+    function NodeRegistration(address _tokenContract, uint256 _annual_mint){
         token_address = _tokenContract;
         start_epoch = block.timestamp;
+        annual_mint = _annual_mint;
+        daily_mint = annual_mint / 365;
     }
 
     function deposit(bytes32 ip, uint port, uint nonce) public {
@@ -68,7 +72,7 @@ contract NodeRegistration {
         nodes[next_node_index].deposit = 100;
         nodes[next_node_index].ip = ip;
         nodes[next_node_index].port = port;
-        nodes[next_node_index].status = 1; // todo
+        nodes[next_node_index].status = 1;
         nodes[next_node_index].last_reward_date = block.timestamp;
         nodes[next_node_index].deposit_date = block.timestamp;
         NodeCreated(next_node_index, ip, port, nonce);
@@ -84,8 +88,9 @@ contract NodeRegistration {
         // reward
         if (block.timestamp - nodes[next_node_index].last_reward_date >= 2764800){// 32*60*60*24
             nodes[next_node_index].last_reward_date = block.timestamp;
-        // todo send reward
-        // Token(self.token_address).transfer(msg.sender, as_num256(what))
+            // todo check the last 32 days
+            // todo this value may change
+            token_address.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, daily_mint / getActiveNodesCount());
         }
     }
 
@@ -94,7 +99,7 @@ contract NodeRegistration {
         basic_channel[next_basic_channel_index].storage_bytes = storage_bytes;
         basic_channel[next_basic_channel_index].lifetime = lifetime;
         basic_channel[next_basic_channel_index].max_nodes = max_nodes;
-        basic_channel[next_basic_channel_index].starttime = block.timestamp;
+        basic_channel[next_basic_channel_index].start_time = block.timestamp;
         BasicChannelCreated(next_basic_channel_index, owner, storage_bytes, lifetime, max_nodes);
         next_basic_channel_index = next_basic_channel_index + 1;
     }
@@ -104,7 +109,7 @@ contract NodeRegistration {
         aggregation_channel[next_aggregation_channel_index].storage_bytes = storage_bytes;
         aggregation_channel[next_aggregation_channel_index].lifetime = lifetime;
         aggregation_channel[next_aggregation_channel_index].max_nodes = max_nodes;
-        aggregation_channel[next_aggregation_channel_index].starttime = block.timestamp;
+        aggregation_channel[next_aggregation_channel_index].start_time = block.timestamp;
         AggregationChannelCreated(next_aggregation_channel_index, owner, storage_bytes, lifetime, max_nodes);
         next_aggregation_channel_index = next_aggregation_channel_index + 1;
     }
@@ -115,12 +120,12 @@ contract NodeRegistration {
         // aggregation channel should be present
         require(aggregation_channel[aggregation_channel_id].owner != address(0));
         // aggregation channel must be alive
-        require((aggregation_channel[aggregation_channel_id].starttime + aggregation_channel[aggregation_channel_id].lifetime) > block.timestamp);
+        require((aggregation_channel[aggregation_channel_id].start_time + aggregation_channel[aggregation_channel_id].lifetime) > block.timestamp);
         // basic channel must be alive
-        require((basic_channel[basic_channel_id].starttime + basic_channel[basic_channel_id].lifetime) > block.timestamp);
+        require((basic_channel[basic_channel_id].start_time + basic_channel[basic_channel_id].lifetime) > block.timestamp);
         // basic channel must expire before aggregation channel
-        require((basic_channel[basic_channel_id].starttime + basic_channel[basic_channel_id].lifetime) <
-               (aggregation_channel[aggregation_channel_id].starttime + aggregation_channel[aggregation_channel_id].lifetime));
+        require((basic_channel[basic_channel_id].start_time + basic_channel[basic_channel_id].lifetime) <
+               (aggregation_channel[aggregation_channel_id].start_time + aggregation_channel[aggregation_channel_id].lifetime));
         // check that basic channel is not present in the aggregation channel already
         require(!aggregation_channel[aggregation_channel_id].basic_channels[basic_channel_id]);
         aggregation_channel[aggregation_channel_id].basic_channels[basic_channel_id] = true;
@@ -135,7 +140,6 @@ contract NodeRegistration {
         nodes[node_number].leaving_date = block.timestamp;
     }
 
-    // todo remove node number
     function completeWithdrawDeposit(uint256 node_number) public {
         require(node_indexes[msg.sender] == node_number);
         require(nodes[node_number].status == 2);
@@ -143,8 +147,6 @@ contract NodeRegistration {
         nodes[node_number].deposit = 0;
         nodes[node_number].status = 3;
         // todo check that channels are closed
-        // remove from list
-        // Token(self.token_address).transferFrom(self, msg.sender, as_num256(self.nodes[node_number].deposit))
         token_address.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, 100);
     }
 
@@ -158,5 +160,15 @@ contract NodeRegistration {
             }
         }
         return arr;
+    }
+
+    function getActiveNodesCount() internal returns (uint) {
+        uint active_nodes =0;
+        for (uint i = 0; i < next_node_index; i++) {
+            if(nodes[i].status == 1){
+                active_nodes++;
+            }
+        }
+        return active_nodes;
     }
 }
