@@ -1,0 +1,8 @@
+version: '3.3'
+
+services:
+
+  test-geth:
+    networks:
+      weave:
+        ipv4_address: 51.0.2.99
