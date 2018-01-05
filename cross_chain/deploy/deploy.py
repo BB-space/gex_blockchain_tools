@@ -118,9 +118,9 @@ def deploy_new():
         gex_token_address = receipt['contractAddress']
         print('GEXToken deployed')
         # Contract
-        contract = chain.provider.get_contract_factory('NodeRegistration')
+        contract = chain.provider.get_contract_factory('NodeManager')
         tx_hash = contract.deploy(
-            args=[gex_token_address],
+            args=[gex_token_address, 5000000],
             transaction={'from': owner}
         )
         receipt = check_successful_tx(chain.web3, tx_hash, txn_wait)

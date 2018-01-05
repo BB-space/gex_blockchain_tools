@@ -1,11 +1,11 @@
 pragma solidity ^0.4.16;
 
-interface Token {
+interface Token2 {
     function transfer2(address _to, uint256 _value) public returns(bool success);
     function balanceOf(address _owner) public constant returns(uint balance);
 }
 
-contract GexBot{
+contract GexBot1{
     uint256 public GexInitialReserve;
     uint256 public EthInitialReserve;
     uint256 public currentDay;
@@ -57,7 +57,7 @@ contract GexBot{
     event Fee(uint256 value);
     event exchangedRateOfDay(uint256 day, uint256 exchangeRateUp, uint256 exchangeRateDown);
 
-    function GexBot(address _address) public payable {
+    function GexBot1(address _address) public payable {
         owner = msg.sender;
 
         GexAddress = _address;
@@ -136,7 +136,7 @@ contract GexBot{
         uint256[2] storage rate1 = exchangeRate[(currentDay - 1) % 100];
         uint256[2] storage rate = exchangeRate[currentDay % 100];
         uint256 GIR = GexInitialReserve;
-        uint256 GR = uint256(Token(GexAddress).balanceOf(address(this)));
+        uint256 GR = uint256(Token2(GexAddress).balanceOf(address(this)));
         for (uint256 i = 0; i < 20; i++) {
             amountToOrderPrevious = amountToOrder;
             reserve = GR - ((amountToOrderPrevious * 80) / 100 * (rate1[1] + rate[1])) / (rate1[0] + rate[0] + amountToOrderPrevious);
@@ -355,7 +355,7 @@ contract GexBot{
     function transferGEX(address _sender, uint256 _amount) private returns(uint256 amount) {
         amount = _amount;
         transferGexDone(_sender, _amount);
-        require(Token(GexAddress).transfer2(_sender, _amount));
+        require(Token2(GexAddress).transfer2(_sender, _amount));
     }
 
     function transferETH(address _sender, uint256 _amount) private returns(uint256 amount) {
