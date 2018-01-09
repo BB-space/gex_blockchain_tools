@@ -120,17 +120,17 @@ contract NodeManager {
     function tokenFallback(address sender, uint256 value, bytes data) public {
         require(msg.sender == tokenAddress);
         require(value == depositValue);
-        require (ip != 0x0); // todo another checks
-        require (port > 0);
+        //require (ip != 0x0); // todo another checks
+        //require (port > 0);
         // todo get ip, port, nonce from the data filed
-        nodes[nextNodeIndex].ip = ip;
-        nodes[nextNodeIndex].port = port;
+        //nodes[nextNodeIndex].ip = ip;
+        //nodes[nextNodeIndex].port = port;
         nodes[nextNodeIndex].deposit = depositValue;
         nodes[nextNodeIndex].status = NodeStatus.Active;
         nodes[nextNodeIndex].lastRewardDate = block.timestamp;
         nodes[nextNodeIndex].depositDate = block.timestamp;
         nodeIndexes[msg.sender][nextNodeIndex] = true;
-        NodeCreated(nextNodeIndex, ip, port, nonce);
+        //NodeCreated(nextNodeIndex, ip, port, nonce);
         nextNodeIndex = nextNodeIndex + 1;
     }
 
@@ -234,10 +234,10 @@ contract NodeManager {
         require(nodeIndexes[msg.sender][nodeNumber]);
         uint index = (block.timestamp - startEpoch) / 86400 - 1;  // 24*60*60
         if (index >= 256 * 2 && index % 256 == 0) {
-            nodes[nodeNumber].heartbits[int(index % (256 * 2) / 256)] = 0;
+            nodes[nodeNumber].heartbits[index % (256 * 2) / 256] = 0;
         }
-        nodes[nodeNumber].heartbits[int(index % (256 * 2) / 256)] =
-            nodes[nextNodeIndex].heartbits[int(index % (256 * 2) / 256)] | (1 << (index % (256 * 2) % 256)); // bitwise_or
+        nodes[nodeNumber].heartbits[index % (256 * 2) / 256] =
+            nodes[nextNodeIndex].heartbits[index % (256 * 2) / 256] | (1 << (index % (256 * 2) % 256)); // bitwise_or
         // reward
         if (block.timestamp - nodes[nextNodeIndex].lastRewardDate >= paymentPeriod){
             // todo check the last 32 days
