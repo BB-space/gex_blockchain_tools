@@ -1,26 +1,10 @@
 version: '3.3'
 
-#x-ips:
-#  &local_ip
-#  ipv4_address: 51.0.2.99
-
 services:
   test-geth:
     container_name: test-geth
     image: ethereum/client-go
     command: --dev --rpc --rpccorsdomain="*" --rpcapi "admin,debug,miner,shh,txpool,personal,eth,net,web3" --rpcaddr "0.0.0.0" --ws  --wsorigins="*" --wsaddr="0.0.0.0" --wsapi "personal,eth,net,web3"
-
-#    ports:
-#      - 8545:8545
-#      - 30303:30303
-
-#    networks:
-#      weave: *local_ip
-
-#    volumes:
-#      - ./shared/keystore:/root/.ethereum/keystore
-#      - ./shared/passphrase:/root/passphrase
-
 
 networks:
   weave:
