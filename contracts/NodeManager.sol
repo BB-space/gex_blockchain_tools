@@ -22,7 +22,7 @@ contract NodeManager {
 
     struct Node {
         uint256 deposit;
-        bytes32 ip; // todo uint128 ?
+        bytes15 ip; // todo use another type
         uint16 port; // todo The port number is an unsigned 16-bit integer, so 65535. https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
         uint depositDate;
         uint leavingDate;
@@ -65,9 +65,9 @@ contract NodeManager {
 
     event NodeCreated(
         uint256 nodeId,
-        bytes32 ip,
+        bytes15 ip,
         uint16 port,
-        uint nonce
+        uint16 nonce
     );
 
     event BasicChannelCreated(
@@ -76,7 +76,7 @@ contract NodeManager {
         uint256 storageBytes,
         uint lifetime,
         uint maxNodes,
-        uint nonce
+        uint16 nonce
     );
 
     event AggregationChannelCreated(
@@ -85,13 +85,13 @@ contract NodeManager {
         uint256 storageBytes,
         uint lifetime,
         uint maxNodes,
-        uint nonce
+        uint16 nonce
     );
 
     event BasicChannelAdded(
         uint256 aggregationChannelID,
         uint256 basicChannelID,
-        uint nonce
+        uint16 nonce
     );
 
     //owner
@@ -125,25 +125,48 @@ contract NodeManager {
     function tokenFallback(address sender, uint256 value, bytes data) public {
         require(msg.sender == tokenAddress);
         require(value == depositValue);
-        //require (ip != 0x0); // todo another checks
-        //require (port > 0);
-        // todo get ip, port, nonce from the data filed
-        //nodes[nextNodeIndex].ip = ip;
-        //nodes[nextNodeIndex].port = port;
+        uint16 port;
+        uint16 nonce;
+        bytes15 ip;
+        (port, nonce, ip) = fallbackDataConvert(data);
+        require (ip != 0x0); // todo another checks
+        require (port > 0);
+        nodes[nextNodeIndex].ip = ip;
+        nodes[nextNodeIndex].port = port;
         nodes[nextNodeIndex].deposit = depositValue;
         nodes[nextNodeIndex].status = NodeStatus.Active;
         nodes[nextNodeIndex].lastRewardDate = block.timestamp;
         nodes[nextNodeIndex].depositDate = block.timestamp;
         nodeIndexes[msg.sender][nextNodeIndex] = true;
-        //NodeCreated(nextNodeIndex, ip, port, nonce);
+        NodeCreated(nextNodeIndex, ip, port, nonce);
         nextNodeIndex = nextNodeIndex + 1;
     }
 
-    // add nonce
+
+    function fallbackDataConvert(
+        bytes b)
+        //internal
+        constant
+        returns (uint16, uint16, bytes15)
+    {
+        bytes15 ip;
+        bytes4 port;
+        bytes4 nonce;
+        assembly {
+            port := mload(add(b, 0x20))
+            nonce := mload(add(b, 0x24))
+            ip := mload(add(b, 0x28))
+        }
+        return (uint16(port),uint16(nonce),ip);
+    }
+
+
     function createBasicChannel(
         address owner,
         uint256 storageBytes,
-        uint lifetime, uint maxNodes, uint nonce
+        uint lifetime,
+        uint maxNodes,
+        uint16 nonce
     )
     public
     {
@@ -156,13 +179,12 @@ contract NodeManager {
         nextBasicChannelIndex = nextBasicChannelIndex + 1;
     }
 
-    // add nonce
     function createAggregationChannel(
         address owner,
         uint256 storageBytes,
         uint lifetime,
         uint maxNodes,
-        uint nonce
+        uint16 nonce
     )
     public
     {
@@ -175,7 +197,7 @@ contract NodeManager {
         nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
     }
 
-    function addToAggregationChannel(uint256 aggregationChannelID, uint256 basicChannelID, uint nonce){
+    function addToAggregationChannel(uint256 aggregationChannelID, uint256 basicChannelID, uint16 nonce){
         // basic channel should be present
         require(aggregationChannel[basicChannelID].owner != address(0));
         // aggregation channel should be present
@@ -211,8 +233,8 @@ contract NodeManager {
         tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, depositValue);
     }
 
-    function getNodeIPs() public returns (bytes32[]) {
-        bytes32[] arr;
+    function getNodeIPs() public returns (bytes16[]) {
+        bytes16[] arr;
         uint j = 0;
         for (uint i = 0; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
@@ -240,7 +262,7 @@ contract NodeManager {
             nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] = 0;
         }
         nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] =
-            nodes[nextNodeIndex].heartbits[index % heartbitTotal / heartbitUnit] | (1 << (index % heartbitTotal % heartbitUnit)); // bitwise_or
+            nodes[nextNodeIndex].heartbits[index % heartbitTotal / heartbitUnit] | (1 << (index % heartbitTotal % heartbitUnit));
         // reward
         if (block.timestamp - nodes[nextNodeIndex].lastRewardDate >= paymentPeriod){
             nodes[nextNodeIndex].lastRewardDate = block.timestamp;

@@ -1,4 +1,4 @@
-class Test:
+class TestHeartbit:
 
     heartbits = [0,0]
     last_reward = 0
@@ -42,7 +42,7 @@ class Test:
         print(self.heartbits[1])
 
 
-test = Test()
+test = TestHeartbit()
 for i in range(0, 33):
     test.heartbit(i)
 #test.print()
