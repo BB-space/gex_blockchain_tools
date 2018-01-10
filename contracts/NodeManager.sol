@@ -12,6 +12,7 @@ contract NodeManager {
     uint constant heartbitTotal = heartbitUnit * 2;
     uint constant daysForPayment = 32;
     uint constant absentDays = 2;
+    uint constant timestampToDate = 86400;  // 24*60*60
 
     uint startEpoch;
     uint256 annualMint;
@@ -234,7 +235,7 @@ contract NodeManager {
 
     function heartbit(uint256 nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
-        uint index = (block.timestamp - startEpoch) / 86400 - 1;  // 24*60*60
+        uint index = (block.timestamp - startEpoch) / timestampToDate - 1;
         if (index >= heartbitTotal && index % heartbitUnit == 0) {
             nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] = 0;
         }
@@ -255,15 +256,5 @@ contract NodeManager {
             }
             tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
         }
-    }
-
-       // todo uint256
-    function getBit(bytes1 a, uint8 n) returns (bool) {
-        return a & shiftLeft(0x01, n) != 0;
-    }
-
-    function shiftLeft(bytes1 a, uint8 n) returns (bytes1) {
-        var shifted = uint8(a) * 2 ** n;
-        return bytes1(shifted);
     }
 }
