@@ -8,6 +8,10 @@ contract NodeManager {
     uint public constant depositValue = 100 * 10 ** 18; // todo rewrite coins
     uint constant leavingPeriod = 5260000; // 2 month. 3 month will be 7890000
     uint constant paymentPeriod = 2764800; // 32*60*60*24
+    uint constant heartbitUnit = 256;
+    uint constant heartbitTotal = heartbitUnit * 2;
+    uint constant daysForPayment = 32;
+    uint constant absentDays = 2;
 
     uint startEpoch;
     uint256 annualMint;
@@ -134,8 +138,6 @@ contract NodeManager {
         nextNodeIndex = nextNodeIndex + 1;
     }
 
-
-
     // add nonce
     function createBasicChannel(
         address owner,
@@ -233,17 +235,25 @@ contract NodeManager {
     function heartbit(uint256 nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
         uint index = (block.timestamp - startEpoch) / 86400 - 1;  // 24*60*60
-        if (index >= 256 * 2 && index % 256 == 0) {
-            nodes[nodeNumber].heartbits[index % (256 * 2) / 256] = 0;
+        if (index >= heartbitTotal && index % heartbitUnit == 0) {
+            nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] = 0;
         }
-        nodes[nodeNumber].heartbits[index % (256 * 2) / 256] =
-            nodes[nextNodeIndex].heartbits[index % (256 * 2) / 256] | (1 << (index % (256 * 2) % 256)); // bitwise_or
+        nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] =
+            nodes[nextNodeIndex].heartbits[index % heartbitTotal / heartbitUnit] | (1 << (index % heartbitTotal % heartbitUnit)); // bitwise_or
         // reward
         if (block.timestamp - nodes[nextNodeIndex].lastRewardDate >= paymentPeriod){
-            // todo check the last 32 days
             nodes[nextNodeIndex].lastRewardDate = block.timestamp;
-            tokenAddress.call(bytes4(sha3("transfer(address, uint256)")),
-                msg.sender, dailyMint / getActiveNodesCount());
+            uint dayToPayFor = 0;
+            for(uint i = 0; i < daysForPayment; i++){
+                if (nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] & (1 * 2 ** (index % heartbitTotal % heartbitUnit)) != 0){
+                    dayToPayFor = dayToPayFor + 1;
+                    if(i - dayToPayFor > absentDays){
+                        return;
+                    }
+                    index = index - 1;
+                }
+            }
+            tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
         }
     }
 
