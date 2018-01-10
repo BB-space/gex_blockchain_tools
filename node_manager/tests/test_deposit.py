@@ -7,7 +7,8 @@ class TestHeartbit:
     def __init__(self):
         with open('../../data.json') as data_file:
             self.data = json.load(data_file)
-        self.web3 = Web3(HTTPProvider("http://localhost:8545")) # 51.0.1.99
+        # self.web3 = Web3(HTTPProvider("http://localhost:8545")) # 51.0.1.99
+        self.web3 = Web3(HTTPProvider("http://51.0.1.99:8545")) # 51.0.1.99
         self.contract = self.web3.eth.contract(contract_name='NodeManager', address=self.data['node_manager_address'],
                                      abi=self.data['node_manager_abi'])
         self.token = self.web3.eth.contract(contract_name='Token', address=self.data['token_address'], abi=self.data['token_abi'])
