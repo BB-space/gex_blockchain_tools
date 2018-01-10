@@ -17,7 +17,10 @@ micro_payments/*.egg-info
 micro_payments/__pycache__
 
 #viper
+viper/bitcoin/
 viper/viper/
+viper/share/
+viper/LICENSE
 viper/bin
 viper/include
 viper/lib

@@ -5,7 +5,7 @@ contract NodeManager {
 
     address public tokenAddress;
 
-    uint public constant depositValue = 100 * 10 ** 18; // todo rewrite coins
+    uint public constant depositValue = 100; // todo rewrite coins //todo change 100 * 10 ** 18
     uint constant leavingPeriod = 5260000; // 2 month. 3 month will be 7890000
     uint constant paymentPeriod = 2764800; // 32*60*60*24
     uint constant heartbitUnit = 256;
@@ -62,6 +62,9 @@ contract NodeManager {
     uint256 nextBasicChannelIndex;
 
     uint256 nextAggregationChannelIndex;
+
+
+    event Fallback();
 
     event NodeCreated(
         uint256 nodeId,
@@ -123,12 +126,14 @@ contract NodeManager {
 */
     // use should call transfer to make a deposit.
     function tokenFallback(address sender, uint256 value, bytes data) public {
+        Fallback();
         require(msg.sender == tokenAddress);
         require(value == depositValue);
         uint16 port;
         uint16 nonce;
         bytes15 ip;
         (port, nonce, ip) = fallbackDataConvert(data);
+        // todo add unique ip check
         require (ip != 0x0); // todo another checks
         require (port > 0);
         nodes[nextNodeIndex].ip = ip;
