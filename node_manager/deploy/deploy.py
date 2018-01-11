@@ -2,10 +2,10 @@ import json
 from populus import Project
 import sys
 
-try:
-    from .config import *
-except SystemError:
-    from config import *
+#try:
+#    from .config import *
+#except SystemError:
+from config import *
 
 sys.path.append('../../gex_chain')
 from populus_utils import *
