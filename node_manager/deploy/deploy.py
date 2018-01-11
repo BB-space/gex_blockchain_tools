@@ -19,7 +19,7 @@ def write_to_file(**kwargs):
 def deploy():
     print('Deploying contracts')
     project = Project()
-    with project.get_chain(LOCAL_CHAIN_NAME) as chain:
+    with project.get_chain(TEST_CHAIN_NAME) as chain:
         web3 = chain.web3
         owner = web3.eth.accounts[0]
         # GEXToken

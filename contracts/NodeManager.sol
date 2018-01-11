@@ -37,6 +37,7 @@ contract NodeManager {
         uint lifetime;
         uint startTime;
         uint maxNodes;
+        uint256 deposit;
     }
 
     struct AggregationChannel {
@@ -45,6 +46,7 @@ contract NodeManager {
         uint lifetime;
         uint startTime;
         uint maxNodes;
+        uint256 deposit;
         mapping (uint256 => bool) basicChannels;
         uint nextAggregatedBasicChannelIndex;
     }
@@ -55,7 +57,11 @@ contract NodeManager {
 
     mapping (uint256 => AggregationChannel) aggregationChannel;
 
-    mapping (address => mapping (uint256 => bool)) nodeIndexes;
+    mapping (address => mapping (uint256 => bool)) nodeIndexes; // todo set struct here
+
+    mapping (address => uint256[]) basicChannelIndexes;
+
+    mapping (address => uint256[]) aggregationChannelIndexes;
 
     uint256 nextNodeIndex;
 
@@ -73,6 +79,7 @@ contract NodeManager {
         uint16 nonce
     );
 
+    // todo add deposit
     event BasicChannelCreated(
         uint256 channelID,
         address owner,
@@ -82,6 +89,7 @@ contract NodeManager {
         uint16 nonce
     );
 
+     // todo add deposit
     event AggregationChannelCreated(
         uint256 channelID,
         address owner,
@@ -97,34 +105,19 @@ contract NodeManager {
         uint16 nonce
     );
 
-    //owner
+    // todo owner
     function NodeManager(address token, uint256 mintValue) {
         tokenAddress = token;
         startEpoch = block.timestamp;
         annualMint = mintValue;
         dailyMint = annualMint / 365; // todo rewrite
+        // todo check
+        nextNodeIndex = 1;
+        nextBasicChannelIndex = 1;
+        nextAggregationChannelIndex = 1;
     }
 
-    /*
-    // user should run approve before call deposit method
-    function deposit(bytes32 ip, uint16 port, uint nonce) public {
-        require (ip != 0x0); // todo another checks
-        require (port > 0);
-        nodes[nextNodeIndex].ip = ip;
-        nodes[nextNodeIndex].port = port;
-        nodes[nextNodeIndex].deposit = depositValue;
-        nodes[nextNodeIndex].status = NodeStatus.Active;
-        nodes[nextNodeIndex].lastRewardDate = block.timestamp;
-        nodes[nextNodeIndex].depositDate = block.timestamp;
-        nodeIndexes[msg.sender][nextNodeIndex] = true;
-        NodeCreated(nextNodeIndex, ip, port, nonce);
-        nextNodeIndex = nextNodeIndex + 1;
-        // todo test
-        tokenAddress.call(bytes4(sha3("transferFrom(address, address, uint256)")), msg.sender, this, depositValue);
-    }
-
-*/
-    // use should call transfer to make a deposit.
+    // use should call transfer to make a deposit
     function tokenFallback(address sender, uint256 value, bytes data) public {
         Fallback();
         require(msg.sender == tokenAddress);
@@ -143,7 +136,7 @@ contract NodeManager {
         nodes[nextNodeIndex].lastRewardDate = block.timestamp;
         nodes[nextNodeIndex].depositDate = block.timestamp;
         nodeIndexes[msg.sender][nextNodeIndex] = true;
-        NodeCreated(nextNodeIndex, ip, port, nonce);
+        NodeCreated(nextNodeIndex, ip, port, nonce); // todo return owner
         nextNodeIndex = nextNodeIndex + 1;
     }
 
@@ -165,40 +158,45 @@ contract NodeManager {
         return (uint16(port),uint16(nonce),ip);
     }
 
-
+    // todo add to tokenFallback
     function createBasicChannel(
-        address owner,
         uint256 storageBytes,
         uint lifetime,
         uint maxNodes,
-        uint16 nonce
+        uint16 nonce,
+        uint256 deposit
     )
     public
     {
-        basicChannel[nextBasicChannelIndex].owner = owner;
+        basicChannel[nextBasicChannelIndex].owner = msg.sender;
         basicChannel[nextBasicChannelIndex].storageBytes = storageBytes;
         basicChannel[nextBasicChannelIndex].lifetime = lifetime;
         basicChannel[nextBasicChannelIndex].maxNodes = maxNodes;
         basicChannel[nextBasicChannelIndex].startTime = block.timestamp;
-        BasicChannelCreated(nextBasicChannelIndex, owner, storageBytes, lifetime, maxNodes, nonce);
+        basicChannel[nextBasicChannelIndex].deposit = deposit;
+        basicChannelIndexes[msg.sender].push(nextBasicChannelIndex);
+        BasicChannelCreated(nextBasicChannelIndex, msg.sender, storageBytes, lifetime, maxNodes, nonce);
         nextBasicChannelIndex = nextBasicChannelIndex + 1;
     }
 
+    // todo add to tokenFallback
     function createAggregationChannel(
-        address owner,
         uint256 storageBytes,
         uint lifetime,
         uint maxNodes,
-        uint16 nonce
+        uint16 nonce,
+        uint256 deposit
     )
     public
     {
-        aggregationChannel[nextAggregationChannelIndex].owner = owner;
+        aggregationChannel[nextAggregationChannelIndex].owner = msg.sender;
         aggregationChannel[nextAggregationChannelIndex].storageBytes = storageBytes;
         aggregationChannel[nextAggregationChannelIndex].lifetime = lifetime;
         aggregationChannel[nextAggregationChannelIndex].maxNodes = maxNodes;
         aggregationChannel[nextAggregationChannelIndex].startTime = block.timestamp;
-        AggregationChannelCreated(nextAggregationChannelIndex, owner, storageBytes, lifetime, maxNodes, nonce);
+        aggregationChannel[nextAggregationChannelIndex].deposit = deposit;
+        aggregationChannelIndexes[msg.sender].push(nextAggregationChannelIndex);
+        AggregationChannelCreated(nextAggregationChannelIndex, msg.sender, storageBytes, lifetime, maxNodes, nonce);
         nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
     }
 
@@ -236,6 +234,17 @@ contract NodeManager {
         nodes[nodeNumber].deposit = 0;
         nodes[nodeNumber].status = NodeStatus.Left;
         tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, depositValue);
+    }
+
+    function withdrawFromChannels() public {
+        uint withdrawValue = 0;
+        if (aggregationChannelIndexes[msg.sender].length > 0) {
+        }
+        if (basicChannelIndexes[msg.sender].length > 0) {
+        }
+        if(withdrawValue > 0) {
+            tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, withdrawValue);
+        }
     }
 
     function getNodeIPs() public returns (bytes16[]) {
