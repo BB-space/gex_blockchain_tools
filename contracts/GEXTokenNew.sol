@@ -3,10 +3,9 @@ pragma solidity ^0.4.15;
 
 import './token_223/StandardToken.sol';
 import './Ownable.sol';
-import './GexBotNew.sol';
 
 
-contract GEXTokenNew is GexBotNew {
+contract GEXTokenNew is Ownable, StandardToken  {
 
     //Token values
     string public constant name = "Galactic Exchange Token";
@@ -21,12 +20,12 @@ contract GEXTokenNew is GexBotNew {
 
     event Burn(address indexed from, uint256 amount);
 
-    function GEXTokenNew() GexBotNew() {
+    function GEXTokenNew() {
         balances[msg.sender] = 1000 * 10 ** decimals;
         // TODO remove after testing
-        previousTime = uint40(block.timestamp);
-        previousEth = 1000000000000000000000;
-        previousGex = 1000000000000000000000;
+        // previousTime = uint40(block.timestamp);
+        // previousEth = 1000000000000000000000;
+        // previousGex = 1000000000000000000000;
     }
 
     function mint(address _to, uint256 _amount) onlyOwner returns (bool) {
