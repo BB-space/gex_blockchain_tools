@@ -1,7 +1,7 @@
 pragma solidity ^0.4.15;
 
 
-import './StandardToken.sol';
+import './token_223/StandardToken.sol';
 import './Ownable.sol';
 import './GexBotNew.sol';
 

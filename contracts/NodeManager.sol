@@ -271,7 +271,7 @@ contract NodeManager {
 
     function heartbit(uint256 nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
-        uint index = (block.timestamp - startEpoch) / timestampToDate - 1;
+        uint index = (block.timestamp - startEpoch) / timestampToDate - 11111;
         if (index >= heartbitTotal && index % heartbitUnit == 0) {
             nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] = 0;
         }

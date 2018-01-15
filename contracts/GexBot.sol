@@ -11,6 +11,7 @@ interface Token {
 }
 
 contract GexBot {
+
     struct Cell {
         bool active;
         uint88 amountEth;
