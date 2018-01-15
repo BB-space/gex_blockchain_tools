@@ -1,6 +1,6 @@
 pragma solidity ^0.4.16;
 
-interface Token {
+interface Token1 {
     function transfer2(
         address _to,
         uint256 _value
@@ -60,7 +60,7 @@ contract GexBot {
     function () public payable { putEth(""); }
 
     //Fallback function ERC-223
-    function tokenFallback(
+    function Token1Fallback(
         address _sender,
         uint256 _value,
         bytes _data
@@ -260,7 +260,7 @@ contract GexBot {
             up = previousGex + currentGex;
             down = previousEth + currentEth;
             initialReserve = gexInitialReserve;
-            stateReserve = uint88(Token(gexAddress).balanceOf(address(this)));
+            stateReserve = uint88(Token1(gexAddress).balanceOf(address(this)));
         } else {
             up = previousEth + currentEth;
             down = previousGex + currentGex;
@@ -308,7 +308,7 @@ contract GexBot {
         private
     {
         Message(_message, _sender, _amount);
-        require(Token(gexAddress).transfer2(_sender, _amount));
+        require(Token1(gexAddress).transfer2(_sender, _amount));
     }
 
     function transferEth(       //up to 35 000 gas

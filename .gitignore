@@ -6,6 +6,7 @@ build/
 tmp.py
 .cache
 tmp.sol
+node_modules/
 
 # micro_payments
 micro_payments/env
