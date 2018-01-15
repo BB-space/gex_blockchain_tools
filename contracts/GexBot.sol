@@ -30,7 +30,7 @@ contract GexBot {
     uint88 private previousGex;
     uint88 private previousEth;
     uint40 public previousTime;
-    uint24 constant private DAY = 3600; //test, in production 85800
+    uint24 constant private DAY = 85800;
     address private gexAddress;
     address private owner;
 
@@ -322,7 +322,3 @@ contract GexBot {
         _sender.transfer(_amount);
     }
 }
-
-//Main account 0xDe1A8c4e8f747094db0B4B6D7b017699aB95fe28
-//Account1 0x63c67fa80E8E9Fe72AbF6DaFf691eE94Fa82Dc04
-//Gex 0xd56d4651f59a7087AE5d70D5a47fA934D65E8F9d
