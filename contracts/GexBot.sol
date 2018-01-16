@@ -56,6 +56,20 @@ contract GexBot {
         previousTime = uint40(block.timestamp);
     }
 
+    //Manager function
+    function transferOwnership(address newOwner) public {
+        require(owner == msg.sender);
+        require(newOwner != address(0));
+        owner = newOwner;
+    }
+
+    function destroy() public {
+        require(msg.sender == owner);
+        uint balance = Token1(gexAddress).balanceOf(owner);
+        require(Token1(gexAddress).transfer2(owner, balance));
+        selfdestruct(owner);
+    }
+
     //Fallback function
     function () public payable { putEth(""); }
 
