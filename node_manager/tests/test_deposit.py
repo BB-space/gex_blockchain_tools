@@ -39,7 +39,7 @@ class TestHeartbit:
               + " data: " + str(result['args']['_data']))
 
     def node_created_callback(self, result):
-        print("Node Created. nodeID: " + str(result['args']['nodeId']) + " nodeIP: " + result['args'][
+        print("Node Created. nodeID: " + str(result['args']['nodeID']) + " nodeIP: " + result['args'][
             'ip'] + " port: " + str(result['args']['port']) + " nonce: " + str(result['args']['nonce']))
 
     def basic_channel_created_callback(self, result):
