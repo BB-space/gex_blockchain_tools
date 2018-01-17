@@ -1,23 +1,29 @@
 pragma solidity ^0.4.15;
 
+interface GeToken {
+    function transfer(address _to, uint256 _value) public returns (bool);
+    function mint(address _to, uint256 _amount) returns (bool); // todo onlyOwner
+}
+
+
 /// @title Node Manager contract
 contract NodeManager {
 
     enum NodeStatus {Active, Leaving, Left}
 
-    uint constant secondsToDay = 86400; // utility variable for time conversion
+    uint constant SECONDS_TO_DAY = 86400; // utility variable for time conversion
     // 60 days in seconds. Time period after which user can withdraw node deposit and leave the system
-    uint constant leavingPeriod = 5260000;
+    uint constant LEAVING_PERIOD = 5260000;
     // min term in which node can be rewarded for it's contribution
-    uint constant paymentDays = 32;
+    uint constant PAYMENT_DAYS = 32;
     // paymentDays days in seconds
-    uint constant paymentPeriod = paymentDays * secondsToDay;
+    uint constant PAYMENT_PERIOD = PAYMENT_DAYS * SECONDS_TO_DAY;
     // permitted number of days node may not send the heartbit during the paymentPeriod
-    uint constant absentDays = 2; // todo use another types uint8
+    uint8 constant ABSENT_DAYS = 2;
     // 30 days. Max lifetime of any channel
-    uint constant channelMaxLifetime = 2630000;
-    uint constant heartbitUnit = 256;
-    uint constant heartbitTotal = heartbitUnit * 2;
+    uint constant CHANNEL_MAX_LIFETIME = 2630000;
+    uint constant HEARTBIT_UNIT = 256;
+    uint constant HEARTBIT_TOTAL = HEARTBIT_UNIT * 2;
 
     address tokenAddress; // address of the token contract
     uint256 annualMint; // total reword for nodes per year
@@ -25,10 +31,8 @@ contract NodeManager {
     uint depositValue; // size of a deposit to add node to the system
 
     struct Node {
-        uint256 deposit; // todo do we need this variable?
         bytes15 ip;
         uint16 port;
-        uint depositDate; // todo do we need this variable?
         uint leavingDate; // date when node was moved to the Leaving state
         uint lastRewardDate; // date when node was rewarded last time
         uint256[2] heartbits; // bitmap of heartbit signals for last 512 days
@@ -120,14 +124,14 @@ contract NodeManager {
     /// @param _token The address of the token contract
     /// @param _annualMint Amount of tokens rewarded to nodes per year
     function NodeManager(address _token, uint256 _annualMint) {
-        // todo implement split annualMint to the half every 2 years ?
+        // todo implement: annualMint should be reduced by a half each N years
         tokenAddress = _token;
         annualMint = _annualMint;
-        dailyMint = annualMint / 365; // todo rewrite
+        dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
         nextNodeIndex = 1;
         nextBasicChannelIndex = 1;
         nextAggregationChannelIndex = 1;
-        depositValue = 100; // todo change 100 * 10 ** 18
+        depositValue = 100; // todo change to 100000000000000000000 // 100 * 10 ** 18
     }
 
     /*
@@ -146,15 +150,13 @@ contract NodeManager {
         uint16 nonce;
         bytes15 ip;
         (port, nonce, ip) = fallbackDataConvert(_data);
-        require (ip != 0x0); // todo another checks
+        require (ip != 0x0); // todo add ip validation
         //  Port number is an unsigned 16-bit integer, so 65535 will the max value
         require (port > 0); // todo discuss port range https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
         nodes[nextNodeIndex].ip = ip;
         nodes[nextNodeIndex].port = port;
-        nodes[nextNodeIndex].deposit = depositValue;
         nodes[nextNodeIndex].status = NodeStatus.Active;
         nodes[nextNodeIndex].lastRewardDate = block.timestamp;
-        nodes[nextNodeIndex].depositDate = block.timestamp;
         nodeIndexes[_from][nextNodeIndex] = true;
         NodeCreated(nextNodeIndex, _from, ip, port, nonce);
         nextNodeIndex = nextNodeIndex + 1;
@@ -177,7 +179,7 @@ contract NodeManager {
     public
     {
         // channel can live max 30 days
-        require(lifetime <= channelMaxLifetime);
+        require(lifetime <= CHANNEL_MAX_LIFETIME);
         basicChannel[nextBasicChannelIndex].owner = msg.sender;
         basicChannel[nextBasicChannelIndex].storageBytes = storageBytes;
         basicChannel[nextBasicChannelIndex].lifetime = lifetime;
@@ -206,7 +208,7 @@ contract NodeManager {
     public
     {
         // channel can live max 30 days
-        require(lifetime <= channelMaxLifetime);
+        require(lifetime <= CHANNEL_MAX_LIFETIME);
         aggregationChannel[nextAggregationChannelIndex].owner = msg.sender;
         aggregationChannel[nextAggregationChannelIndex].storageBytes = storageBytes;
         aggregationChannel[nextAggregationChannelIndex].lifetime = lifetime;
@@ -266,10 +268,10 @@ contract NodeManager {
     function completeWithdrawDeposit(uint256 nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
         require(nodes[nodeNumber].status == NodeStatus.Leaving);
-        require(block.timestamp - nodes[nodeNumber].leavingDate >= leavingPeriod);
-        nodes[nodeNumber].deposit = 0;
+        require(block.timestamp - nodes[nodeNumber].leavingDate >= LEAVING_PERIOD);
         nodes[nodeNumber].status = NodeStatus.Left;
-        tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, depositValue);
+        GeToken(tokenAddress).transfer(msg.sender, depositValue);
+        //tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, depositValue);
     }
 
     /// @dev Function withdraws deposit from all finished channels of msg.sender and deletes this channels
@@ -282,7 +284,8 @@ contract NodeManager {
             // todo
         }
         if(withdrawValue > 0) {
-            tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, withdrawValue);
+            GeToken(tokenAddress).transfer(msg.sender, withdrawValue);
+            //tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, withdrawValue);
         }
     }
 
@@ -290,7 +293,7 @@ contract NodeManager {
     /// @return ip list
     function getNodeIPs()
         public
-        constant
+        view
         returns (bytes16[])
     {
         bytes16[] arr;
@@ -310,31 +313,32 @@ contract NodeManager {
     /// @param nodeNumber Node index
     function heartbit(uint256 nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
-        uint index = block.timestamp / secondsToDay - 1;
-        if (index >= heartbitTotal && index % heartbitUnit == 0) {
-            nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] = 0;
+        uint index = block.timestamp / SECONDS_TO_DAY - 1;
+        if (index >= HEARTBIT_TOTAL && index % HEARTBIT_UNIT == 0) {
+            nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] = 0;
         }
-        nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] =
-            nodes[nextNodeIndex].heartbits[index % heartbitTotal / heartbitUnit] |
-            (1 << (index % heartbitTotal % heartbitUnit));
+        // since HEARTBIT_TOTAL = HEARTBIT_UNIT * 2
+        // we can use % HEARTBIT_UNIT instead of % HEARTBIT_TOTAL % HEARTBIT_UNIT
+        nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] =
+            nodes[nextNodeIndex].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] | (1 << (index % HEARTBIT_UNIT));
         // if the last reward was more than 32 days ago - check node heartbit for this period and reward
-        if (block.timestamp - nodes[nextNodeIndex].lastRewardDate >= paymentPeriod){
+        if (block.timestamp - nodes[nextNodeIndex].lastRewardDate >= PAYMENT_PERIOD){
             nodes[nextNodeIndex].lastRewardDate = block.timestamp;
             uint dayToPayFor = 0;
-            for(uint i = 0; i < paymentDays; i++){
-                if (nodes[nodeNumber].heartbits[index % heartbitTotal / heartbitUnit] &
-                (1 * 2 ** (index % heartbitTotal % heartbitUnit)) != 0){
+            for(uint i = 0; i < PAYMENT_DAYS; i++){
+                if (nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] &
+                (1 * 2 ** (index % HEARTBIT_UNIT)) != 0) {
                     dayToPayFor = dayToPayFor + 1;
-                     // if node was absent more than 2 days - don't pay for this period
-                    if(i - dayToPayFor > absentDays){
+                     // if node was absent more than 2 days - don't pay for whole payment period
+                    if(i - dayToPayFor > ABSENT_DAYS){
                         return;
                     }
                     index = index - 1;
                 }
             }
-            // todo change to mint & owner
-            tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender,
-                dayToPayFor * (dailyMint / getActiveNodesCount()));
+            // todo this contract should be the owner
+            GeToken(tokenAddress).mint(msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
+            //tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
         }
     }
 
@@ -346,7 +350,7 @@ contract NodeManager {
     /// @return number of Active nodes
     function getActiveNodesCount()
         internal
-        constant
+        view
         returns (uint)
     {
         uint activeNodes = 0;
@@ -361,9 +365,9 @@ contract NodeManager {
     /// @dev Function for parsing data bytes to a set of parameters
     /// @param data Data containig a function signature and/or parameters
     /// @return parsed fallback parameters
-    function fallbackDataConvert(bytes data)
+    function fallbackDataConvert(bytes data) internal
         //todo make internal
-        constant
+        pure
         returns (uint16, uint16, bytes15)
     {
         bytes15 ip;
@@ -377,9 +381,82 @@ contract NodeManager {
         return (uint16(port),uint16(nonce),ip);
     }
 
-    // todo
-    /*
+        /*
     function() {
     throw;
     }*/
+
+     /*
+     *  Find a leap year
+     *  Taken from https://github.com/pipermerriam/ethereum-datetime
+     */
+
+    uint constant YEAR_IN_SECONDS = 31536000;
+    uint constant LEAP_YEAR_IN_SECONDS = 31622400;
+    uint16 constant ORIGIN_YEAR = 1970;
+
+     function getDaysInCurrentYear()
+     internal
+     view
+     returns (uint16)
+     {
+        if (isLeapYear(getYear(block.timestamp))) {
+            return 366;
+        }
+        return 365;
+    }
+
+     function isLeapYear(uint16 year)
+     internal
+     pure
+     returns (bool)
+     {
+        if (year % 4 != 0) {
+                return false;
+        }
+        if (year % 100 != 0) {
+                return true;
+        }
+        if (year % 400 != 0) {
+                return false;
+        }
+        return true;
+    }
+
+     function getYear(uint timestamp)
+     internal
+     pure
+     returns (uint16)
+     {
+        uint secondsAccountedFor = 0;
+        uint16 year;
+        uint numLeapYears;
+
+        year = uint16(ORIGIN_YEAR + timestamp / YEAR_IN_SECONDS);
+        numLeapYears = leapYearsBefore(year) - leapYearsBefore(ORIGIN_YEAR);
+
+        secondsAccountedFor += LEAP_YEAR_IN_SECONDS * numLeapYears;
+        secondsAccountedFor += YEAR_IN_SECONDS * (year - ORIGIN_YEAR - numLeapYears);
+
+        while (secondsAccountedFor > timestamp) {
+                if (isLeapYear(uint16(year - 1))) {
+                        secondsAccountedFor -= LEAP_YEAR_IN_SECONDS;
+                }
+                else {
+                        secondsAccountedFor -= YEAR_IN_SECONDS;
+                }
+                year -= 1;
+        }
+        return year;
+    }
+
+     function leapYearsBefore(uint year)
+     internal
+     pure
+     returns (uint)
+     {
+            year -= 1;
+            return year / 4 - year / 100 + year / 400;
+     }
+
 }

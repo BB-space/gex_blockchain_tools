@@ -14,17 +14,18 @@ class TestHeartbit:
             if index >= self.total_size and index % self.size == 0:
                 self.heartbits[int(index % self.total_size / self.size)] = 0
             self.heartbits[int(index % self.total_size / self.size)] = self.heartbits[int(index % self.total_size / self.size)] \
-                                                                    | (1 << (index % self.total_size % self.size))
+                                                                    | (1 << (index % self.size))
+
             if index - self.last_reward >= self.days_in_payment:
                 self.last_reward = index
                 res = 0
                 for j in range(0, self.days_in_payment):
                     #print(bin(self.heartbits[int(index % self.total_size / self.size)]))
-                    #print(bin(1 << (index % self.total_size % self.size)))
-                    #print(bin(self.heartbits[int(index % self.total_size / self.size)] & (1 << (index % self.total_size % self.size))))
-                    print(self.getBit(self.heartbits[int(index % self.total_size / self.size)], (index % self.total_size % self.size)))
+                    #print(bin(1 << (index % self.size)))
+                    #print(bin(self.heartbits[int(index % self.total_size / self.size)] & (1 << (index % self.size))))
+                    print(self.getBit(self.heartbits[int(index % self.total_size / self.size)], (index % self.size)))
                     print(res)
-                    if self.heartbits[int(index % self.total_size / self.size)] & (1 * 2 ** (index % self.total_size % self.size)) != 0:
+                    if self.heartbits[int(index % self.total_size / self.size)] & (1 * 2 ** (index % self.size)) != 0:
                         res = res + 1
                     if j - res > self.absent_days:
                         res = -1
@@ -45,7 +46,8 @@ class TestHeartbit:
 test = TestHeartbit()
 for i in range(0, 33):
     test.heartbit(i)
-#test.print()
+    #test.print()
+    #8589934591
 
 '''   
 size = 256
