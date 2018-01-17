@@ -4,6 +4,7 @@ var NodeManager = artifacts.require("./NodeManager.sol");
 module.exports = function (deployer) {
     deployer.deploy(GEXToken).then(function () {
         deployer.deploy(NodeManager, GEXToken.address, 5000000).then(function () {
+            GEXToken.at(GEXToken.address).transferOwnership(NodeManager.address);
             var fs = require("fs");
             var jsonObject = {
                 token_address: GEXToken.address,

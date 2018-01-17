@@ -325,20 +325,20 @@ contract NodeManager {
         // if the last reward was more than 32 days ago - check node heartbit for this period and reward
         if (block.timestamp - nodes[nextNodeIndex].lastRewardDate >= PAYMENT_PERIOD){
             nodes[nextNodeIndex].lastRewardDate = block.timestamp;
-            uint dayToPayFor = 0;
-            for(uint i = 0; i < PAYMENT_DAYS; i++){
+            uint8 daysToPayFor = 0;
+            for(uint8 i = 0; i < PAYMENT_DAYS; i++){
                 if (nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] &
                 (1 * 2 ** (index % HEARTBIT_UNIT)) != 0) {
-                    dayToPayFor = dayToPayFor + 1;
+                    daysToPayFor = daysToPayFor + 1;
                      // if node was absent more than 2 days - don't pay for whole payment period
-                    if(i - dayToPayFor > ABSENT_DAYS){
+                    if(i - daysToPayFor > ABSENT_DAYS){
                         return;
                     }
                     index = index - 1;
                 }
             }
-            // todo this contract should be the owner
-            GeToken(tokenAddress).mint(msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
+            // this transaction will work only if this contract is an owner of token contract
+            GeToken(tokenAddress).mint(msg.sender, daysToPayFor * (dailyMint / getActiveNodesCount()));
             //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
         }
     }
