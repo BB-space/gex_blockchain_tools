@@ -1,8 +1,8 @@
 pragma solidity ^0.4.15;
 
 interface GeToken {
-    function transfer(address _to, uint256 _value) public returns (bool);
-    function mint(address _to, uint256 _amount) returns (bool); // todo onlyOwner
+    function transfer(address _to, uint _value) public returns (bool);
+    function mint(address _to, uint _amount) returns (bool); // todo onlyOwner
 }
 
 
@@ -11,79 +11,80 @@ contract NodeManager {
 
     enum NodeStatus {Active, Leaving, Left}
 
-    uint constant SECONDS_TO_DAY = 86400; // utility variable for time conversion
+    uint32 constant SECONDS_TO_DAY = 86400; // utility variable for time conversion
     // 60 days in seconds. Time period after which user can withdraw node deposit and leave the system
-    uint constant LEAVING_PERIOD = 5260000;
+    uint32 constant LEAVING_PERIOD = 5260000;
     // min term in which node can be rewarded for it's contribution
-    uint constant PAYMENT_DAYS = 32;
+    uint8 constant PAYMENT_DAYS = 32;
     // paymentDays days in seconds
-    uint constant PAYMENT_PERIOD = PAYMENT_DAYS * SECONDS_TO_DAY;
+    uint32 constant PAYMENT_PERIOD = PAYMENT_DAYS * SECONDS_TO_DAY;
     // permitted number of days node may not send the heartbit during the paymentPeriod
     uint8 constant ABSENT_DAYS = 2;
     // 30 days. Max lifetime of any channel
-    uint constant CHANNEL_MAX_LIFETIME = 2630000;
-    uint constant HEARTBIT_UNIT = 256;
-    uint constant HEARTBIT_TOTAL = HEARTBIT_UNIT * 2;
+    uint32 constant CHANNEL_MAX_LIFETIME = 2630000;
+    uint16 constant HEARTBIT_UNIT = 256;
+    uint16 constant HEARTBIT_TOTAL = HEARTBIT_UNIT * 2;
+    uint constant depositValue = 100000000000000000000; //  size of a deposit to add node to the system 100 * 10 ** 18
 
     address tokenAddress; // address of the token contract
-    uint256 annualMint; // total reword for nodes per year
-    uint256 dailyMint; // daily reword for nodes
-    uint depositValue; // size of a deposit to add node to the system
+    uint annualMint; // total reword for nodes per year
+    uint dailyMint; // daily reword for nodes
+
 
     struct Node {
         bytes15 ip;
         uint16 port;
         uint leavingDate; // date when node was moved to the Leaving state
         uint lastRewardDate; // date when node was rewarded last time
-        uint256[2] heartbits; // bitmap of heartbit signals for last 512 days
+        uint[2] heartbits; // bitmap of heartbit signals for last 512 days
         NodeStatus status;
     }
 
     struct BasicChannel {
         address owner; // channel owner
-        uint256 storageBytes; // number of bytes this channel can store
+        uint storageBytes; // number of bytes this channel can store
         uint lifetime;  // number of seconds this channel will be considered as alive
         uint startDate; // date of channel creation
         uint maxNodes; // max number of nodes associated with this channel
-        uint256 deposit; // value of tokens associated with this channel
+        uint deposit; // value of tokens associated with this channel
     }
 
     struct AggregationChannel {
         address owner; // channel owner
-        uint256 storageBytes; // number of bytes this channel can store
+        uint storageBytes; // number of bytes this channel can store
         uint lifetime;  // number of seconds this channel will be considered as alive
         uint startDate; // date of channel creation
         uint maxNodes; // max number of nodes associated with this channel
-        uint256 deposit; // value of tokens associated with this channel
-        mapping (uint256 => bool) basicChannels; // basic channels aggregated by this channel
+        uint deposit; // value of tokens associated with this channel
+        mapping (uint => bool) basicChannels; // basic channels aggregated by this channel
         uint nextAggregatedBasicChannelIndex; // index to store next basic channel
     }
 
     // mapping of node index to a node instance
-    mapping (uint256 => Node) nodes;
+    mapping (uint => Node) nodes;
     // mapping of a basic channel index to a basic channel instance
-    mapping (uint256 => BasicChannel) basicChannel;
+    mapping (uint => BasicChannel) basicChannel;
     // mapping of an aggregation channel index to a aggregation channel instance
-    mapping (uint256 => AggregationChannel) aggregationChannel;
+    mapping (uint => AggregationChannel) aggregationChannel;
     // mapping of owner address to node indexes associated with it
-    mapping (address => mapping (uint256 => bool)) nodeIndexes; // todo set struct here. list?? do the same as with channels
+    mapping (address => mapping (uint => bool)) nodeIndexes; // todo set struct here. list?? do the same as with channels
     // mapping of owner address to basic channel indexes associated with it
-    mapping (address => uint256[]) basicChannelIndexes;
+    mapping (address => uint[]) basicChannelIndexes;
     // mapping of owner address to aggregation channel indexes associated with it
-    mapping (address => uint256[]) aggregationChannelIndexes;
+    mapping (address => uint[]) aggregationChannelIndexes;
     // index to store next node
-    uint256 nextNodeIndex;
+    uint nextNodeIndex;
     // index to store next basic channel
-    uint256 nextBasicChannelIndex;
+    uint nextBasicChannelIndex;
     // index to store next aggregation channel
-    uint256 nextAggregationChannelIndex;
+    uint nextAggregationChannelIndex;
 
     /*
      *  Events
      */
 
     event NodeCreated(
-        uint256 nodeID,
+        uint nodeID,
         address owner,
         bytes15 ip,
         uint16 port,
@@ -91,28 +92,28 @@ contract NodeManager {
     );
 
     event BasicChannelCreated(
-        uint256 channelID,
+        uint channelID,
         address owner,
-        uint256 storageBytes,
+        uint storageBytes,
         uint lifetime,
         uint maxNodes,
-        uint256 deposit,
+        uint deposit,
         uint16 nonce
     );
 
     event AggregationChannelCreated(
-        uint256 channelID,
+        uint channelID,
         address owner,
-        uint256 storageBytes,
+        uint storageBytes,
         uint lifetime,
         uint maxNodes,
-        uint256 deposit,
+        uint deposit,
         uint16 nonce
     );
 
     event BasicChannelAdded(
-        uint256 aggregationChannelID,
-        uint256 basicChannelID,
+        uint aggregationChannelID,
+        uint basicChannelID,
         uint16 nonce
     );
 
@@ -122,8 +123,8 @@ contract NodeManager {
 
     /// @dev Constructor for creating the Node Manager contract
     /// @param _token The address of the token contract
-    /// @param _annualMint Amount of tokens rewarded to nodes per year
-    function NodeManager(address _token, uint256 _annualMint) {
+    /// @param _annualMint Amount of tokens rewarded to nodes per year. Should be specified with decimals
+    function NodeManager(address _token, uint _annualMint) {
         // todo implement: annualMint should be reduced by a half each N years
         tokenAddress = _token;
         annualMint = _annualMint;
@@ -131,7 +132,6 @@ contract NodeManager {
         nextNodeIndex = 1;
         nextBasicChannelIndex = 1;
         nextAggregationChannelIndex = 1;
-        depositValue = 100; // todo change to 100000000000000000000 // 100 * 10 ** 18
     }
 
     /*
@@ -143,7 +143,7 @@ contract NodeManager {
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters
-    function tokenFallback(address _from, uint256 _value, bytes _data) public {
+    function tokenFallback(address _from, uint _value, bytes _data) public {
         require(msg.sender == tokenAddress);
         require(_value == depositValue);
         uint16 port;
@@ -170,11 +170,11 @@ contract NodeManager {
     /// @param deposit Value of tokens associated with this channel
     // todo add to tokenFallback
     function createBasicChannel(
-        uint256 storageBytes,
+        uint storageBytes,
         uint lifetime,
         uint maxNodes,
         uint16 nonce,
-        uint256 deposit
+        uint deposit
     )
     public
     {
@@ -199,11 +199,11 @@ contract NodeManager {
     /// @param deposit Value of tokens associated with this channel
     // todo add to tokenFallback
     function createAggregationChannel(
-        uint256 storageBytes,
+        uint storageBytes,
         uint lifetime,
         uint maxNodes,
         uint16 nonce,
-        uint256 deposit
+        uint deposit
     )
     public
     {
@@ -226,8 +226,8 @@ contract NodeManager {
     /// @param basicChannelID Basic channel index
     /// @param nonce Unique identifier of a current operation
     function addToAggregationChannel(
-        uint256 aggregationChannelID,
-        uint256 basicChannelID,
+        uint aggregationChannelID,
+        uint basicChannelID,
         uint16 nonce
     )
     public
@@ -254,7 +254,7 @@ contract NodeManager {
 
     /// @dev Function marks node as Leaving. After that node cannot participate in any new channels
     /// @param nodeNumber Node index
-    function initWithdrawDeposit(uint256 nodeNumber) public {
+    function initWithdrawDeposit(uint nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
         require(nodes[nodeNumber].status == NodeStatus.Active);
         nodes[nodeNumber].status = NodeStatus.Leaving;
@@ -265,13 +265,13 @@ contract NodeManager {
     ///      At this time all channels associated with this node are finished, because a lifetime
     ///      of a channel is 30 days, when leaving period is 60
     /// @param nodeNumber Node index
-    function completeWithdrawDeposit(uint256 nodeNumber) public {
+    function completeWithdrawDeposit(uint nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
         require(nodes[nodeNumber].status == NodeStatus.Leaving);
         require(block.timestamp - nodes[nodeNumber].leavingDate >= LEAVING_PERIOD);
         nodes[nodeNumber].status = NodeStatus.Left;
         GeToken(tokenAddress).transfer(msg.sender, depositValue);
-        //tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, depositValue);
+        //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, depositValue);
     }
 
     /// @dev Function withdraws deposit from all finished channels of msg.sender and deletes this channels
@@ -285,7 +285,7 @@ contract NodeManager {
         }
         if(withdrawValue > 0) {
             GeToken(tokenAddress).transfer(msg.sender, withdrawValue);
-            //tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, withdrawValue);
+            //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, withdrawValue);
         }
     }
 
@@ -311,7 +311,8 @@ contract NodeManager {
     ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
     ///      Each bit represents one day
     /// @param nodeNumber Node index
-    function heartbit(uint256 nodeNumber) public {
+    // todo see warning
+    function heartbit(uint nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
         uint index = block.timestamp / SECONDS_TO_DAY - 1;
         if (index >= HEARTBIT_TOTAL && index % HEARTBIT_UNIT == 0) {
@@ -338,7 +339,7 @@ contract NodeManager {
             }
             // todo this contract should be the owner
             GeToken(tokenAddress).mint(msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
-            //tokenAddress.call(bytes4(sha3("transfer(address, uint256)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
+            //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
         }
     }
 
@@ -365,7 +366,7 @@ contract NodeManager {
     /// @dev Function for parsing data bytes to a set of parameters
     /// @param data Data containig a function signature and/or parameters
     /// @return parsed fallback parameters
-    function fallbackDataConvert(bytes data) internal
+    function fallbackDataConvert(bytes data)
         //todo make internal
         pure
         returns (uint16, uint16, bytes15)
