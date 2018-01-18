@@ -71,10 +71,10 @@ contract GexBot {
     }
 
     //Fallback function
-    function () public payable { putEth(""); }
+    function () public payable { depositEth(""); }
 
     //Fallback function ERC-223
-    function Token1Fallback(
+    function tokenFallback(
         address _sender,
         uint256 _value,
         bytes _data
@@ -84,7 +84,7 @@ contract GexBot {
         require(msg.sender == gexAddress);
         require(_value > 0);
         if (_data.length == 0) {
-            putGex(_sender, uint88(_value));
+            depositGex(_sender, uint88(_value));
         } else {
             bytes26 flag;
             bytes26 addReserveKey = bytes26("addgalacticexchangereserve");
@@ -94,13 +94,13 @@ contract GexBot {
             if (_sender == owner && flag == addReserveKey) {
                 gexInitialReserve += uint88(_value);
             } else {
-                putGex(_sender, uint88(_value));
+                depositGex(_sender, uint88(_value));
             }
         }
     }
 
     //Public functions
-    function putEth(bytes _data) public payable {
+    function depositEth(bytes _data) public payable {
         require(previousTime + DAY > block.timestamp);
         if (_data.length != 0) {
             bytes26 flag;
@@ -218,7 +218,7 @@ contract GexBot {
     }
 
     //Private functions
-    function putGex(address _sender, uint88 _amount) private {
+    function depositGex(address _sender, uint88 _amount) private {
         require(previousTime + DAY > block.timestamp);
         uint88 amountGex = _amount;
         int88 debt = -applications[_sender].sendGex;
@@ -254,6 +254,41 @@ contract GexBot {
         } else {
             Message("Order is not accepted", _sender, 0);
         }
+    }
+
+    function lazyFee(
+        uint88 _amount,
+        uint88 _fee,
+        bool _ethCur
+    )
+        private
+        view
+        returns (bool)
+    {
+        uint88 amountToOrder = _amount - _fee;
+        uint88 reserve;
+        uint88 up;
+        uint88 down;
+        uint88 initialReserve;
+        uint88 stateReserve;
+        if (_ethCur) {
+            up = previousGex + currentGex;
+            down = previousEth + currentEth;
+            initialReserve = gexInitialReserve;
+            stateReserve = uint88(Token1(gexAddress).balanceOf(address(this)));
+        } else {
+            up = previousEth + currentEth;
+            down = previousGex + currentGex;
+            initialReserve = ethInitialReserve;
+            stateReserve = uint88(this.balance);
+        }
+        reserve = stateReserve -
+            uint88((uint256(amountToOrder * 80) / 100 *
+            uint256(up)) / uint256(down + amountToOrder));
+        uint88 formula = uint88((uint256(initialReserve) *
+            uint256(initialReserve - reserve) * uint256(amountToOrder)) /
+            (4 * uint256(reserve) * uint256(reserve)));
+        return _amount >= amountToOrder + formula;
     }
 
     function fee(       //up to 30 000 gas
