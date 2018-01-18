@@ -2,14 +2,15 @@ pragma solidity ^0.4.15;
 
 interface GeToken {
     function transfer(address _to, uint _value) public returns (bool);
-    function mint(address _to, uint _amount) returns (bool); // todo onlyOwner
+    function mint(address _to, uint _amount) returns (bool);
 }
-
 
 /// @title Node Manager contract
 contract NodeManager {
 
     enum NodeStatus {Active, Leaving, Left}
+
+    enum TransactionOperation {CreateNode, CreateBasicChannel, CreateAggregationChannel}
 
     uint32 constant SECONDS_TO_DAY = 86400; // utility variable for time conversion
     // 60 days in seconds. Time period after which user can withdraw node deposit and leave the system
@@ -137,89 +138,6 @@ contract NodeManager {
     /*
      *  Public functions
      */
-
-    /// @dev Function that is called when a user or another contract wants to transfer funds.
-    ///      Fallback is called when user is making transfer to register node in the system
-    /// @param _from Transaction initiator, analogue of msg.sender
-    /// @param _value Number of tokens to transfer.
-    /// @param _data Data containig a function signature and/or parameters
-    function tokenFallback(address _from, uint _value, bytes _data) public {
-        require(msg.sender == tokenAddress);
-        require(_value == depositValue);
-        uint16 port;
-        uint16 nonce;
-        bytes15 ip;
-        (port, nonce, ip) = fallbackDataConvert(_data);
-        require (ip != 0x0); // todo add ip validation
-        //  Port number is an unsigned 16-bit integer, so 65535 will the max value
-        require (port > 0); // todo discuss port range https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
-        nodes[nextNodeIndex].ip = ip;
-        nodes[nextNodeIndex].port = port;
-        nodes[nextNodeIndex].status = NodeStatus.Active;
-        nodes[nextNodeIndex].lastRewardDate = block.timestamp;
-        nodeIndexes[_from][nextNodeIndex] = true;
-        NodeCreated(nextNodeIndex, _from, ip, port, nonce);
-        nextNodeIndex = nextNodeIndex + 1;
-    }
-
-    /// @dev Function for creating a basic channel
-    /// @param storageBytes Number of bytes this channel can store
-    /// @param lifetime Number of seconds this channel will be considered as alive
-    /// @param maxNodes Max number of nodes associated with this channel
-    /// @param nonce Unique identifier of a current operation
-    /// @param deposit Value of tokens associated with this channel
-    // todo add to tokenFallback
-    function createBasicChannel(
-        uint storageBytes,
-        uint lifetime,
-        uint maxNodes,
-        uint16 nonce,
-        uint deposit
-    )
-    public
-    {
-        // channel can live max 30 days
-        require(lifetime <= CHANNEL_MAX_LIFETIME);
-        basicChannel[nextBasicChannelIndex].owner = msg.sender;
-        basicChannel[nextBasicChannelIndex].storageBytes = storageBytes;
-        basicChannel[nextBasicChannelIndex].lifetime = lifetime;
-        basicChannel[nextBasicChannelIndex].maxNodes = maxNodes;
-        basicChannel[nextBasicChannelIndex].startDate = block.timestamp;
-        basicChannel[nextBasicChannelIndex].deposit = deposit;
-        basicChannelIndexes[msg.sender].push(nextBasicChannelIndex);
-        BasicChannelCreated(nextBasicChannelIndex, msg.sender, storageBytes, lifetime, maxNodes, deposit, nonce);
-        nextBasicChannelIndex = nextBasicChannelIndex + 1;
-    }
-
-    /// @dev Function for creating a aggregation channel
-    /// @param storageBytes Number of bytes this channel can store
-    /// @param lifetime Number of seconds this channel will be considered as alive
-    /// @param maxNodes Max number of nodes associated with this channel
-    /// @param nonce Unique identifier of a current operation
-    /// @param deposit Value of tokens associated with this channel
-    // todo add to tokenFallback
-    function createAggregationChannel(
-        uint storageBytes,
-        uint lifetime,
-        uint maxNodes,
-        uint16 nonce,
-        uint deposit
-    )
-    public
-    {
-        // channel can live max 30 days
-        require(lifetime <= CHANNEL_MAX_LIFETIME);
-        aggregationChannel[nextAggregationChannelIndex].owner = msg.sender;
-        aggregationChannel[nextAggregationChannelIndex].storageBytes = storageBytes;
-        aggregationChannel[nextAggregationChannelIndex].lifetime = lifetime;
-        aggregationChannel[nextAggregationChannelIndex].maxNodes = maxNodes;
-        aggregationChannel[nextAggregationChannelIndex].startDate = block.timestamp;
-        aggregationChannel[nextAggregationChannelIndex].deposit = deposit;
-        aggregationChannelIndexes[msg.sender].push(nextAggregationChannelIndex);
-        AggregationChannelCreated(nextAggregationChannelIndex, msg.sender, storageBytes,
-                                    lifetime, maxNodes, deposit, nonce);
-        nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
-    }
 
     /// @dev Function for adding an existed basic channel to an existed aggregation channel
     /// @param aggregationChannelID Aggregation channel index
@@ -363,23 +281,176 @@ contract NodeManager {
         return activeNodes;
     }
 
-    /// @dev Function for parsing data bytes to a set of parameters
+    /// @dev Function that is called when a user or another contract wants to transfer funds.
+    ///      Fallback is called when user is making deposit to create node, basic or aggregation channel
+    /// @param _from Transaction initiator, analogue of msg.sender
+    /// @param _value Number of tokens to transfer.
+    /// @param _data Data containig a function signature and/or parameters
+    // todo make internal
+    function tokenFallback(address _from, uint _value, bytes _data) public {
+        require(msg.sender == tokenAddress);
+        TransactionOperation operationType = fallbackOperationTypeConvert(_data);
+        if(operationType == TransactionOperation.CreateNode) {
+            // create node
+            createNode(_from, _value, _data);
+        } else if (operationType == TransactionOperation.CreateBasicChannel) {
+            // create basic channel
+            createBasicChannel(_from, _value, _data);
+        } else {
+            // create aggregation channel
+            createAggregationChannel(_from, _value, _data);
+        }
+    }
+
+    /// @dev Function for creating a node
+    /// @param _from Transaction initiator, analogue of msg.sender
+    /// @param _value Number of tokens to transfer.
+    /// @param _data Data containig a function signature and/or parameters:
+    ///      port Node port for the communication inside the system
+    ///      nonce Unique identifier of a current operation
+    ///      ip IPv4 address of the node
+    function createNode(address _from, uint _value, bytes _data) internal {
+        require(_value == depositValue);
+        uint16 port;
+        uint16 nonce;
+        bytes15 ip;
+        (port, nonce, ip) = fallbackCreateNodeDataConvert(_data);
+        require (ip != 0x0); // todo add ip validation
+        //  Port number is an unsigned 16-bit integer, so 65535 will the max value
+        require (port > 0); // todo discuss port range https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
+        nodes[nextNodeIndex].ip = ip;
+        nodes[nextNodeIndex].port = port;
+        nodes[nextNodeIndex].status = NodeStatus.Active;
+        nodes[nextNodeIndex].lastRewardDate = block.timestamp;
+        nodeIndexes[_from][nextNodeIndex] = true;
+        NodeCreated(nextNodeIndex, _from, ip, port, nonce);
+        nextNodeIndex = nextNodeIndex + 1;
+    }
+
+    /// @dev Function for creating a basic channel
+    /// @param _from Transaction initiator, analogue of msg.sender
+    /// @param _value Number of tokens to transfer.
+    /// @param _data Data containig a function signature and/or parameters:
+    ///      storageBytes Number of bytes this channel can store
+    ///      lifetime Number of seconds this channel will be considered as alive
+    ///      maxNodes Max number of nodes associated with this channel
+    ///      nonce Unique identifier of a current operation
+    function createBasicChannel(address _from, uint _value, bytes _data) internal {
+        uint storageBytes;
+        uint lifetime;
+        uint maxNodes;
+        uint16 nonce;
+        (storageBytes, lifetime, maxNodes, nonce) = fallbackCreateChannelDataConvert(_data);
+        // channel can live max 30 days
+        require(lifetime <= CHANNEL_MAX_LIFETIME);
+        basicChannel[nextBasicChannelIndex].owner = _from;
+        basicChannel[nextBasicChannelIndex].storageBytes = storageBytes;
+        basicChannel[nextBasicChannelIndex].lifetime = lifetime;
+        basicChannel[nextBasicChannelIndex].maxNodes = maxNodes;
+        basicChannel[nextBasicChannelIndex].startDate = block.timestamp;
+        basicChannel[nextBasicChannelIndex].deposit = _value;
+        basicChannelIndexes[msg.sender].push(nextBasicChannelIndex);
+        BasicChannelCreated(nextBasicChannelIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce);
+        nextBasicChannelIndex = nextBasicChannelIndex + 1;
+    }
+
+    /// @dev Function for creating a aggregation channel
+    /// @param _from Transaction initiator, analogue of msg.sender
+    /// @param _value Number of tokens to transfer.
+    /// @param _data Data containig a function signature and/or parameters:
+    ///      storageBytes Number of bytes this channel can store
+    ///      lifetime Number of seconds this channel will be considered as alive
+    ///      maxNodes Max number of nodes associated with this channel
+    ///      nonce Unique identifier of a current operation
+    function createAggregationChannel(address _from, uint _value, bytes _data) internal {
+        uint storageBytes;
+        uint lifetime;
+        uint maxNodes;
+        uint16 nonce;
+        (storageBytes, lifetime, maxNodes, nonce) = fallbackCreateChannelDataConvert(_data);
+        // channel can live max 30 days
+        require(lifetime <= CHANNEL_MAX_LIFETIME);
+        aggregationChannel[nextAggregationChannelIndex].owner = _from;
+        aggregationChannel[nextAggregationChannelIndex].storageBytes = storageBytes;
+        aggregationChannel[nextAggregationChannelIndex].lifetime = lifetime;
+        aggregationChannel[nextAggregationChannelIndex].maxNodes = maxNodes;
+        aggregationChannel[nextAggregationChannelIndex].startDate = block.timestamp;
+        aggregationChannel[nextAggregationChannelIndex].deposit = _value;
+        aggregationChannelIndexes[msg.sender].push(nextAggregationChannelIndex);
+        AggregationChannelCreated(nextAggregationChannelIndex, _from, storageBytes,
+                                    lifetime, maxNodes, _value, nonce);
+        nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
+    }
+
+
+    /// @dev Function for parsing first 2 data bytes to determine the type of the transaction operation
     /// @param data Data containig a function signature and/or parameters
-    /// @return parsed fallback parameters
-    function fallbackDataConvert(bytes data)
-        //todo make internal
+    /// @return type of the transaction operation
+     function fallbackOperationTypeConvert(bytes data)
+        internal
+        pure
+        returns (TransactionOperation)
+    {
+         bytes2 operationType;
+         assembly {
+            operationType := mload(add(data, 0x20))
+        }
+        require(operationType != 0x0 || operationType < 0x100);
+        if(operationType == 0x1) {
+            return TransactionOperation.CreateNode;
+        } else if(operationType == 0x10) {
+            return TransactionOperation.CreateBasicChannel;
+        } else {
+            return TransactionOperation.CreateAggregationChannel;
+        }
+
+    }
+
+    /// @dev Function for parsing data bytes to a set of parameters for node creation
+    /// @param data Data containig a function signature and/or parameters
+    /// @return parsed fallback parameters:
+    ///      port Node port for the communication inside the system
+    ///      nonce Unique identifier of a current operation
+    ///      ip IPv4 address of the node
+    function fallbackCreateNodeDataConvert(bytes data)
+        internal
         pure
         returns (uint16, uint16, bytes15)
     {
-        bytes15 ip;
         bytes4 port;
         bytes4 nonce;
+        bytes15 ip;
         assembly {
-            port := mload(add(data, 0x20))
-            nonce := mload(add(data, 0x24))
-            ip := mload(add(data, 0x28))
+            port := mload(add(data, 0x22))
+            nonce := mload(add(data, 0x26))
+            ip := mload(add(data, 0x30))
         }
-        return (uint16(port),uint16(nonce),ip);
+        return (uint16(port), uint16(nonce), ip);
+    }
+
+    /// @dev Function for parsing data bytes to a set of parameters for channel creation
+    /// @param data Data containig a function signature and/or parameters
+    /// @return parsed fallback parameters:
+    ///      storageBytes Number of bytes this channel can store
+    ///      lifetime Number of seconds this channel will be considered as alive
+    ///      maxNodes Max number of nodes associated with this channel
+    ///      nonce Unique identifier of a current operation
+    function fallbackCreateChannelDataConvert(bytes data)
+        internal
+        pure
+        returns (uint, uint, uint, uint16)
+    {
+        bytes32 storageBytes;
+        bytes32 lifetime;
+        bytes32 maxNodes;
+        bytes4 nonce;
+        assembly {
+            storageBytes := mload(add(data, 0x22))
+            lifetime := mload(add(data, 0x54))
+            maxNodes := mload(add(data, 0x86))
+            nonce := mload(add(data, 0x118))
+        }
+        return (uint(storageBytes), uint(lifetime), uint(maxNodes), uint16(nonce));
     }
 
         /*
