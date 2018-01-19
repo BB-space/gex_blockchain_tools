@@ -445,11 +445,11 @@ contract NodeManager {
         pure
         returns (TransactionOperation)
     {
-         bytes2 operationType;
+         bytes1 operationType;
          assembly {
             operationType := mload(add(data, 0x20))
         }
-        require(operationType != 0x0 || operationType < 0x100);
+        require(operationType != 0x0 || operationType < 0x4);
         if(operationType == 0x1) {
             return TransactionOperation.CreateNode;
         } else if(operationType == 0x10) {
@@ -475,9 +475,9 @@ contract NodeManager {
         bytes4 nonce;
         bytes15 ip;
         assembly {
-            port := mload(add(data, 0x22))
-            nonce := mload(add(data, 0x26))
-            ip := mload(add(data, 0x30))
+            port := mload(add(data, 0x21))
+            nonce := mload(add(data, 0x25))
+            ip := mload(add(data, 0x29))
         }
         return (uint16(port), uint16(nonce), ip);
     }
@@ -499,10 +499,10 @@ contract NodeManager {
         bytes32 maxNodes;
         bytes4 nonce;
         assembly {
-            storageBytes := mload(add(data, 0x22))
-            lifetime := mload(add(data, 0x54))
-            maxNodes := mload(add(data, 0x86))
-            nonce := mload(add(data, 0x118))
+            storageBytes := mload(add(data, 0x21))
+            lifetime := mload(add(data, 0x53))
+            maxNodes := mload(add(data, 0x85))
+            nonce := mload(add(data, 0x117))
         }
         return (uint(storageBytes), uint(lifetime), uint(maxNodes), uint16(nonce));
     }

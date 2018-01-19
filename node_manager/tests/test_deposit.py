@@ -5,10 +5,10 @@ import time
 class TestHeartbit:
 
     def __init__(self):
-        with open('../../data.json') as data_file:
+        with open('../../data1.json') as data_file:
             self.data = json.load(data_file)
-        #self.web3 = Web3(HTTPProvider("http://localhost:8545"))
-        self.web3 = Web3(HTTPProvider("http://51.0.1.99:8545"))
+        self.web3 = Web3(HTTPProvider("http://localhost:8545"))
+        #self.web3 = Web3(HTTPProvider("http://51.0.1.99:8545"))
         self.contract = self.web3.eth.contract(contract_name='NodeManager', address=self.data['node_manager_address'],
                                      abi=self.data['node_manager_abi'])
         self.token = self.web3.eth.contract(contract_name='Token', address=self.data['token_address'], abi=self.data['token_abi'])
@@ -24,11 +24,6 @@ class TestHeartbit:
         aggregation_channel_created.watch(self.aggregation_channel_created_callback)
         basic_channel_added = self.contract.on('BasicChannelAdded')
         basic_channel_added.watch(self.basic_channel_added_callback)
-        fallback = self.contract.on('Fallback')
-        fallback.watch(self.fallback_callback)
-
-    def fallback_callback(self, result):
-        print("Fallback")
 
     def approval_callback(self, result):
         print("Approval. owner: " + result['args']['_owner'] + " spender: " + result['args'][
@@ -44,40 +39,49 @@ class TestHeartbit:
 
     def basic_channel_created_callback(self, result):
         print("Basic channel created. channelID: " + str(result['args']['channelID']) + " owner: " + result['args'][
-            'owner'] + " storage bytes: " + str(result['args']['storageBytes']) + " lifetime: " + str(
+            'owner'] + " storage bytes: " + str(result['args']['storageBytes']) + " deposit: " + str(result['args']['deposit']) + " lifetime: " + str(
             result['args']['lifetime']) + " max nodes: " + str(result['args']['maxNodes']) + " nonce: " + str(result['args']['nonce']))
 
     def aggregation_channel_created_callback(self, result):
         print("Aggregation channel created. channelID: "  + str(result['args']['channelID']) + " owner: " + result['args'][
-            'owner'] + " storage bytes: " + str(result['args']['storageBytes']) + " lifetime: " + str(
+            'owner'] + " storage bytes: " + str(result['args']['storageBytes'])  + " deposit: " + str(result['args']['deposit']) + " lifetime: " + str(
             result['args']['lifetime']) + " max nodes: " + str(result['args']['maxNodes']) + " nonce: " + str(result['args']['nonce']))
 
     def basic_channel_added_callback(self, result):
         print("Basic channel added. aggregationChannelID: " + str(result['args']['aggregationChannelID']) +
               " basicChannelID: " + str(result['args']['basicChannelID']) + " nonce: " + str(result['args']['nonce']))
 
-    def test_bytes_conversion(self):
-        ip = "255.255.255.255"
-        port = 6000
-        nonce = 12345
-        print(self.contract.call().fallbackDataConvert(
-            port.to_bytes(4, byteorder='big') + nonce.to_bytes(4, byteorder='big') + ip.encode()))
-
     def test_deposit(self):
+        type = 1
         ip = "255.255.255.255"
         port = 6000
         nonce = 12345
-        data = port.to_bytes(4, byteorder='big') + nonce.to_bytes(4, byteorder='big') + ip.encode()
+        data = type.to_bytes(1, byteorder='big') + port.to_bytes(4, byteorder='big') + nonce.to_bytes(4, byteorder='big') + ip.encode()
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
                 self.token.call().balanceOf(self.data['node_manager_address'])))
-        self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data)
+        self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100000000000000000000, data)
         time.sleep(40)
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
                 self.token.call().balanceOf(self.data['node_manager_address'])))
 
+    def test_basic_channel_creation(self):
+        type = 2
+        storage_bytes = 98765
+        lifetime = 6000
+        max_nodes = 12345
+        nonce = 4444
+        data = type.to_bytes(1, byteorder='big') + storage_bytes.to_bytes(32, byteorder='big') + lifetime.to_bytes(32,
+                             byteorder='big') + max_nodes.to_bytes(32, byteorder='big') + nonce.to_bytes(4, byteorder='big')
+        print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
+            self.token.call().balanceOf(self.data['node_manager_address'])))
+        self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'],100, data)
+        time.sleep(40)
+        print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
+            self.token.call().balanceOf(self.data['node_manager_address'])))
+
 
 test = TestHeartbit()
 #test.test_bytes_conversion()
-test.test_deposit()
-
+#test.test_deposit()
+test.test_basic_channel_creation()
 
