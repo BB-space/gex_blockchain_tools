@@ -125,6 +125,9 @@ contract NodeManager {
         uint16 nonce
     );
 
+    event Basic();
+
+    event Aggregation();
     /*
      *  Constructor
      */
@@ -329,9 +332,11 @@ contract NodeManager {
             // create node
             createNode(_from, _value, _data);
         } else if (operationType == TransactionOperation.CreateBasicChannel) {
+            Basic();
             // create basic channel
             createBasicChannel(_from, _value, _data);
         } else {
+            Aggregation();
             // create aggregation channel
             createAggregationChannel(_from, _value, _data);
         }
@@ -449,7 +454,7 @@ contract NodeManager {
          assembly {
             operationType := mload(add(data, 0x20))
         }
-        require(operationType != 0x0 || operationType < 0x4);
+        //require(operationType != 0x0 || operationType < 0x4);
         if(operationType == 0x1) {
             return TransactionOperation.CreateNode;
         } else if(operationType == 0x10) {

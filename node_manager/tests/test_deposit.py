@@ -20,6 +20,10 @@ class TestHeartbit:
         node_created.watch(self.node_created_callback)
         basic_channel_created = self.contract.on('BasicChannelCreated')
         basic_channel_created.watch(self.basic_channel_created_callback)
+        basic = self.contract.on('Basic')
+        basic.watch(self.basic_callback)
+        aggregation = self.contract.on('Aggregation')
+        aggregation.watch(self.aggregation_callback)
         aggregation_channel_created = self.contract.on('AggregationChannelCreated')
         aggregation_channel_created.watch(self.aggregation_channel_created_callback)
         basic_channel_added = self.contract.on('BasicChannelAdded')
@@ -37,6 +41,12 @@ class TestHeartbit:
         print("Node Created. nodeID: " + str(result['args']['nodeID']) + " nodeIP: " + result['args'][
             'ip'] + " port: " + str(result['args']['port']) + " nonce: " + str(result['args']['nonce']))
 
+    def basic_callback(self, result):
+        print("Basic")
+
+    def aggregation_callback(self, result):
+        print("Aggregation")
+
     def basic_channel_created_callback(self, result):
         print("Basic channel created. channelID: " + str(result['args']['channelID']) + " owner: " + result['args'][
             'owner'] + " storage bytes: " + str(result['args']['storageBytes']) + " deposit: " + str(result['args']['deposit']) + " lifetime: " + str(
@@ -52,7 +62,7 @@ class TestHeartbit:
               " basicChannelID: " + str(result['args']['basicChannelID']) + " nonce: " + str(result['args']['nonce']))
 
     def test_deposit(self):
-        type = 1
+        type = 0x1
         ip = "255.255.255.255"
         port = 6000
         nonce = 12345
@@ -65,13 +75,14 @@ class TestHeartbit:
                 self.token.call().balanceOf(self.data['node_manager_address'])))
 
     def test_basic_channel_creation(self):
-        type = 2
+        type = 0x10
         storage_bytes = 98765
         lifetime = 6000
         max_nodes = 12345
         nonce = 4444
         data = type.to_bytes(1, byteorder='big') + storage_bytes.to_bytes(32, byteorder='big') + lifetime.to_bytes(32,
                              byteorder='big') + max_nodes.to_bytes(32, byteorder='big') + nonce.to_bytes(4, byteorder='big')
+        print(data)
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
         self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'],100, data)
@@ -81,7 +92,6 @@ class TestHeartbit:
 
 
 test = TestHeartbit()
-#test.test_bytes_conversion()
 #test.test_deposit()
 test.test_basic_channel_creation()
 
