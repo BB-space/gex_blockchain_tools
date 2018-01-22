@@ -495,7 +495,7 @@ contract NodeManager {
     ///      maxNodes Max number of nodes associated with this channel
     ///      nonce Unique identifier of a current operation
     function fallbackCreateChannelDataConvert(bytes data)
-        internal
+        //internal
         pure
         returns (uint, uint, uint, uint16)
     {
@@ -504,10 +504,10 @@ contract NodeManager {
         bytes32 maxNodes;
         bytes4 nonce;
         assembly {
-            storageBytes := mload(add(data, 0x21))
-            lifetime := mload(add(data, 0x53))
-            maxNodes := mload(add(data, 0x85))
-            nonce := mload(add(data, 0x117))
+            storageBytes := mload(add(data, 33))
+            lifetime := mload(add(data, 65))
+            maxNodes := mload(add(data, 97))
+            nonce := mload(add(data, 129))
         }
         return (uint(storageBytes), uint(lifetime), uint(maxNodes), uint16(nonce));
     }

@@ -76,19 +76,22 @@ class TestHeartbit:
 
     def test_basic_channel_creation(self):
         type = 0x10
-        storage_bytes = 98765
+        storage_bytes = 98764
         lifetime = 6000
         max_nodes = 12345
         nonce = 4444
         data = type.to_bytes(1, byteorder='big') + storage_bytes.to_bytes(32, byteorder='big') + lifetime.to_bytes(32,
                              byteorder='big') + max_nodes.to_bytes(32, byteorder='big') + nonce.to_bytes(4, byteorder='big')
-        print(data)
+        #print(data)
+        print(self.contract.call().fallbackCreateChannelDataConvert(data))
+        '''
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
         self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'],100, data)
         time.sleep(40)
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
+        '''
 
 
 test = TestHeartbit()
