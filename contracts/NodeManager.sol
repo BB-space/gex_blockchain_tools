@@ -490,7 +490,7 @@ contract NodeManager {
     ///      maxNodes Max number of nodes associated with this channel
     ///      nonce Unique identifier of a current operation
     function fallbackCreateChannelDataConvert(bytes data)
-        //internal
+        internal
         pure
         returns (uint, uint, uint, uint16)
     {
