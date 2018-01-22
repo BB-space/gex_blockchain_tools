@@ -12,7 +12,7 @@ module.exports = function (deployer) {
                 token_abi: GEXToken.abi,
                 node_manager_abi: NodeManager.abi
             };
-            fs.writeFile("data1.json", JSON.stringify(jsonObject), function (err) {
+            fs.writeFile("data.json", JSON.stringify(jsonObject), function (err) {
                 if (err) {
                     return console.log(err);
                 }

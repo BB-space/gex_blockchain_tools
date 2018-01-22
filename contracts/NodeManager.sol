@@ -125,9 +125,6 @@ contract NodeManager {
         uint16 nonce
     );
 
-    event Basic();
-
-    event Aggregation();
     /*
      *  Constructor
      */
@@ -332,11 +329,9 @@ contract NodeManager {
             // create node
             createNode(_from, _value, _data);
         } else if (operationType == TransactionOperation.CreateBasicChannel) {
-            Basic();
             // create basic channel
             createBasicChannel(_from, _value, _data);
         } else {
-            Aggregation();
             // create aggregation channel
             createAggregationChannel(_from, _value, _data);
         }
