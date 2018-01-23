@@ -129,6 +129,13 @@ contract NodeManager {
     );
 
     /*
+    event GasCost(
+        string _function_name,
+        uint _gaslimit,
+        uint _gas_remaining);
+    */
+
+    /*
      *  Constructor
      */
 
@@ -160,11 +167,10 @@ contract NodeManager {
     )
     public
     {
-        // todo should msg.sender be a owner of basic or aggregation channel ?
+        // msg.sender should be an owner of the aggregation channel
+        require(aggregationChannel[aggregationChannelID].owner == msg.sender);
         // basic channel should be present
         require(aggregationChannel[basicChannelID].owner != address(0));
-        // aggregation channel should be present
-        require(aggregationChannel[aggregationChannelID].owner != address(0));
         // aggregation channel must be alive
         require((aggregationChannel[aggregationChannelID].startDate +
               aggregationChannel[aggregationChannelID].lifetime) > block.timestamp);
@@ -458,7 +464,6 @@ contract NodeManager {
             basicChannelIndexes[_from].push(DoublyLinkedList(0, 0, 1));
             basicChannelIndexes[_from].push(DoublyLinkedList(nextBasicChannelIndex, 0, 0));
         } else {
-            //todo fix length
             basicChannelIndexes[_from][basicChannelIndexes[_from].length-1].next =
                 basicChannelIndexes[_from].length;
             basicChannelIndexes[_from].push(
