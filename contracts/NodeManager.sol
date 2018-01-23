@@ -205,20 +205,29 @@ contract NodeManager {
 
     /// @dev Function withdraws deposit from all finished channels of msg.sender and deletes this channels
     function withdrawFromChannels() public {
-        uint withdrawValue = 0;
+        uint withdrawTotal = 0;
         uint i;
         if(aggregationChannelIndexes[msg.sender].length > 0){
             i = aggregationChannelIndexes[msg.sender][0].next;
             while(i != 0) {
                 if(aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].startDate +
                     aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].lifetime < block.timestamp){
-                    withdrawValue = withdrawValue +
-                        aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].deposit;
-                    aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender][i].prev].next =
-                        aggregationChannelIndexes[msg.sender][i].next;
+                    // add channel deposit value to the total
+                    withdrawTotal = withdrawTotal +
+                        aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].deposit; // todo is it save?
+                    // last element will be moved or deleted
+                    aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1].next = 0;
+                    // if the element is not last
+                    if(i!= aggregationChannelIndexes[msg.sender].length - 1) {
+                        // move the last element to the place on the current element
+                        aggregationChannelIndexes[msg.sender][i].index =
+                            aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1].index;
+                    }
+                    // delete channel from the aggregation channel list
                     delete aggregationChannel[aggregationChannelIndexes[msg.sender][i].index];
+                    // delete channel from the aggregation channel indexes list for msg.sender
                     delete aggregationChannelIndexes[msg.sender][i];
-                    //todo length-- ?
+                    aggregationChannelIndexes[msg.sender].length--;
                 }
                 i = aggregationChannelIndexes[msg.sender][i].next;
             }
@@ -228,19 +237,28 @@ contract NodeManager {
             while(i != 0) {
                 if(basicChannel[basicChannelIndexes[msg.sender][i].index].startDate +
                     basicChannel[basicChannelIndexes[msg.sender][i].index].lifetime < block.timestamp){
-                    withdrawValue = withdrawValue +
-                        basicChannel[basicChannelIndexes[msg.sender][i].index].deposit;
-                    basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender][i].prev].next =
-                        basicChannelIndexes[msg.sender][i].next;
+                    // add channel deposit value to the total
+                    withdrawTotal = withdrawTotal +
+                        basicChannel[basicChannelIndexes[msg.sender][i].index].deposit; // todo is it save?
+                    // last element will be moved or deleted
+                    basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1].next = 0;
+                    // if the element is not last
+                    if(i!= basicChannelIndexes[msg.sender].length - 1) {
+                        // move the last element to the place on the current element
+                        basicChannelIndexes[msg.sender][i].index =
+                            basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1].index;
+                    }
+                    // delete channel from the basic channel list
                     delete basicChannel[basicChannelIndexes[msg.sender][i].index];
+                    // delete channel from the basic channel indexes list for msg.sender
                     delete basicChannelIndexes[msg.sender][i];
-                    //todo length-- ?
+                    basicChannelIndexes[msg.sender].length--;
                 }
                 i = basicChannelIndexes[msg.sender][i].next;
             }
         }
-        if(withdrawValue > 0) {
-            GeToken(tokenAddress).transfer(msg.sender, withdrawValue);
+        if(withdrawTotal > 0) {
+            GeToken(tokenAddress).transfer(msg.sender, withdrawTotal);
             //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, withdrawValue);
         }
     }
