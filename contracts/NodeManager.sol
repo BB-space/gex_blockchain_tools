@@ -91,8 +91,8 @@ contract NodeManager {
      *  Events
      */
 
-    event Test1();
-    event Test2();
+    //event Test1();
+    //event Test2();
 
     event NodeCreated(
         uint nodeID,
@@ -267,10 +267,10 @@ contract NodeManager {
     /// @return basic channel indexes list
     function getBasicChannels()
         public
-        constant
+        view
         returns (uint[] memory arr)
     {
-        arr = new uint[](basicChannelIndexes[msg.sender].length);
+        arr = new uint[](basicChannelIndexes[msg.sender].length - 1);
         uint i;
         uint j = 0;
         if(basicChannelIndexes[msg.sender].length > 0){
@@ -283,24 +283,25 @@ contract NodeManager {
         }
     }
 
-    /*
-    uint n = 7;
-    //mapping(uint => uint[]) a;
-    function getArray() constant returns (uint[] memory arr) {
-
-        //uint[] a;
-
-        a[0].push(1);
-        a[0].push(2);
-
-        arr = new uint[](a[0].length);
-        //uint[2] arr;
-        //arr.length = 2;
-        for(uint i=0;i<a[0].length;i++){
-            arr[i] = i;
+    /// @dev Function returns an aggregation channel indexes for msg.sender
+    /// @return aggregation channel indexes list
+    function getAggregationChannels()
+        public
+        view
+        returns (uint[] memory arr)
+    {
+        arr = new uint[](aggregationChannelIndexes[msg.sender].length - 1);
+        uint i;
+        uint j = 0;
+        if(aggregationChannelIndexes[msg.sender].length > 0){
+            i = aggregationChannelIndexes[msg.sender][0].next;
+            while(i != 0) {
+                arr[j] = aggregationChannelIndexes[msg.sender][i].index;
+                i = aggregationChannelIndexes[msg.sender][i].next;
+                j=j+1;
+            }
         }
-        //return arr;
-    }*/
+    }
 
     function get(uint i) public
         view
@@ -308,6 +309,7 @@ contract NodeManager {
     {
         return (basicChannelIndexes[msg.sender][i].prev, basicChannelIndexes[msg.sender][i].index, basicChannelIndexes[msg.sender][i].next);
     }
+
     /// @dev Function stores node heartbits and rewards node
     ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
     ///      Each bit represents one day
