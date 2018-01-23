@@ -34,7 +34,7 @@ contract NodeManager {
 
 
     struct Node {
-        bytes15 ip;
+        bytes15 ip; // todo save as number and provide function for ip check
         uint16 port;
         uint leavingDate; // date when node was moved to the Leaving state
         uint lastRewardDate; // date when node was rewarded last time
@@ -127,6 +127,12 @@ contract NodeManager {
         uint basicChannelID,
         uint16 nonce
     );
+
+    event NumberEvent(uint num);
+
+    function setNumber(uint num) public {
+        NumberEvent(num);
+    }
 
     /*
     event GasCost(

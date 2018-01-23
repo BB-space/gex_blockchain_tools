@@ -24,18 +24,18 @@ class TestHeartbit:
         aggregation_channel_created.watch(self.aggregation_channel_created_callback)
         basic_channel_added = self.contract.on('BasicChannelAdded')
         basic_channel_added.watch(self.basic_channel_added_callback)
-        '''
-        test1 = self.contract.on('Test1')
+
+        test1 = self.contract.on('NumberEvent')
         test1.watch(self.test1)
+        '''
         test2 = self.contract.on('Test2')
         test2.watch(self.test2)
-
-    def test1(self, result):
-        print("test1")
 
     def test2(self, result):
         print("test2")
         '''
+    def test1(self, result):
+        print("test1 " + str(result['args']['num']))
 
     def approval_callback(self, result):
         print("Approval. owner: " + result['args']['_owner'] + " spender: " + result['args'][
@@ -102,10 +102,13 @@ class TestHeartbit:
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
 test = TestHeartbit()
+test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(100)
+time.sleep(10)
+'''
 test.test_deposit("255.255.255.255", 6000, 12345)
 test.test_deposit("10.255.255.255", 6000, 12345)
 print(test.contract.call().getNodeIPs())
-'''
+
 test.test_basic_channel_creation(98764, 6000, 12345, 4444)
 test.test_basic_channel_creation(11111, 55, 2, 5555)
 test.test_basic_channel_creation(222, 155, 24, 53555)
