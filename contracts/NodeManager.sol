@@ -109,7 +109,8 @@ contract NodeManager {
         uint lifetime,
         uint maxNodes,
         uint deposit,
-        uint16 nonce
+        uint16 nonce,
+        bytes32 name
     );
 
     event AggregationChannelCreated(
@@ -119,7 +120,8 @@ contract NodeManager {
         uint lifetime,
         uint maxNodes,
         uint deposit,
-        uint16 nonce
+        uint16 nonce,
+        bytes32 name
     );
 
     event BasicChannelAdded(
@@ -453,12 +455,14 @@ contract NodeManager {
     ///      lifetime Number of seconds this channel will be considered as alive
     ///      maxNodes Max number of nodes associated with this channel
     ///      nonce Unique identifier of a current operation
+    ///      name Channel name
     function createBasicChannel(address _from, uint _value, bytes _data) internal {
         uint storageBytes;
         uint lifetime;
         uint maxNodes;
         uint16 nonce;
-        (storageBytes, lifetime, maxNodes, nonce) = fallbackCreateChannelDataConvert(_data);
+        bytes32 name;
+        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateChannelDataConvert(_data);
         // channel can live max 30 days
         require(lifetime <= CHANNEL_MAX_LIFETIME);
         basicChannel[nextBasicChannelIndex].owner = _from;
@@ -478,7 +482,7 @@ contract NodeManager {
                 DoublyLinkedList(nextBasicChannelIndex,basicChannelIndexes[_from].length - 2, 0));
 
         }
-        BasicChannelCreated(nextBasicChannelIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce);
+        BasicChannelCreated(nextBasicChannelIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce, name);
         nextBasicChannelIndex = nextBasicChannelIndex + 1;
     }
 
@@ -490,12 +494,14 @@ contract NodeManager {
     ///      lifetime Number of seconds this channel will be considered as alive
     ///      maxNodes Max number of nodes associated with this channel
     ///      nonce Unique identifier of a current operation
+    ///      name Channel name
     function createAggregationChannel(address _from, uint _value, bytes _data) internal {
         uint storageBytes;
         uint lifetime;
         uint maxNodes;
         uint16 nonce;
-        (storageBytes, lifetime, maxNodes, nonce) = fallbackCreateChannelDataConvert(_data);
+        bytes32 name;
+        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateChannelDataConvert(_data);
         // channel can live max 30 days
         require(lifetime <= CHANNEL_MAX_LIFETIME);
         aggregationChannel[nextAggregationChannelIndex].owner = _from;
@@ -516,7 +522,7 @@ contract NodeManager {
 
         }
         AggregationChannelCreated(nextAggregationChannelIndex, _from, storageBytes,
-                                    lifetime, maxNodes, _value, nonce);
+                                    lifetime, maxNodes, _value, nonce, name);
         nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
     }
 
@@ -572,22 +578,25 @@ contract NodeManager {
     ///      lifetime Number of seconds this channel will be considered as alive
     ///      maxNodes Max number of nodes associated with this channel
     ///      nonce Unique identifier of a current operation
+    ///      name Channel name
     function fallbackCreateChannelDataConvert(bytes data)
         internal
         pure
-        returns (uint, uint, uint, uint16)
+        returns (uint, uint, uint, uint16, bytes32)
     {
         bytes32 storageBytes;
         bytes32 lifetime;
         bytes32 maxNodes;
         bytes4 nonce;
+        bytes32 name;
         assembly {
             storageBytes := mload(add(data, 33))
             lifetime := mload(add(data, 65))
             maxNodes := mload(add(data, 97))
             nonce := mload(add(data, 129))
+            name := mload(add(data, 133))
         }
-        return (uint(storageBytes), uint(lifetime), uint(maxNodes), uint16(nonce));
+        return (uint(storageBytes), uint(lifetime), uint(maxNodes), uint16(nonce), name);
     }
 
         /*
