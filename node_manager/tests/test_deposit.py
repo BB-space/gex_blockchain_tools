@@ -102,10 +102,11 @@ class TestHeartbit:
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
 test = TestHeartbit()
-test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(100)
-time.sleep(10)
-'''
+#test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(100)
+#time.sleep(10)
+
 test.test_deposit("255.255.255.255", 6000, 12345)
+'''
 test.test_deposit("10.255.255.255", 6000, 12345)
 print(test.contract.call().getNodeIPs())
 

@@ -134,6 +134,13 @@ contract NodeManager {
     function setNumber(uint num) public {
         NumberEvent(num);
     }
+
+    event BytesEvent(bytes data);
+
+    function testBytes(bytes data) public {
+        BytesEvent(data);
+    }
+
     //
 
     /*
