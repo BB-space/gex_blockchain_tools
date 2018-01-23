@@ -3,7 +3,7 @@ pragma solidity ^0.4.15;
 /// Token interface declaration
 interface GeToken {
     function transfer(address _to, uint _value) public returns (bool);
-    function mint(address _to, uint _amount) returns (bool);
+    function mint(address _to, uint _amount) public returns (bool);
 }
 
 /// @title Node Manager contract
@@ -142,7 +142,7 @@ contract NodeManager {
     /// @dev Constructor for creating the Node Manager contract
     /// @param _token The address of the token contract
     /// @param _annualMint Amount of tokens rewarded to nodes per year. Should be specified with decimals
-    function NodeManager(address _token, uint _annualMint) {
+    function NodeManager(address _token, uint _annualMint) public {
         // todo implement: annualMint should be reduced by a half each N years
         tokenAddress = _token;
         annualMint = _annualMint;
@@ -220,7 +220,7 @@ contract NodeManager {
                     aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].lifetime < block.timestamp){
                     // add channel deposit value to the total
                     withdrawTotal = withdrawTotal +
-                        aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].deposit; // todo is it save?
+                        aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].deposit;
                     // last element will be moved or deleted
                     aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1].next = 0;
                     // if the element is not last
@@ -245,7 +245,7 @@ contract NodeManager {
                     basicChannel[basicChannelIndexes[msg.sender][i].index].lifetime < block.timestamp){
                     // add channel deposit value to the total
                     withdrawTotal = withdrawTotal +
-                        basicChannel[basicChannelIndexes[msg.sender][i].index].deposit; // todo is it save?
+                        basicChannel[basicChannelIndexes[msg.sender][i].index].deposit;
                     // last element will be moved or deleted
                     basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1].next = 0;
                     // if the element is not last
@@ -269,7 +269,7 @@ contract NodeManager {
         }
     }
 
-    // todo result array may be too huge and contained a lot of 0 because of non active nodes. Use DoublyLinkedList?
+    // todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList?
     /// @dev Function returns an ip list of all Active nodes
     /// @return ip list
     function getNodeIPs()
@@ -325,14 +325,6 @@ contract NodeManager {
                 j++;
             }
         }
-    }
-
-    // todo remove
-    function get(uint i) public
-        view
-        returns (uint,uint,uint)
-    {
-        return (basicChannelIndexes[msg.sender][i].prev, basicChannelIndexes[msg.sender][i].index, basicChannelIndexes[msg.sender][i].next);
     }
 
     /// @dev Function stores node heartbits and rewards node
@@ -396,7 +388,7 @@ contract NodeManager {
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters
-    // todo make internal
+    // todo make internal here and for other callback functions
     function tokenFallback(address _from, uint _value, bytes _data) public {
         require(msg.sender == tokenAddress);
         TransactionOperation operationType = fallbackOperationTypeConvert(_data);
@@ -511,7 +503,6 @@ contract NodeManager {
                                     lifetime, maxNodes, _value, nonce);
         nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
     }
-
 
     /// @dev Function for parsing first 2 data bytes to determine the type of the transaction operation
     /// @param data Data containig a function signature and/or parameters

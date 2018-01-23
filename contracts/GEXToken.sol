@@ -24,7 +24,11 @@ contract GEXToken is StandardToken, Ownable {
         // TODO remove after testing
     }
 
-    function mint(address _to, uint256 _amount) onlyOwner returns (bool) {
+    function mint(address _to, uint256 _amount)
+        onlyOwner
+        public
+        returns (bool)
+    {
         require(totalSupply + _amount <= cap);
         totalSupply = totalSupply + _amount;
         balances[_to] = balances[_to] + _amount;
@@ -32,7 +36,11 @@ contract GEXToken is StandardToken, Ownable {
         return true;
     }
 
-    function burn(address _from, uint256 _amount) onlyOwner returns (bool) {
+    function burn(address _from, uint256 _amount)
+        onlyOwner
+        public
+        returns (bool)
+    {
         require(balances[_from] >= _amount);
         balances[_from] = balances[_from] - _amount;
         totalSupply = totalSupply - _amount;
