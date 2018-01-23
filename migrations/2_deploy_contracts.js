@@ -17,6 +17,9 @@ module.exports = function (deployer) {
                     return console.log(err);
                 }
             });
-        })
-    });
+       /* }).then( function () {
+             return NodeManager.at(NodeManager.address).getArray();}).then(function(res) {
+                 console.log(res);*/
+        });
+        });
 };

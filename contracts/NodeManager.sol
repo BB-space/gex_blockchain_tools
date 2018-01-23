@@ -91,6 +91,9 @@ contract NodeManager {
      *  Events
      */
 
+    event Test1();
+    event Test2();
+
     event NodeCreated(
         uint nodeID,
         address owner,
@@ -260,6 +263,51 @@ contract NodeManager {
         return arr;
     }
 
+    /// @dev Function returns an basic channel indexes for msg.sender
+    /// @return basic channel indexes list
+    function getBasicChannels()
+        public
+        constant
+        returns (uint[] memory arr)
+    {
+        arr = new uint[](basicChannelIndexes[msg.sender].length);
+        uint i;
+        uint j = 0;
+        if(basicChannelIndexes[msg.sender].length > 0){
+            i = basicChannelIndexes[msg.sender][0].next;
+            while(i != 0) {
+                arr[j] = basicChannelIndexes[msg.sender][i].index;
+                i = basicChannelIndexes[msg.sender][i].next;
+                j=j+1;
+            }
+        }
+    }
+
+    /*
+    uint n = 7;
+    //mapping(uint => uint[]) a;
+    function getArray() constant returns (uint[] memory arr) {
+
+        //uint[] a;
+
+        a[0].push(1);
+        a[0].push(2);
+
+        arr = new uint[](a[0].length);
+        //uint[2] arr;
+        //arr.length = 2;
+        for(uint i=0;i<a[0].length;i++){
+            arr[i] = i;
+        }
+        //return arr;
+    }*/
+
+    function get(uint i) public
+        view
+        returns (uint,uint,uint)
+    {
+        return (basicChannelIndexes[msg.sender][i].prev, basicChannelIndexes[msg.sender][i].index, basicChannelIndexes[msg.sender][i].next);
+    }
     /// @dev Function stores node heartbits and rewards node
     ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
     ///      Each bit represents one day
@@ -384,14 +432,16 @@ contract NodeManager {
         basicChannel[nextBasicChannelIndex].maxNodes = maxNodes;
         basicChannel[nextBasicChannelIndex].startDate = block.timestamp;
         basicChannel[nextBasicChannelIndex].deposit = _value;
-        if(basicChannelIndexes[msg.sender].length == 0){
+        if(basicChannelIndexes[_from].length == 0){
             // element at the 0 position is linked to the first element
-            basicChannelIndexes[msg.sender].push(DoublyLinkedList(0, 0, 1));
-            basicChannelIndexes[msg.sender].push(DoublyLinkedList(nextBasicChannelIndex, 0, 0));
+            basicChannelIndexes[_from].push(DoublyLinkedList(0, 0, 1));
+            basicChannelIndexes[_from].push(DoublyLinkedList(nextBasicChannelIndex, 0, 0));
         } else {
-            basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length-1].next = basicChannelIndexes[msg.sender].length-1;
-            basicChannelIndexes[msg.sender].push(
-                DoublyLinkedList(nextBasicChannelIndex,basicChannelIndexes[msg.sender].length-1, 0));
+            //todo fix length
+            basicChannelIndexes[_from][basicChannelIndexes[_from].length-1].next =
+                basicChannelIndexes[_from].length;
+            basicChannelIndexes[_from].push(
+                DoublyLinkedList(nextBasicChannelIndex,basicChannelIndexes[_from].length - 2, 0));
 
         }
         BasicChannelCreated(nextBasicChannelIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce);
@@ -420,15 +470,15 @@ contract NodeManager {
         aggregationChannel[nextAggregationChannelIndex].maxNodes = maxNodes;
         aggregationChannel[nextAggregationChannelIndex].startDate = block.timestamp;
         aggregationChannel[nextAggregationChannelIndex].deposit = _value;
-         if(aggregationChannelIndexes[msg.sender].length == 0){
+         if(aggregationChannelIndexes[_from].length == 0){
             // element at the 0 position is linked to the first element
-            aggregationChannelIndexes[msg.sender].push(DoublyLinkedList(0, 0, 1));
-            aggregationChannelIndexes[msg.sender].push(DoublyLinkedList(nextAggregationChannelIndex, 0, 0));
+            aggregationChannelIndexes[_from].push(DoublyLinkedList(0, 0, 1));
+            aggregationChannelIndexes[_from].push(DoublyLinkedList(nextAggregationChannelIndex, 0, 0));
         } else {
-            aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length-1].next =
-                aggregationChannelIndexes[msg.sender].length-1;
-            aggregationChannelIndexes[msg.sender].push(
-                DoublyLinkedList(nextAggregationChannelIndex,aggregationChannelIndexes[msg.sender].length-1, 0));
+            aggregationChannelIndexes[_from][aggregationChannelIndexes[_from].length - 1].next =
+                aggregationChannelIndexes[_from].length;
+            aggregationChannelIndexes[_from].push(
+                DoublyLinkedList(nextAggregationChannelIndex,aggregationChannelIndexes[_from].length - 2, 0));
 
         }
         AggregationChannelCreated(nextAggregationChannelIndex, _from, storageBytes,
