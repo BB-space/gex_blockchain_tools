@@ -430,6 +430,7 @@ contract NodeManager {
     ///      ip IPv4 address of the node
     function createNode(address _from, uint _value, bytes _data) //internal
     {
+        BytesEvent(_data);
         require(_value == depositValue);
         uint16 port;
         uint16 nonce;
