@@ -419,7 +419,8 @@ contract NodeManager {
     ///      port Node port for the communication inside the system
     ///      nonce Unique identifier of a current operation
     ///      ip IPv4 address of the node
-    function createNode(address _from, uint _value, bytes _data) internal {
+    function createNode(address _from, uint _value, bytes _data) //internal
+    {
         require(_value == depositValue);
         uint16 port;
         uint16 nonce;
@@ -516,7 +517,7 @@ contract NodeManager {
     /// @param data Data containig a function signature and/or parameters
     /// @return type of the transaction operation
      function fallbackOperationTypeConvert(bytes data)
-        internal
+        //internal
         pure
         returns (TransactionOperation)
     {
@@ -542,7 +543,7 @@ contract NodeManager {
     ///      nonce Unique identifier of a current operation
     ///      ip IPv4 address of the node
     function fallbackCreateNodeDataConvert(bytes data)
-        internal
+        //internal
         pure
         returns (uint16, uint16, bytes15)
     {
