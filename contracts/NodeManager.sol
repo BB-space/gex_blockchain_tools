@@ -128,11 +128,13 @@ contract NodeManager {
         uint16 nonce
     );
 
+    // todo remove
     event NumberEvent(uint num);
 
     function setNumber(uint num) public {
         NumberEvent(num);
     }
+    //
 
     /*
     event GasCost(
