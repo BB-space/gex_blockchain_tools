@@ -245,22 +245,22 @@ contract NodeManager {
         }
     }
 
+    // todo result array may be too huge and contained a lot of 0 because of non active nodes. Use DoublyLinkedList?
     /// @dev Function returns an ip list of all Active nodes
     /// @return ip list
     function getNodeIPs()
         public
         view
-        returns (bytes16[])
+        returns (bytes15[] memory arr)
     {
-        bytes16[] arr;
+        arr = new bytes15[](nextNodeIndex -1);
         uint j = 0;
-        for (uint i = 0; i < nextNodeIndex; i++) {
+        for (uint i = 1; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
                 arr[j] = nodes[i].ip;
                 j++;
             }
         }
-        return arr;
     }
 
     /// @dev Function returns an basic channel indexes for msg.sender
@@ -278,7 +278,7 @@ contract NodeManager {
             while(i != 0) {
                 arr[j] = basicChannelIndexes[msg.sender][i].index;
                 i = basicChannelIndexes[msg.sender][i].next;
-                j=j+1;
+                j++;
             }
         }
     }
@@ -298,11 +298,12 @@ contract NodeManager {
             while(i != 0) {
                 arr[j] = aggregationChannelIndexes[msg.sender][i].index;
                 i = aggregationChannelIndexes[msg.sender][i].next;
-                j=j+1;
+                j++;
             }
         }
     }
 
+    // todo remove
     function get(uint i) public
         view
         returns (uint,uint,uint)

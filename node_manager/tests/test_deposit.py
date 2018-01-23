@@ -102,15 +102,17 @@ class TestHeartbit:
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
 test = TestHeartbit()
-'''
 test.test_deposit("255.255.255.255", 6000, 12345)
+test.test_deposit("10.255.255.255", 6000, 12345)
+print(test.contract.call().getNodeIPs())
+'''
 test.test_basic_channel_creation(98764, 6000, 12345, 4444)
 test.test_basic_channel_creation(11111, 55, 2, 5555)
 test.test_basic_channel_creation(222, 155, 24, 53555)
 print(test.contract.call().getBasicChannels())
-'''
 test.test_aggregation_channel_creation(98764, 6000, 12345, 4444)
 test.test_aggregation_channel_creation(11111, 55, 2, 5555)
 test.test_aggregation_channel_creation(222, 155, 24, 53555)
 print(test.contract.call().getAggregationChannels())
+'''
 
