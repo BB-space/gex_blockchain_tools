@@ -20,7 +20,7 @@ contract GEXToken is StandardToken, Ownable {
     event Burn(address indexed from, uint256 amount);
 
     function GEXToken(){
-        balances[msg.sender] = 1000 * 10 ** decimals;
+        balances[msg.sender] = 10000 * 10 ** decimals;
         // TODO remove after testing
     }
 

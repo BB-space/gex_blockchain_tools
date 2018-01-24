@@ -41,10 +41,6 @@ class TestHeartbit:
     def test1(self, result):
         print("test1 " + str(result['args']['num']))
 
-    def gas_callback(self, result):
-        print(result['args']['_function_name'] + " " + str(result['args']['_gaslimit']) + " " + str(
-            result['args']['_gas_remaining']))
-
     def approval_callback(self, result):
         print("Approval. owner: " + result['args']['_owner'] + " spender: " + result['args'][
             '_spender'] + " value: " + str(result['args']['_value']))
@@ -76,6 +72,10 @@ class TestHeartbit:
     def basic_channel_added_callback(self, result):
         print("Basic channel added. aggregationChannelID: " + str(result['args']['aggregationChannelID']) +
               " basicChannelID: " + str(result['args']['basicChannelID']) + " nonce: " + str(result['args']['nonce']))
+
+    def getGasUsed(self, tx, name):
+        receipt = check_successful_tx(self.web3, tx)
+        print(name + " " + str(receipt['gasUsed']))
 
     def test_deposit(self, ip, port, nonce):
         type = 0x1
