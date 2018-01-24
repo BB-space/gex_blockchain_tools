@@ -146,13 +146,6 @@ contract NodeManager {
     //
 
     /*
-    event GasCost(
-        string _function_name,
-        uint _gaslimit,
-        uint _gas_remaining);
-    */
-
-    /*
      *  Constructor
      */
 
