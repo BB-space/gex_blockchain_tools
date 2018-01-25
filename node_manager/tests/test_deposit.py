@@ -130,6 +130,11 @@ class TestHeartbit:
              self.token.call().balanceOf(self.data['node_manager_address'])))
          print(test.contract.call().getBasicChannels())
 
+    def test_add_basic_channel(self, aggregation_index, basic_index, nonce):
+         self.getGasUsed(self.contract.transact({
+            'from': self.web3.eth.accounts[0]}).addToAggregationChannel(aggregation_index, basic_index, nonce ),
+             "add basic channel")
+
 
 test = TestHeartbit()
 # test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(100)
@@ -151,13 +156,16 @@ test.test_aggregation_channel_creation(222, 155, 24, 53555)
 
 #test.test_basic_channel_creation(98764, 6000, 12345, 4444)
 
-test.test_basic_channel_creation(98764, 1, 12345, 4444)'''
-test.test_basic_channel_creation(98643, 10000, 12345, 4443)
 test.test_basic_channel_creation(98764, 1, 12345, 4444)
-test.test_basic_channel_creation(98643, 1, 12345, 4443)
-
-
+test.test_basic_channel_creation(98643, 10000, 12345, 4443)
+test.test_basic_channel_creation(98764, 1, 12345, 4444)'''
+test.test_basic_channel_creation(98643, 1000, 12345, 4443)
+test.test_aggregation_channel_creation(222, 6000, 24, 53555)
+test.test_add_basic_channel(1, 1, 53555)
+print(test.contract.call().getBasicChannelListFromAggregationChannel(1))
+'''
 print(test.contract.call().getBasicChannels())
 time.sleep(5)
 test.test_withdraw_basic_channel()
 print(test.contract.call().getBasicChannels())
+'''

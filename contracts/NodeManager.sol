@@ -58,7 +58,8 @@ contract NodeManager {
         uint startDate; // date of channel creation
         uint maxNodes; // max number of nodes associated with this channel
         uint deposit; // value of tokens associated with this channel
-        mapping (uint => bool) basicChannels; // basic channels aggregated by this channel
+        mapping (uint => bool) basicChannelsPresence; // basic channels aggregated by this channel
+        uint[] basicChannels;
         uint nextAggregatedBasicChannelIndex; // index to store next basic channel
     }
 
@@ -185,8 +186,9 @@ contract NodeManager {
                (aggregationChannel[aggregationChannelID].startDate +
                aggregationChannel[aggregationChannelID].lifetime));
         // check that basic channel is not present in the aggregation channel already
-        require(!aggregationChannel[aggregationChannelID].basicChannels[basicChannelID]);
-        aggregationChannel[aggregationChannelID].basicChannels[basicChannelID] = true;
+        require(!aggregationChannel[aggregationChannelID].basicChannelsPresence[basicChannelID]);
+        aggregationChannel[aggregationChannelID].basicChannelsPresence[basicChannelID] = true;
+        aggregationChannel[aggregationChannelID].basicChannels.push(basicChannelID);
         aggregationChannel[aggregationChannelID].nextAggregatedBasicChannelIndex += 1;
         BasicChannelAdded(aggregationChannelID, basicChannelID, nonce);
     }
@@ -318,7 +320,19 @@ contract NodeManager {
             aggregationChannel[index].maxNodes, aggregationChannel[index].deposit);
     }
 
-    /// @dev Function returns an basic channel indexes for msg.sender
+
+    /// @dev Function returns basic channel indexes array associated with the aggregation channel
+    /// @return basic channel indexes list
+    function getBasicChannelListFromAggregationChannel(uint index)
+        public
+        view
+        returns (uint[])
+    {
+        return aggregationChannel[index].basicChannels;
+    }
+
+
+    /// @dev Function returns basic channel indexes array associated with  msg.sender
     /// @return basic channel indexes list
     function getBasicChannelList()
         public
@@ -328,7 +342,7 @@ contract NodeManager {
         return basicChannelIndexes[msg.sender];
     }
 
-    /// @dev Function returns an aggregation channel indexes for msg.sender
+    /// @dev Function returns aggregation channel indexes array associated with msg.sender
     /// @return aggregation channel indexes list
     function getAggregationChannelList()
         public
