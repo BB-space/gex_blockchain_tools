@@ -368,7 +368,7 @@ contract NodeManager {
     /// @param _data Data containig a function signature and/or parameters
     // todo make internal here and for other callback functions
     function tokenFallback(address _from, uint _value, bytes _data) public {
-        require(msg.sender == tokenAddress);
+        //require(msg.sender == tokenAddress);
         TransactionOperation operationType = fallbackOperationTypeConvert(_data);
         if(operationType == TransactionOperation.CreateNode) {
             // create node
@@ -391,7 +391,6 @@ contract NodeManager {
     ///      ip IPv4 address of the node
     function createNode(address _from, uint _value, bytes _data) //internal
     {
-        BytesEvent(_data);
         require(_value == depositValue);
         uint16 port;
         uint16 nonce;
