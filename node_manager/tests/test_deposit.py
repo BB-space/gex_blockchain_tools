@@ -28,7 +28,8 @@ class TestHeartbit:
         basic_channel_added = self.contract.on('BasicChannelAdded')
         basic_channel_added.watch(self.basic_channel_added_callback)
 
-        '''test1 = self.contract.on('Test1')
+        ''''''
+        test1 = self.contract.on('Test1')
         test1.watch(self.test1)
 
         test2 = self.contract.on('Test2')
@@ -39,7 +40,7 @@ class TestHeartbit:
 
 
     def test1(self, result):
-        print("test1 ")'''
+        print("test1 ")
 
     def approval_callback(self, result):
         print("Approval. owner: " + result['args']['_owner'] + " spender: " + result['args'][
@@ -134,8 +135,8 @@ test = TestHeartbit()
 # test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(100)
 # time.sleep(10)
 
-test.test_deposit("255.255.255.255", 6000, 12345)
-'''
+'''test.test_deposit("255.255.255.255", 6000, 12345)
+
 test.test_deposit("10.255.255.255", 6000, 12345)
 print(test.contract.call().getNodeIPs())
 
@@ -146,12 +147,12 @@ test.test_basic_channel_creation(222, 155, 24, 53555)
 test.test_aggregation_channel_creation(98764, 6000, 12345, 4444)
 test.test_aggregation_channel_creation(11111, 55, 2, 5555)
 test.test_aggregation_channel_creation(222, 155, 24, 53555)
-print(test.contract.call().getAggregationChannels())
+
 
 #test.test_basic_channel_creation(98764, 6000, 12345, 4444)
 
-test.test_basic_channel_creation(98764, 1, 12345, 4444)
-test.test_basic_channel_creation(98643, 1, 12345, 4443)
+test.test_basic_channel_creation(98764, 1, 12345, 4444)'''
+test.test_basic_channel_creation(98643, 10000, 12345, 4443)
 test.test_basic_channel_creation(98764, 1, 12345, 4444)
 test.test_basic_channel_creation(98643, 1, 12345, 4443)
 
@@ -159,4 +160,4 @@ test.test_basic_channel_creation(98643, 1, 12345, 4443)
 print(test.contract.call().getBasicChannels())
 time.sleep(5)
 test.test_withdraw_basic_channel()
-print(test.contract.call().getBasicChannels())'''
+print(test.contract.call().getBasicChannels())

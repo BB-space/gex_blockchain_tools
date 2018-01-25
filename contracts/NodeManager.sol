@@ -85,8 +85,8 @@ contract NodeManager {
      *  Events
      */
 
-    //event Test1();
-    //event Test2();
+    event Test1();
+    event Test2();
 
     event NodeCreated(
         uint nodeID,
@@ -217,8 +217,8 @@ contract NodeManager {
     /// @dev Function withdraws deposit from all finished channels of msg.sender and deletes this channels
     function withdrawFromChannels() public {
         uint withdrawTotal = 0;
-        uint i = 0 ;
-        while(i<aggregationChannelIndexes[msg.sender].length){
+        uint i = 0;
+        while(i < aggregationChannelIndexes[msg.sender].length){
             if(aggregationChannel[aggregationChannelIndexes[msg.sender][i]].startDate +
             aggregationChannel[aggregationChannelIndexes[msg.sender][i]].lifetime < block.timestamp) {
             // add channel deposit value to the total
@@ -232,8 +232,8 @@ contract NodeManager {
             }
             // delete channel from the aggregation channel list
             delete aggregationChannel[aggregationChannelIndexes[msg.sender][i]];
-            // delete channel from the aggregation channel indexes list for 0
-            delete aggregationChannelIndexes[0][aggregationChannelIndexes[msg.sender].length - 1];
+            // delete channel from the aggregation channel indexes list for msg.sender
+            delete aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1];
             aggregationChannelIndexes[msg.sender].length--;
             } else {
                  i++;
@@ -254,8 +254,8 @@ contract NodeManager {
             }
             // delete channel from the basic channel list
             delete basicChannel[basicChannelIndexes[msg.sender][i]];
-            // delete channel from the basic channel indexes list for 0
-            delete basicChannelIndexes[0][basicChannelIndexes[msg.sender].length - 1];
+            // delete channel from the basic channel indexes list for msg.sender
+            delete basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1];
             basicChannelIndexes[msg.sender].length--;
             } else {
                  i++;
