@@ -146,7 +146,7 @@ contract NodeManager {
     /// @dev Constructor for creating the Node Manager contract
     /// @param _token The address of the token contract
     /// @param _annualMint Amount of tokens rewarded to nodes per year. Should be specified with decimals
-    function NodeManagerld(address _token, uint _annualMint) public {
+    function NodeManager(address _token, uint _annualMint) public {
         // todo implement: annualMint should be reduced by a half each N years
         tokenAddress = _token;
         annualMint = _annualMint;
@@ -368,7 +368,7 @@ contract NodeManager {
     /// @param _data Data containig a function signature and/or parameters
     // todo make internal here and for other callback functions
     function tokenFallback(address _from, uint _value, bytes _data) public {
-        //require(msg.sender == tokenAddress);
+        require(msg.sender == tokenAddress);
         TransactionOperation operationType = fallbackOperationTypeConvert(_data);
         if(operationType == TransactionOperation.CreateNode) {
             // create node

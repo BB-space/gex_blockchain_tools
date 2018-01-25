@@ -83,7 +83,7 @@ class TestHeartbit:
                     byteorder='big') + ip.encode()
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
-        self.getGasUsed(self.contract.transact({'from': self.web3.eth.accounts[0]}).tokenFallback(
+        self.getGasUsed(self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(
             self.data['node_manager_address'], 100000000000000000000, data), "node create")
 
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
