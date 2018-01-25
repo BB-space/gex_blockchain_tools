@@ -286,8 +286,41 @@ contract NodeManager {
     }
 
     /// @dev Function returns an basic channel indexes for msg.sender
+    /// @return basis channel info
+    ///      storageBytes Number of bytes this channel can store
+    ///      lifetime Number of seconds this channel will be considered as alive
+    ///      startDate Number of seconds of channel creation
+    ///      maxNodes Max number of nodes associated with this channel
+    ///      deposit Value of tokens associated with this channel
+    function getBasicChannel(uint index)
+        public
+        view
+        returns (address, uint, uint, uint, uint, uint)
+    {
+        return (basicChannel[index].owner, basicChannel[index].storageBytes, basicChannel[index].lifetime,
+            basicChannel[index].startDate, basicChannel[index].maxNodes, basicChannel[index].deposit);
+    }
+
+    /// @dev Function returns an aggregation channel indexes for msg.sender
+    /// @return basis channel info
+    ///      storageBytes Number of bytes this channel can store
+    ///      lifetime Number of seconds this channel will be considered as alive
+    ///      startDate Number of seconds of channel creation
+    ///      maxNodes Max number of nodes associated with this channel
+    ///      deposit Value of tokens associated with this channel
+    function getAggregationChannel(uint index)
+        public
+        view
+        returns (address, uint, uint, uint, uint, uint)
+    {
+        return (aggregationChannel[index].owner, aggregationChannel[index].storageBytes,
+            aggregationChannel[index].lifetime, aggregationChannel[index].startDate,
+            aggregationChannel[index].maxNodes, aggregationChannel[index].deposit);
+    }
+
+    /// @dev Function returns an basic channel indexes for msg.sender
     /// @return basic channel indexes list
-    function getBasicChannels()
+    function getBasicChannelList()
         public
         view
         returns (uint[])
@@ -297,7 +330,7 @@ contract NodeManager {
 
     /// @dev Function returns an aggregation channel indexes for msg.sender
     /// @return aggregation channel indexes list
-    function getAggregationChannels()
+    function getAggregationChannelList()
         public
         view
         returns (uint[])
