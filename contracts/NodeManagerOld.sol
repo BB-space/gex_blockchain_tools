@@ -1,13 +1,13 @@
 pragma solidity ^0.4.15;
 
 /// Token interface declaration
-interface GeToken {
+interface GeTokenOld {
     function transfer(address _to, uint _value) public returns (bool);
     function mint(address _to, uint _amount) public returns (bool);
 }
 
 /// @title Node Manager contract
-contract NodeManager {
+contract NodeManagerOld {
 
     enum NodeStatus {Active, Leaving, Left}
 
@@ -62,6 +62,12 @@ contract NodeManager {
         uint nextAggregatedBasicChannelIndex; // index to store next basic channel
     }
 
+    struct DoublyLinkedList {
+        uint index;
+        uint prev;
+        uint next;
+    }
+
     // mapping of node index to a node instance
     mapping (uint => Node) nodes;
     // mapping of a basic channel index to a basic channel instance
@@ -71,9 +77,9 @@ contract NodeManager {
     // mapping of owner address to node indexes associated with it
     mapping (address => mapping (uint => bool)) nodeIndexes; // todo Note: we do not delete nodes
     // mapping of owner address to basic channel indexes associated with it
-    mapping (address => uint[]) basicChannelIndexes;
+    mapping (address => DoublyLinkedList[]) basicChannelIndexes;
     // mapping of owner address to aggregation channel indexes associated with it
-    mapping (address => uint[]) aggregationChannelIndexes;
+    mapping (address => DoublyLinkedList[]) aggregationChannelIndexes;
     // index to store next node
     uint nextNodeIndex;
     // index to store next basic channel
@@ -85,8 +91,8 @@ contract NodeManager {
      *  Events
      */
 
-    //event Test1();
-    //event Test2();
+    event Test1();
+    event Test2();
 
     event NodeCreated(
         uint nodeID,
@@ -209,7 +215,7 @@ contract NodeManager {
         require(nodes[nodeNumber].status == NodeStatus.Leaving);
         require(block.timestamp - nodes[nodeNumber].leavingDate >= LEAVING_PERIOD);
         nodes[nodeNumber].status = NodeStatus.Left;
-        GeToken(tokenAddress).transfer(msg.sender, depositValue);
+        GeTokenOld(tokenAddress).transfer(msg.sender, depositValue);
         //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, depositValue);
     }
 
@@ -217,56 +223,88 @@ contract NodeManager {
     /// @dev Function withdraws deposit from all finished channels of msg.sender and deletes this channels
     function withdrawFromChannels() public {
         uint withdrawTotal = 0;
-        uint i = 0 ;
-        while(i<aggregationChannelIndexes[msg.sender].length){
-            if(aggregationChannel[aggregationChannelIndexes[msg.sender][i]].startDate +
-            aggregationChannel[aggregationChannelIndexes[msg.sender][i]].lifetime < block.timestamp) {
-            // add channel deposit value to the total
-            withdrawTotal = withdrawTotal + aggregationChannel[aggregationChannelIndexes[msg.sender][i]].deposit;
-            // last element will be moved or deleted
-            // if the element is not last
-            if(i!= aggregationChannelIndexes[msg.sender].length - 1) {
-                // move the last element to the place on the current element
-                aggregationChannelIndexes[msg.sender][i] =
-                    aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1];
-            }
-            // delete channel from the aggregation channel list
-            delete aggregationChannel[aggregationChannelIndexes[msg.sender][i]];
-            // delete channel from the aggregation channel indexes list for 0
-            delete aggregationChannelIndexes[0][aggregationChannelIndexes[msg.sender].length - 1];
-            aggregationChannelIndexes[msg.sender].length--;
-            } else {
-                 i++;
+        uint i;
+        if(aggregationChannelIndexes[msg.sender].length > 0){
+            i = aggregationChannelIndexes[msg.sender][0].next;
+            while(i != 0) {
+                if(aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].startDate +
+                    aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].lifetime < block.timestamp){
+                    // add channel deposit value to the total
+                    withdrawTotal = withdrawTotal +
+                        aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].deposit;
+                    // last element will be moved or deleted
+                    aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 2].next = 0;
+                    // if the element is not last
+                    if(i!= aggregationChannelIndexes[msg.sender].length - 1) {
+                        // move the last element to the place on the current element
+                        aggregationChannelIndexes[msg.sender][i].index =
+                            aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1].index;
+                    }
+                    // delete channel from the aggregation channel list
+                    delete aggregationChannel[aggregationChannelIndexes[msg.sender][i].index];
+                    // delete channel from the aggregation channel indexes list for msg.sender
+                    delete aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1];
+                    aggregationChannelIndexes[msg.sender].length--;
+                }
+                i = aggregationChannelIndexes[msg.sender][i].next;
             }
         }
-        i = 0;
-        while(i<basicChannelIndexes[msg.sender].length){
-            if(basicChannel[basicChannelIndexes[msg.sender][i]].startDate +
-            basicChannel[basicChannelIndexes[msg.sender][i]].lifetime < block.timestamp) {
-            // add channel deposit value to the total
-            withdrawTotal = withdrawTotal + basicChannel[basicChannelIndexes[msg.sender][i]].deposit;
-            // last element will be moved or deleted
-            // if the element is not last
-            if(i!= basicChannelIndexes[msg.sender].length - 1) {
-                // move the last element to the place on the current element
-                basicChannelIndexes[msg.sender][i] =
-                    basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1];
-            }
-            // delete channel from the basic channel list
-            delete basicChannel[basicChannelIndexes[msg.sender][i]];
-            // delete channel from the basic channel indexes list for 0
-            delete basicChannelIndexes[0][basicChannelIndexes[msg.sender].length - 1];
-            basicChannelIndexes[msg.sender].length--;
-            } else {
-                 i++;
+        if(basicChannelIndexes[msg.sender].length > 0){
+            Test2();
+            i = basicChannelIndexes[msg.sender][0].next;
+            while(i != 0) {
+                if(basicChannel[basicChannelIndexes[msg.sender][i].index].startDate +
+                    basicChannel[basicChannelIndexes[msg.sender][i].index].lifetime < block.timestamp) {
+                    Test1();
+                    // add channel deposit value to the total
+                    withdrawTotal = withdrawTotal +
+                        basicChannel[basicChannelIndexes[msg.sender][i].index].deposit;
+                    // last element will be moved or deleted
+                   /*   basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 2].next = 0;
+                    // if the element is not last
+                    if(i!= basicChannelIndexes[msg.sender].length - 1) {
+                        // move the last element to the place on the current element
+                        basicChannelIndexes[msg.sender][i].index =
+                            basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1].index;
+                    }*/
+                    // delete channel from the basic channel list
+                    delete basicChannel[basicChannelIndexes[msg.sender][i].index];
+                    // delete channel from the basic channel indexes list for msg.sender
+                    delete basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1];
+                    basicChannelIndexes[msg.sender].length--;
+                }
+                i = basicChannelIndexes[msg.sender][i].next;
             }
         }
         if(withdrawTotal > 0) {
-            GeToken(tokenAddress).transfer(msg.sender, withdrawTotal);
+            GeTokenOld(tokenAddress).transfer(msg.sender, withdrawTotal);
             //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, withdrawValue);
         }
     }
 
+     function getTime(uint i)
+        public
+        view
+        returns (uint, uint)
+    {
+        return (basicChannel[i].startDate, basicChannel[i].lifetime);
+    }
+
+    function getL()
+        public
+        view
+        returns (uint)
+    {
+        return basicChannelIndexes[msg.sender].length;
+    }
+
+    function get(uint i)
+        public
+        view
+        returns (uint, uint, uint)
+    {
+        return (basicChannelIndexes[msg.sender][i].index, basicChannelIndexes[msg.sender][i].prev, basicChannelIndexes[msg.sender][i].next);
+    }
     // todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList?
     /// @dev Function returns an ip list of all Active nodes
     /// @return ip list
@@ -290,9 +328,19 @@ contract NodeManager {
     function getBasicChannels()
         public
         view
-        returns (uint[])
+        returns (uint[] memory arr)
     {
-        return basicChannelIndexes[msg.sender];
+        arr = new uint[](basicChannelIndexes[msg.sender].length - 1);
+        uint i;
+        uint j = 0;
+        if(basicChannelIndexes[msg.sender].length > 0){
+            i = basicChannelIndexes[msg.sender][0].next;
+            while(i != 0) {
+                arr[j] = basicChannelIndexes[msg.sender][i].index;
+                i = basicChannelIndexes[msg.sender][i].next;
+                j++;
+            }
+        }
     }
 
     /// @dev Function returns an aggregation channel indexes for msg.sender
@@ -300,9 +348,19 @@ contract NodeManager {
     function getAggregationChannels()
         public
         view
-        returns (uint[])
+        returns (uint[] memory arr)
     {
-        return aggregationChannelIndexes[msg.sender];
+        arr = new uint[](aggregationChannelIndexes[msg.sender].length - 1);
+        uint i;
+        uint j = 0;
+        if(aggregationChannelIndexes[msg.sender].length > 0){
+            i = aggregationChannelIndexes[msg.sender][0].next;
+            while(i != 0) {
+                arr[j] = aggregationChannelIndexes[msg.sender][i].index;
+                i = aggregationChannelIndexes[msg.sender][i].next;
+                j++;
+            }
+        }
     }
 
     /// @dev Function stores node heartbits and rewards node
@@ -336,7 +394,7 @@ contract NodeManager {
                 }
             }
             // this transaction will work only if this contract is an owner of token contract
-            GeToken(tokenAddress).mint(msg.sender, daysToPayFor * (dailyMint / getActiveNodesCount()));
+            GeTokenOld(tokenAddress).mint(msg.sender, daysToPayFor * (dailyMint / getActiveNodesCount()));
             //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
         }
     }
@@ -433,11 +491,33 @@ contract NodeManager {
         basicChannel[nextBasicChannelIndex].maxNodes = maxNodes;
         basicChannel[nextBasicChannelIndex].startDate = block.timestamp;
         basicChannel[nextBasicChannelIndex].deposit = _value;
-        basicChannelIndexes[_from].push(nextBasicChannelIndex);
+        if(basicChannelIndexes[_from].length == 0){
+            // element at the 0 position is linked to the first element
+            basicChannelIndexes[_from].push(DoublyLinkedList(0, 0, 1));
+            basicChannelIndexes[_from].push(DoublyLinkedList(nextBasicChannelIndex, 0, 0));
+        } else {
+            basicChannelIndexes[_from][basicChannelIndexes[_from].length-1].next =
+                basicChannelIndexes[_from].length;
+            basicChannelIndexes[_from].push(
+                DoublyLinkedList(nextBasicChannelIndex,basicChannelIndexes[_from].length - 2, 0));
+
+        }
         BasicChannelCreated(nextBasicChannelIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce, name);
         nextBasicChannelIndex = nextBasicChannelIndex + 1;
     }
 
+    DoublyLinkedList[] list;
+
+    function f() public {
+        list.push(DoublyLinkedList(0, 0, 1));
+        list.push(DoublyLinkedList(0, 0, 1));
+        delete list[list.length-1];
+        list.length--;
+    }
+
+    function ff() public constant returns(uint){
+        return list.length;
+    }
     /// @dev Function for creating a aggregation channel
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
@@ -462,7 +542,17 @@ contract NodeManager {
         aggregationChannel[nextAggregationChannelIndex].maxNodes = maxNodes;
         aggregationChannel[nextAggregationChannelIndex].startDate = block.timestamp;
         aggregationChannel[nextAggregationChannelIndex].deposit = _value;
-        aggregationChannelIndexes[_from].push(nextAggregationChannelIndex);
+         if(aggregationChannelIndexes[_from].length == 0){
+            // element at the 0 position is linked to the first element
+            aggregationChannelIndexes[_from].push(DoublyLinkedList(0, 0, 1));
+            aggregationChannelIndexes[_from].push(DoublyLinkedList(nextAggregationChannelIndex, 0, 0));
+        } else {
+            aggregationChannelIndexes[_from][aggregationChannelIndexes[_from].length - 1].next =
+                aggregationChannelIndexes[_from].length;
+            aggregationChannelIndexes[_from].push(
+                DoublyLinkedList(nextAggregationChannelIndex,aggregationChannelIndexes[_from].length - 2, 0));
+
+        }
         AggregationChannelCreated(nextAggregationChannelIndex, _from, storageBytes,
                                     lifetime, maxNodes, _value, nonce, name);
         nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
