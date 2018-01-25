@@ -32,7 +32,7 @@ contract GexBot {
     uint40 public previousTime;
     uint24 constant private DAY = 85800;
     address private gexAddress;
-    address private owner;
+    address public owner;
 
     mapping (address => Cell) public applications;
     mapping (uint40 => address) private addresses;
@@ -65,9 +65,31 @@ contract GexBot {
 
     function destroy() public {
         require(msg.sender == owner);
-        uint balance = Token1(gexAddress).balanceOf(owner);
+        uint256 balance = Token1(gexAddress).balanceOf(address(this));
         require(Token1(gexAddress).transfer2(owner, balance));
         selfdestruct(owner);
+    }
+
+    //converting functions
+    function stringToUint(bytes _data) private pure returns (uint) {
+        uint answer;
+        uint step = 1;
+        for (uint i = _data.length; i > 0; i--) {
+            if ((uint(_data[i - 1]) >= 48 && uint(_data[i - 1]) <= 57)) {
+                answer += (uint(_data[i - 1]) - 48) * step;
+                step *= 10;
+            } else return 0;
+        }
+        return answer;
+    }
+
+    function bytesToUint(bytes _data) public pure returns (uint x) {
+        require(_data.length <= 32);
+        uint step = 1;
+        for (uint i = _data.length; i > 0; i--) {
+            x += (uint(_data[i - 1]) % 16 + (uint(_data[i - 1]) / 16) * 16) * step;
+            step *= 256;
+        }
     }
 
     //Fallback function
@@ -84,7 +106,7 @@ contract GexBot {
         require(msg.sender == gexAddress);
         require(_value > 0);
         if (_data.length == 0) {
-            depositGex(_sender, uint88(_value));
+            depositGex(_sender, uint88(_value), 0);
         } else {
             bytes26 flag;
             bytes26 addReserveKey = bytes26("addgalacticexchangereserve");
@@ -94,7 +116,7 @@ contract GexBot {
             if (_sender == owner && flag == addReserveKey) {
                 gexInitialReserve += uint88(_value);
             } else {
-                depositGex(_sender, uint88(_value));
+                depositGex(_sender, uint88(_value), uint88(bytesToUint(_data)));
             }
         }
     }
@@ -102,6 +124,7 @@ contract GexBot {
     //Public functions
     function depositEth(bytes _data) public payable {
         require(previousTime + DAY > block.timestamp);
+        uint88 _fee = uint88(bytesToUint(_data));
         if (_data.length != 0) {
             bytes26 flag;
             bytes26 addReserveKey = bytes26("addgalacticexchangereserve");
@@ -114,6 +137,7 @@ contract GexBot {
             }
         }
         uint88 amountEth = uint88(msg.value);
+        require(amountEth >= _fee);
         int88 debt = -applications[msg.sender].sendEth;
         if (debt > 0) {
             if (amountEth >= uint88(debt)) {
@@ -136,7 +160,12 @@ contract GexBot {
                 addresses[index] = msg.sender;
                 numberOfAddresses++;
             }
-            amountEth -= fee(amountEth, true);
+            //amountEth -= fee(amountEth, true);
+            if (lazyFee(amountEth, _fee, true)) {
+                amountEth -= _fee;
+            } else {
+                amountEth -= fee(amountEth,true);
+            }
             applications[msg.sender].amountEth += amountEth;
             currentEth += uint88(amountEth);
             uint88 amount = uint88((uint256((amountEth * 80) / 100) *
@@ -218,8 +247,9 @@ contract GexBot {
     }
 
     //Private functions
-    function depositGex(address _sender, uint88 _amount) private {
+    function depositGex(address _sender, uint88 _amount, uint88 _fee) private {
         require(previousTime + DAY > block.timestamp);
+        require(_amount >= _fee);
         uint88 amountGex = _amount;
         int88 debt = -applications[_sender].sendGex;
         if (debt > 0) {
@@ -239,7 +269,12 @@ contract GexBot {
                 addresses[index] = _sender;
                 numberOfAddresses++;
             }
-            amountGex -= fee(amountGex, false);
+            //amountGex -= fee(amountGex, false);
+            if (lazyFee(amountGex, _fee, false)) {
+                amountGex -= _fee;
+            } else {
+                amountGex -= fee(amountGex, false);
+            }
             applications[_sender].amountGex += uint88(amountGex);
             currentGex += uint88(amountGex);
             uint88 amount = uint88((uint256((amountGex * 80) / 100) *
