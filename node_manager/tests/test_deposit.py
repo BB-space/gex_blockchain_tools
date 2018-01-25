@@ -28,18 +28,18 @@ class TestHeartbit:
         basic_channel_added = self.contract.on('BasicChannelAdded')
         basic_channel_added.watch(self.basic_channel_added_callback)
 
-        test1 = self.contract.on('NumberEvent')
+        test1 = self.contract.on('Test1')
         test1.watch(self.test1)
-        '''
+
         test2 = self.contract.on('Test2')
         test2.watch(self.test2)
 
     def test2(self, result):
         print("test2")
-        '''
+
 
     def test1(self, result):
-        print("test1 " + str(result['args']['num']))
+        print("test1 ")
 
     def approval_callback(self, result):
         print("Approval. owner: " + result['args']['_owner'] + " spender: " + result['args'][
@@ -99,8 +99,8 @@ class TestHeartbit:
 
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
-        self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data)
-        time.sleep(20)
+        self.getGasUsed(self.token.transact({
+            'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data), "basic channel")
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
@@ -114,18 +114,28 @@ class TestHeartbit:
 
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
-        self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data)
-        time.sleep(20)
+        self.getGasUsed(self.token.transact({
+            'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data),
+             "aggregation channel")
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
+
+    def test_withdraw_basic_channel(self):
+         #self.test_basic_channel_creation(98764, 1, 12345, 4444)
+         print(test.contract.call().getBasicChannels())
+         self.getGasUsed(self.contract.transact({
+            'from': self.web3.eth.accounts[0], 'gas': 500000}).withdrawFromChannels(),"withdraw from channel")
+         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
+             self.token.call().balanceOf(self.data['node_manager_address'])))
+         print(test.contract.call().getBasicChannels())
 
 
 test = TestHeartbit()
 # test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(100)
 # time.sleep(10)
-
-test.test_deposit("255.255.255.255", 6000, 12345)
 '''
+test.test_deposit("255.255.255.255", 6000, 12345)
+
 test.test_deposit("10.255.255.255", 6000, 12345)
 print(test.contract.call().getNodeIPs())
 
@@ -138,3 +148,24 @@ test.test_aggregation_channel_creation(11111, 55, 2, 5555)
 test.test_aggregation_channel_creation(222, 155, 24, 53555)
 print(test.contract.call().getAggregationChannels())
 '''
+#test.test_basic_channel_creation(98764, 6000, 12345, 4444)
+print(test.contract.call().getL())
+
+test.test_basic_channel_creation(98764, 1, 12345, 4444)
+test.test_basic_channel_creation(98643, 1, 12345, 4443)
+test.test_basic_channel_creation(98764, 1, 12345, 4444)
+test.test_basic_channel_creation(98643, 1, 12345, 4443)
+test.test_withdraw_basic_channel()
+
+for i in range(0,test.contract.call().getL()):
+    print(test.contract.call().get(i))
+print(test.contract.call().getL())
+#print(test.contract.call().getTime(10))
+#print(test.web3.eth.getBlock(test.web3.eth.blockNumber).timestamp)
+'''
+test.contract.transact({
+            'from': test.web3.eth.accounts[0]}).f()
+time.sleep(5)
+print(test.contract.call().ff())
+'''
+time.sleep(5);

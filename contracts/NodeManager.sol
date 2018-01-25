@@ -91,8 +91,8 @@ contract NodeManager {
      *  Events
      */
 
-    //event Test1();
-    //event Test2();
+    event Test1();
+    event Test2();
 
     event NodeCreated(
         uint nodeID,
@@ -219,6 +219,7 @@ contract NodeManager {
         //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, depositValue);
     }
 
+
     /// @dev Function withdraws deposit from all finished channels of msg.sender and deletes this channels
     function withdrawFromChannels() public {
         uint withdrawTotal = 0;
@@ -232,7 +233,7 @@ contract NodeManager {
                     withdrawTotal = withdrawTotal +
                         aggregationChannel[aggregationChannelIndexes[msg.sender][i].index].deposit;
                     // last element will be moved or deleted
-                    aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1].next = 0;
+                    aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 2].next = 0;
                     // if the element is not last
                     if(i!= aggregationChannelIndexes[msg.sender].length - 1) {
                         // move the last element to the place on the current element
@@ -242,33 +243,35 @@ contract NodeManager {
                     // delete channel from the aggregation channel list
                     delete aggregationChannel[aggregationChannelIndexes[msg.sender][i].index];
                     // delete channel from the aggregation channel indexes list for msg.sender
-                    delete aggregationChannelIndexes[msg.sender][i];
+                    delete aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1];
                     aggregationChannelIndexes[msg.sender].length--;
                 }
                 i = aggregationChannelIndexes[msg.sender][i].next;
             }
         }
         if(basicChannelIndexes[msg.sender].length > 0){
+            Test2();
             i = basicChannelIndexes[msg.sender][0].next;
             while(i != 0) {
                 if(basicChannel[basicChannelIndexes[msg.sender][i].index].startDate +
-                    basicChannel[basicChannelIndexes[msg.sender][i].index].lifetime < block.timestamp){
+                    basicChannel[basicChannelIndexes[msg.sender][i].index].lifetime < block.timestamp) {
+                    Test1();
                     // add channel deposit value to the total
                     withdrawTotal = withdrawTotal +
                         basicChannel[basicChannelIndexes[msg.sender][i].index].deposit;
                     // last element will be moved or deleted
-                    basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1].next = 0;
+                   /*   basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 2].next = 0;
                     // if the element is not last
                     if(i!= basicChannelIndexes[msg.sender].length - 1) {
                         // move the last element to the place on the current element
                         basicChannelIndexes[msg.sender][i].index =
                             basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1].index;
-                    }
+                    }*/
                     // delete channel from the basic channel list
                     delete basicChannel[basicChannelIndexes[msg.sender][i].index];
                     // delete channel from the basic channel indexes list for msg.sender
-                    delete basicChannelIndexes[msg.sender][i];
-                    basicChannelIndexes[msg.sender].length--;
+                    //delete basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1];
+                    //basicChannelIndexes[msg.sender].length--;
                 }
                 i = basicChannelIndexes[msg.sender][i].next;
             }
@@ -279,6 +282,29 @@ contract NodeManager {
         }
     }
 
+     function getTime(uint i)
+        public
+        view
+        returns (uint, uint)
+    {
+        return (basicChannel[i].startDate, basicChannel[i].lifetime);
+    }
+
+    function getL()
+        public
+        view
+        returns (uint)
+    {
+        return basicChannelIndexes[msg.sender].length;
+    }
+
+    function get(uint i)
+        public
+        view
+        returns (uint, uint, uint)
+    {
+        return (basicChannelIndexes[msg.sender][i].index, basicChannelIndexes[msg.sender][i].prev, basicChannelIndexes[msg.sender][i].next);
+    }
     // todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList?
     /// @dev Function returns an ip list of all Active nodes
     /// @return ip list
@@ -480,6 +506,18 @@ contract NodeManager {
         nextBasicChannelIndex = nextBasicChannelIndex + 1;
     }
 
+    DoublyLinkedList[] list;
+
+    function f() public {
+        list.push(DoublyLinkedList(0, 0, 1));
+        list.push(DoublyLinkedList(0, 0, 1));
+        delete list[list.length-1];
+        list.length--;
+    }
+
+    function ff() public constant returns(uint){
+        return list.length;
+    }
     /// @dev Function for creating a aggregation channel
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
