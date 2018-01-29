@@ -11,7 +11,7 @@ contract NodeManager {
 
     enum NodeStatus {Active, Leaving, Left}
 
-    enum TransactionOperation {CreateNode, CreateBasicChannel, CreateAggregationChannel}
+    enum TransactionOperation {CreateNode, CreateMchain, CreateAggregationMchain}
 
     uint32 constant SECONDS_TO_DAY = 86400; // utility variable for time conversion
     // 60 days in seconds. Time period after which user can withdraw node deposit and leave the system
@@ -22,11 +22,11 @@ contract NodeManager {
     uint32 constant PAYMENT_PERIOD = PAYMENT_DAYS * SECONDS_TO_DAY;
     // permitted number of days node may not send the heartbit during the paymentPeriod
     uint8 constant ABSENT_DAYS = 2;
-    // 30 days. Max lifetime of any channel
-    uint32 constant CHANNEL_MAX_LIFETIME = 2630000;
+    // 30 days. Max lifetime of any mchain
+    uint32 constant MCHAIN_MAX_LIFETIME = 2630000;
     uint16 constant HEARTBIT_UNIT = 256;
     uint16 constant HEARTBIT_TOTAL = HEARTBIT_UNIT * 2;
-    uint constant depositValue = 100000000000000000000; //  size of a deposit to add node to the system 100 * 10 ** 18
+    uint constant DEPOSIT_VALUE = 100000000000000000000; //  size of a deposit to add node to the system 100 * 10 ** 18
 
     address tokenAddress; // address of the token contract
     uint annualMint; // total reword for nodes per year
@@ -43,45 +43,45 @@ contract NodeManager {
         NodeStatus status;
     }
 
-    struct BasicChannel {
-        address owner; // channel owner
-        uint storageBytes; // number of bytes this channel can store
-        uint lifetime;  // number of seconds this channel will be considered as alive
-        uint startDate; // date of channel creation
-        uint maxNodes; // max number of nodes associated with this channel
-        uint deposit; // value of tokens associated with this channel
+    struct Mchain {
+        address owner; // mchain owner
+        uint storageBytes; // number of bytes this mchain can store
+        uint lifetime;  // number of seconds this mchain will be considered as alive
+        uint startDate; // date of mchain creation
+        uint maxNodes; // max number of nodes associated with this mchain
+        uint deposit; // value of tokens associated with this mchain
     }
 
-    struct AggregationChannel {
-        address owner; // channel owner
-        uint storageBytes; // number of bytes this channel can store
-        uint lifetime;  // number of seconds this channel will be considered as alive
-        uint startDate; // date of channel creation
-        uint maxNodes; // max number of nodes associated with this channel
-        uint deposit; // value of tokens associated with this channel
-        mapping (uint => bool) basicChannelsPresence; // basic channels aggregated by this channel
-        uint[] basicChannels;
-        uint nextAggregatedBasicChannelIndex; // index to store next basic channel
+    struct AggregationMchain {
+        address owner; // mchain owner
+        uint storageBytes; // number of bytes this mchain can store
+        uint lifetime;  // number of seconds this mchain will be considered as alive
+        uint startDate; // date of mchain creation
+        uint maxNodes; // max number of nodes associated with this mchain
+        uint deposit; // value of tokens associated with this mchain
+        mapping (uint => bool) mchainsPresence; // basic mchains aggregated by this mchain
+        uint[] mchains;
+        uint nextAggregatedMchainIndex; // index to store next basic mchain
     }
 
     // mapping of node index to a node instance
     mapping (uint => Node) nodes;
-    // mapping of a basic channel index to a basic channel instance
-    mapping (uint => BasicChannel) basicChannel;
-    // mapping of an aggregation channel index to a aggregation channel instance
-    mapping (uint => AggregationChannel) aggregationChannel;
+    // mapping of a basic mchain index to a basic mchain instance
+    mapping (uint => Mchain) mchain;
+    // mapping of an aggregation mchain index to a aggregation mchain instance
+    mapping (uint => AggregationMchain) aggregationMchain;
     // mapping of owner address to node indexes associated with it
     mapping (address => mapping (uint => bool)) nodeIndexes; // todo Note: we do not delete nodes
-    // mapping of owner address to basic channel indexes associated with it
-    mapping (address => uint[]) basicChannelIndexes;
-    // mapping of owner address to aggregation channel indexes associated with it
-    mapping (address => uint[]) aggregationChannelIndexes;
+    // mapping of owner address to basic mchain indexes associated with it
+    mapping (address => uint[]) mchainIndexes;
+    // mapping of owner address to aggregation mchain indexes associated with it
+    mapping (address => uint[]) aggregationMchainIndexes;
     // index to store next node
     uint nextNodeIndex;
-    // index to store next basic channel
-    uint nextBasicChannelIndex;
-    // index to store next aggregation channel
-    uint nextAggregationChannelIndex;
+    // index to store next basic mchain
+    uint nextMchainIndex;
+    // index to store next aggregation mchain
+    uint nextAggregationMchainIndex;
 
     /*
      *  Events
@@ -98,8 +98,8 @@ contract NodeManager {
         uint16 nonce
     );
 
-    event BasicChannelCreated(
-        uint channelID,
+    event MchainCreated(
+        uint mchainID,
         address owner,
         uint storageBytes,
         uint lifetime,
@@ -109,8 +109,8 @@ contract NodeManager {
         bytes32 name
     );
 
-    event AggregationChannelCreated(
-        uint channelID,
+    event AggregationMchainCreated(
+        uint mchainID,
         address owner,
         uint storageBytes,
         uint lifetime,
@@ -120,9 +120,9 @@ contract NodeManager {
         bytes32 name
     );
 
-    event BasicChannelAdded(
-        uint aggregationChannelID,
-        uint basicChannelID,
+    event MchainAdded(
+        uint aggregationMchainID,
+        uint mchainID,
         uint16 nonce
     );
 
@@ -154,47 +154,46 @@ contract NodeManager {
         annualMint = _annualMint;
         dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
         nextNodeIndex = 1;
-        nextBasicChannelIndex = 1;
-        nextAggregationChannelIndex = 1;
+        nextMchainIndex = 1;
+        nextAggregationMchainIndex = 1;
     }
 
     /*
      *  Public functions
      */
 
-    /// @dev Function for adding an existed basic channel to an existed aggregation channel
-    /// @param aggregationChannelID Aggregation channel index
-    /// @param basicChannelID Basic channel index
+    /// @dev Function for adding an existed basic mchain to an existed aggregation mchain
+    /// @param aggregationMchainID Aggregation mchain index
+    /// @param mchainID Basic mchain index
     /// @param nonce Unique identifier of a current operation
-    function addToAggregationChannel(
-        uint aggregationChannelID,
-        uint basicChannelID,
+    function addToAggregationMchain(
+        uint aggregationMchainID,
+        uint mchainID,
         uint16 nonce
     )
     public
     {
-        // msg.sender should be an owner of the aggregation channel
-        require(aggregationChannel[aggregationChannelID].owner == msg.sender);
-        // basic channel should be present
-        require(aggregationChannel[basicChannelID].owner != address(0));
-        // aggregation channel must be alive
-        require((aggregationChannel[aggregationChannelID].startDate +
-              aggregationChannel[aggregationChannelID].lifetime) > block.timestamp);
-        // basic channel must be alive
-        require((basicChannel[basicChannelID].startDate + basicChannel[basicChannelID].lifetime) > block.timestamp);
-        // basic channel must expire before aggregation channel
-        require((basicChannel[basicChannelID].startDate + basicChannel[basicChannelID].lifetime) <
-               (aggregationChannel[aggregationChannelID].startDate +
-               aggregationChannel[aggregationChannelID].lifetime));
-        // check that basic channel is not present in the aggregation channel already
-        require(!aggregationChannel[aggregationChannelID].basicChannelsPresence[basicChannelID]);
-        aggregationChannel[aggregationChannelID].basicChannelsPresence[basicChannelID] = true;
-        aggregationChannel[aggregationChannelID].basicChannels.push(basicChannelID);
-        aggregationChannel[aggregationChannelID].nextAggregatedBasicChannelIndex += 1;
-        BasicChannelAdded(aggregationChannelID, basicChannelID, nonce);
+        // msg.sender should be an owner of the aggregation mchain
+        require(aggregationMchain[aggregationMchainID].owner == msg.sender);
+        // basic mchain should be present
+        require(aggregationMchain[mchainID].owner != address(0));
+        // aggregation mchain must be alive
+        require((aggregationMchain[aggregationMchainID].startDate +
+        aggregationMchain[aggregationMchainID].lifetime) > block.timestamp);
+        // basic mchain must be alive
+        require((mchain[mchainID].startDate + mchain[mchainID].lifetime) > block.timestamp);
+        // basic mchain must expire before aggregation mchain
+        require((mchain[mchainID].startDate + mchain[mchainID].lifetime) <
+               (aggregationMchain[aggregationMchainID].startDate + aggregationMchain[aggregationMchainID].lifetime));
+        // check that basic mchain is not present in the aggregation mchain already
+        require(!aggregationMchain[aggregationMchainID].mchainsPresence[mchainID]);
+        aggregationMchain[aggregationMchainID].mchainsPresence[mchainID] = true;
+        aggregationMchain[aggregationMchainID].mchains.push(mchainID);
+        aggregationMchain[aggregationMchainID].nextAggregatedMchainIndex += 1;
+        MchainAdded(aggregationMchainID, mchainID, nonce);
     }
 
-    /// @dev Function marks node as Leaving. After that node cannot participate in any new channels
+    /// @dev Function marks node as Leaving. After that node cannot participate in any new mchains
     /// @param nodeNumber Node index
     function initWithdrawDeposit(uint nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
@@ -204,62 +203,61 @@ contract NodeManager {
     }
 
     /// @dev Function that withdraw node deposit to a node owner and marks node as Leaving.
-    ///      At this time all channels associated with this node are finished, because a lifetime
-    ///      of a channel is 30 days, when leaving period is 60
+    ///      At this time all mchains associated with this node are finished, because a lifetime
+    ///      of a mchain is 30 days, when leaving period is 60
     /// @param nodeNumber Node index
     function completeWithdrawDeposit(uint nodeNumber) public {
         require(nodeIndexes[msg.sender][nodeNumber]);
         require(nodes[nodeNumber].status == NodeStatus.Leaving);
         require(block.timestamp - nodes[nodeNumber].leavingDate >= LEAVING_PERIOD);
         nodes[nodeNumber].status = NodeStatus.Left;
-        GeToken(tokenAddress).transfer(msg.sender, depositValue);
+        GeToken(tokenAddress).transfer(msg.sender, DEPOSIT_VALUE);
         //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, depositValue);
     }
 
 
-    /// @dev Function withdraws deposit from all finished channels of msg.sender and deletes this channels
-    function withdrawFromChannels() public {
+    /// @dev Function withdraws deposit from all finished mchains of msg.sender and deletes this mchains
+    function withdrawFromMchains() public {
         uint withdrawTotal = 0;
         uint i = 0;
-        while(i < aggregationChannelIndexes[msg.sender].length){
-            if(aggregationChannel[aggregationChannelIndexes[msg.sender][i]].startDate +
-            aggregationChannel[aggregationChannelIndexes[msg.sender][i]].lifetime < block.timestamp) {
-            // add channel deposit value to the total
-            withdrawTotal = withdrawTotal + aggregationChannel[aggregationChannelIndexes[msg.sender][i]].deposit;
+        while(i < aggregationMchainIndexes[msg.sender].length){
+            if(aggregationMchain[aggregationMchainIndexes[msg.sender][i]].startDate +
+            aggregationMchain[aggregationMchainIndexes[msg.sender][i]].lifetime < block.timestamp) {
+            // add mchain deposit value to the total
+            withdrawTotal = withdrawTotal + aggregationMchain[aggregationMchainIndexes[msg.sender][i]].deposit;
             // last element will be moved or deleted
             // if the element is not last
-            if(i!= aggregationChannelIndexes[msg.sender].length - 1) {
+            if(i!= aggregationMchainIndexes[msg.sender].length - 1) {
                 // move the last element to the place on the current element
-                aggregationChannelIndexes[msg.sender][i] =
-                    aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1];
+                aggregationMchainIndexes[msg.sender][i] =
+                aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
             }
-            // delete channel from the aggregation channel list
-            delete aggregationChannel[aggregationChannelIndexes[msg.sender][i]];
-            // delete channel from the aggregation channel indexes list for msg.sender
-            delete aggregationChannelIndexes[msg.sender][aggregationChannelIndexes[msg.sender].length - 1];
-            aggregationChannelIndexes[msg.sender].length--;
+            // delete mchain from the aggregation mchain list
+            delete aggregationMchain[aggregationMchainIndexes[msg.sender][i]];
+            // delete mchain from the aggregation mchain indexes list for msg.sender
+            delete aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
+            aggregationMchainIndexes[msg.sender].length--;
             } else {
                  i++;
             }
         }
         i = 0;
-        while(i<basicChannelIndexes[msg.sender].length){
-            if(basicChannel[basicChannelIndexes[msg.sender][i]].startDate +
-            basicChannel[basicChannelIndexes[msg.sender][i]].lifetime < block.timestamp) {
-            // add channel deposit value to the total
-            withdrawTotal = withdrawTotal + basicChannel[basicChannelIndexes[msg.sender][i]].deposit;
+        while(i<mchainIndexes[msg.sender].length){
+            if(mchain[mchainIndexes[msg.sender][i]].startDate +
+            mchain[mchainIndexes[msg.sender][i]].lifetime < block.timestamp) {
+            // add mchain deposit value to the total
+            withdrawTotal = withdrawTotal + mchain[mchainIndexes[msg.sender][i]].deposit;
             // last element will be moved or deleted
             // if the element is not last
-            if(i!= basicChannelIndexes[msg.sender].length - 1) {
+            if(i!= mchainIndexes[msg.sender].length - 1) {
                 // move the last element to the place on the current element
-                basicChannelIndexes[msg.sender][i] =
-                    basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1];
+                mchainIndexes[msg.sender][i] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
             }
-            // delete channel from the basic channel list
-            delete basicChannel[basicChannelIndexes[msg.sender][i]];
-            // delete channel from the basic channel indexes list for msg.sender
-            delete basicChannelIndexes[msg.sender][basicChannelIndexes[msg.sender].length - 1];
-            basicChannelIndexes[msg.sender].length--;
+            // delete mchain from the basic mchain list
+            delete mchain[mchainIndexes[msg.sender][i]];
+            // delete mchain from the basic mchain indexes list for msg.sender
+            delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
+            mchainIndexes[msg.sender].length--;
             } else {
                  i++;
             }
@@ -288,69 +286,69 @@ contract NodeManager {
         }
     }
 
-    /// @dev Function returns an basic channel indexes for msg.sender
-    /// @return basis channel info
-    ///      storageBytes Number of bytes this channel can store
-    ///      lifetime Number of seconds this channel will be considered as alive
-    ///      startDate Number of seconds of channel creation
-    ///      maxNodes Max number of nodes associated with this channel
-    ///      deposit Value of tokens associated with this channel
-    function getBasicChannel(uint index)
+    /// @dev Function returns an basic mchain indexes for msg.sender
+    /// @return basis mchain info
+    ///      storageBytes Number of bytes this mchain can store
+    ///      lifetime Number of seconds this mchain will be considered as alive
+    ///      startDate Number of seconds of mchain creation
+    ///      maxNodes Max number of nodes associated with this mchain
+    ///      deposit Value of tokens associated with this mchain
+    function getMchain(uint index)
         public
         view
         returns (address, uint, uint, uint, uint, uint)
     {
-        return (basicChannel[index].owner, basicChannel[index].storageBytes, basicChannel[index].lifetime,
-            basicChannel[index].startDate, basicChannel[index].maxNodes, basicChannel[index].deposit);
+        return (mchain[index].owner, mchain[index].storageBytes, mchain[index].lifetime,
+            mchain[index].startDate, mchain[index].maxNodes, mchain[index].deposit);
     }
 
-    /// @dev Function returns an aggregation channel indexes for msg.sender
-    /// @return basis channel info
-    ///      storageBytes Number of bytes this channel can store
-    ///      lifetime Number of seconds this channel will be considered as alive
-    ///      startDate Number of seconds of channel creation
-    ///      maxNodes Max number of nodes associated with this channel
-    ///      deposit Value of tokens associated with this channel
-    function getAggregationChannel(uint index)
+    /// @dev Function returns an aggregation mchain indexes for msg.sender
+    /// @return basis mchain info
+    ///      storageBytes Number of bytes this mchain can store
+    ///      lifetime Number of seconds this mchain will be considered as alive
+    ///      startDate Number of seconds of mchain creation
+    ///      maxNodes Max number of nodes associated with this mchain
+    ///      deposit Value of tokens associated with this mchain
+    function getAggregationMchain(uint index)
         public
         view
         returns (address, uint, uint, uint, uint, uint)
     {
-        return (aggregationChannel[index].owner, aggregationChannel[index].storageBytes,
-            aggregationChannel[index].lifetime, aggregationChannel[index].startDate,
-            aggregationChannel[index].maxNodes, aggregationChannel[index].deposit);
+        return (aggregationMchain[index].owner, aggregationMchain[index].storageBytes,
+            aggregationMchain[index].lifetime, aggregationMchain[index].startDate,
+            aggregationMchain[index].maxNodes, aggregationMchain[index].deposit);
     }
 
 
-    /// @dev Function returns basic channel indexes array associated with the aggregation channel
-    /// @return basic channel indexes list
-    function getBasicChannelListFromAggregationChannel(uint index)
+    /// @dev Function returns basic mchain indexes array associated with the aggregation mchain
+    /// @return basic mchain indexes list
+    function getMchainListFromAggregationMchain(uint index)
         public
         view
         returns (uint[])
     {
-        return aggregationChannel[index].basicChannels;
+        return aggregationMchain[index].mchains;
     }
 
 
-    /// @dev Function returns basic channel indexes array associated with  msg.sender
-    /// @return basic channel indexes list
-    function getBasicChannelList()
+    /// @dev Function returns basic mchain indexes array associated with  msg.sender
+    /// @return basic mchain indexes list
+    function getMchainList()
         public
         view
         returns (uint[])
     {
-        return basicChannelIndexes[msg.sender];
+        return mchainIndexes[msg.sender];
     }
 
-    /// @dev Function returns aggregation channel indexes array associated with msg.sender
-    /// @return aggregation channel indexes list
-    function getAggregationChannelList()
+    /// @dev Function returns aggregation mchain indexes array associated with msg.sender
+    /// @return aggregation mchain indexes list
+    function getAggregationMchainList()
         public
         view
         returns (uint[])
     {
-        return aggregationChannelIndexes[msg.sender];
+        return aggregationMchainIndexes[msg.sender];
     }
 
     /// @dev Function stores node heartbits and rewards node
@@ -410,7 +408,7 @@ contract NodeManager {
     }
 
     /// @dev Function that is called when a user or another contract wants to transfer funds.
-    ///      Fallback is called when user is making deposit to create node, basic or aggregation channel
+    ///      Fallback is called when user is making deposit to create node, basic or aggregation mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters
@@ -421,12 +419,12 @@ contract NodeManager {
         if(operationType == TransactionOperation.CreateNode) {
             // create node
             createNode(_from, _value, _data);
-        } else if (operationType == TransactionOperation.CreateBasicChannel) {
-            // create basic channel
-            createBasicChannel(_from, _value, _data);
+        } else if (operationType == TransactionOperation.CreateMchain) {
+            // create basic mchain
+            createMchain(_from, _value, _data);
         } else {
-            // create aggregation channel
-            createAggregationChannel(_from, _value, _data);
+            // create aggregation mchain
+            createAggregationMchain(_from, _value, _data);
         }
     }
 
@@ -439,7 +437,7 @@ contract NodeManager {
     ///      ip IPv4 address of the node
     function createNode(address _from, uint _value, bytes _data) //internal
     {
-        require(_value == depositValue);
+        require(_value == DEPOSIT_VALUE);
         uint16 port;
         uint16 nonce;
         bytes15 ip;
@@ -456,63 +454,63 @@ contract NodeManager {
         nextNodeIndex = nextNodeIndex + 1;
     }
 
-    /// @dev Function for creating a basic channel
+    /// @dev Function for creating a basic mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters:
-    ///      storageBytes Number of bytes this channel can store
-    ///      lifetime Number of seconds this channel will be considered as alive
-    ///      maxNodes Max number of nodes associated with this channel
+    ///      storageBytes Number of bytes this mchain can store
+    ///      lifetime Number of seconds this mchain will be considered as alive
+    ///      maxNodes Max number of nodes associated with this mchain
     ///      nonce Unique identifier of a current operation
-    ///      name Channel name
-    function createBasicChannel(address _from, uint _value, bytes _data) internal {
+    ///      name mchain name
+    function createMchain(address _from, uint _value, bytes _data) internal {
         uint storageBytes;
         uint lifetime;
         uint maxNodes;
         uint16 nonce;
         bytes32 name;
-        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateChannelDataConvert(_data);
-        // channel can live max 30 days
-        require(lifetime <= CHANNEL_MAX_LIFETIME);
-        basicChannel[nextBasicChannelIndex].owner = _from;
-        basicChannel[nextBasicChannelIndex].storageBytes = storageBytes;
-        basicChannel[nextBasicChannelIndex].lifetime = lifetime;
-        basicChannel[nextBasicChannelIndex].maxNodes = maxNodes;
-        basicChannel[nextBasicChannelIndex].startDate = block.timestamp;
-        basicChannel[nextBasicChannelIndex].deposit = _value;
-        basicChannelIndexes[_from].push(nextBasicChannelIndex);
-        BasicChannelCreated(nextBasicChannelIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce, name);
-        nextBasicChannelIndex = nextBasicChannelIndex + 1;
+        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateMchainDataConvert(_data);
+        // mchain can live max 30 days
+        require(lifetime <= MCHAIN_MAX_LIFETIME);
+        mchain[nextMchainIndex].owner = _from;
+        mchain[nextMchainIndex].storageBytes = storageBytes;
+        mchain[nextMchainIndex].lifetime = lifetime;
+        mchain[nextMchainIndex].maxNodes = maxNodes;
+        mchain[nextMchainIndex].startDate = block.timestamp;
+        mchain[nextMchainIndex].deposit = _value;
+        mchainIndexes[_from].push(nextMchainIndex);
+        MchainCreated(nextMchainIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce, name);
+        nextMchainIndex = nextMchainIndex + 1;
     }
 
-    /// @dev Function for creating a aggregation channel
+    /// @dev Function for creating a aggregation mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters:
-    ///      storageBytes Number of bytes this channel can store
-    ///      lifetime Number of seconds this channel will be considered as alive
-    ///      maxNodes Max number of nodes associated with this channel
+    ///      storageBytes Number of bytes this mchain can store
+    ///      lifetime Number of seconds this mchain will be considered as alive
+    ///      maxNodes Max number of nodes associated with this mchain
     ///      nonce Unique identifier of a current operation
-    ///      name Channel name
-    function createAggregationChannel(address _from, uint _value, bytes _data) internal {
+    ///      name mchain name
+    function createAggregationMchain(address _from, uint _value, bytes _data) internal {
         uint storageBytes;
         uint lifetime;
         uint maxNodes;
         uint16 nonce;
         bytes32 name;
-        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateChannelDataConvert(_data);
-        // channel can live max 30 days
-        require(lifetime <= CHANNEL_MAX_LIFETIME);
-        aggregationChannel[nextAggregationChannelIndex].owner = _from;
-        aggregationChannel[nextAggregationChannelIndex].storageBytes = storageBytes;
-        aggregationChannel[nextAggregationChannelIndex].lifetime = lifetime;
-        aggregationChannel[nextAggregationChannelIndex].maxNodes = maxNodes;
-        aggregationChannel[nextAggregationChannelIndex].startDate = block.timestamp;
-        aggregationChannel[nextAggregationChannelIndex].deposit = _value;
-        aggregationChannelIndexes[_from].push(nextAggregationChannelIndex);
-        AggregationChannelCreated(nextAggregationChannelIndex, _from, storageBytes,
+        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateMchainDataConvert(_data);
+        // mchain can live max 30 days
+        require(lifetime <= MCHAIN_MAX_LIFETIME);
+        aggregationMchain[nextAggregationMchainIndex].owner = _from;
+        aggregationMchain[nextAggregationMchainIndex].storageBytes = storageBytes;
+        aggregationMchain[nextAggregationMchainIndex].lifetime = lifetime;
+        aggregationMchain[nextAggregationMchainIndex].maxNodes = maxNodes;
+        aggregationMchain[nextAggregationMchainIndex].startDate = block.timestamp;
+        aggregationMchain[nextAggregationMchainIndex].deposit = _value;
+        aggregationMchainIndexes[_from].push(nextAggregationMchainIndex);
+        AggregationMchainCreated(nextAggregationMchainIndex, _from, storageBytes,
                                     lifetime, maxNodes, _value, nonce, name);
-        nextAggregationChannelIndex = nextAggregationChannelIndex + 1;
+        nextAggregationMchainIndex = nextAggregationMchainIndex + 1;
     }
 
     /// @dev Function for parsing first 2 data bytes to determine the type of the transaction operation
@@ -531,9 +529,9 @@ contract NodeManager {
         if(operationType == 0x1) {
             return TransactionOperation.CreateNode;
         } else if(operationType == 0x10) {
-            return TransactionOperation.CreateBasicChannel;
+            return TransactionOperation.CreateMchain;
         } else {
-            return TransactionOperation.CreateAggregationChannel;
+            return TransactionOperation.CreateAggregationMchain;
         }
 
     }
@@ -560,15 +558,15 @@ contract NodeManager {
         return (uint16(port), uint16(nonce), ip);
     }
 
-    /// @dev Function for parsing data bytes to a set of parameters for channel creation
+    /// @dev Function for parsing data bytes to a set of parameters for mchain creation
     /// @param data Data containig a function signature and/or parameters
     /// @return parsed fallback parameters:
-    ///      storageBytes Number of bytes this channel can store
-    ///      lifetime Number of seconds this channel will be considered as alive
-    ///      maxNodes Max number of nodes associated with this channel
+    ///      storageBytes Number of bytes this mchain can store
+    ///      lifetime Number of seconds this mchain will be considered as alive
+    ///      maxNodes Max number of nodes associated with this mchain
     ///      nonce Unique identifier of a current operation
-    ///      name Channel name
-    function fallbackCreateChannelDataConvert(bytes data)
+    ///      name mchain name
+    function fallbackCreateMchainDataConvert(bytes data)
         internal
         pure
         returns (uint, uint, uint, uint16, bytes32)

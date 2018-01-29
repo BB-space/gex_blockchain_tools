@@ -21,12 +21,12 @@ class TestHeartbit:
         transfer.watch(self.transfer_callback)
         node_created = self.contract.on('NodeCreated')
         node_created.watch(self.node_created_callback)
-        basic_channel_created = self.contract.on('BasicChannelCreated')
-        basic_channel_created.watch(self.basic_channel_created_callback)
-        aggregation_channel_created = self.contract.on('AggregationChannelCreated')
-        aggregation_channel_created.watch(self.aggregation_channel_created_callback)
-        basic_channel_added = self.contract.on('BasicChannelAdded')
-        basic_channel_added.watch(self.basic_channel_added_callback)
+        mchain_created = self.contract.on('MchainCreated')
+        mchain_created.watch(self.mchain_created_callback)
+        aggregation_mchain_created = self.contract.on('AggregationMchainCreated')
+        aggregation_mchain_created.watch(self.aggregation_mchain_created_callback)
+        mchain_added = self.contract.on('MchainAdded')
+        mchain_added.watch(self.mchain_added_callback)
 
         ''''''
         test1 = self.contract.on('Test1')
@@ -55,24 +55,24 @@ class TestHeartbit:
         print("Node Created. nodeID: " + str(result['args']['nodeID']) + " nodeIP: " + result['args'][
             'ip'] + " port: " + str(result['args']['port']) + " nonce: " + str(result['args']['nonce']))
 
-    def basic_channel_created_callback(self, result):
-        print("Basic channel created. channelID: " + str(result['args']['channelID']) + " owner: " + result['args'][
+    def mchain_created_callback(self, result):
+        print("Basic mchain created. mchainID: " + str(result['args']['mchainID']) + " owner: " + result['args'][
             'owner'] + " storage bytes: " + str(result['args']['storageBytes']) + " deposit: " + str(
             result['args']['deposit']) + " lifetime: " + str(
             result['args']['lifetime']) + " max nodes: " + str(result['args']['maxNodes']) + " nonce: " + str(
             result['args']['nonce']))
 
-    def aggregation_channel_created_callback(self, result):
+    def aggregation_mchain_created_callback(self, result):
         print(
-            "Aggregation channel created. channelID: " + str(result['args']['channelID']) + " owner: " + result['args'][
+            "Aggregation mchain created. mchainID: " + str(result['args']['mchainID']) + " owner: " + result['args'][
                 'owner'] + " storage bytes: " + str(result['args']['storageBytes']) + " deposit: " + str(
                 result['args']['deposit']) + " lifetime: " + str(
                 result['args']['lifetime']) + " max nodes: " + str(result['args']['maxNodes']) + " nonce: " + str(
                 result['args']['nonce']))
 
-    def basic_channel_added_callback(self, result):
-        print("Basic channel added. aggregationChannelID: " + str(result['args']['aggregationChannelID']) +
-              " basicChannelID: " + str(result['args']['basicChannelID']) + " nonce: " + str(result['args']['nonce']))
+    def mchain_added_callback(self, result):
+        print("Basic mchain added. aggregationMchainID: " + str(result['args']['aggregationMchainID']) +
+              " MchainID: " + str(result['args']['MchainID']) + " nonce: " + str(result['args']['nonce']))
 
     def getGasUsed(self, tx, name):
         receipt = check_successful_tx(self.web3, tx)
@@ -90,50 +90,50 @@ class TestHeartbit:
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
-    def test_basic_channel_creation(self, storage_bytes, lifetime, max_nodes, nonce):
+    def test_mchain_creation(self, storage_bytes, lifetime, max_nodes, nonce):
         type = 0x10
         data = type.to_bytes(1, byteorder='big') + storage_bytes.to_bytes(32, byteorder='big') + lifetime.to_bytes(32,
                     byteorder='big') + max_nodes.to_bytes(
             32, byteorder='big') + nonce.to_bytes(4, byteorder='big')
         # print(data)
-        # print(self.contract.call().fallbackCreateChannelDataConvert(data))
+        # print(self.contract.call().fallbackCreateMchainDataConvert(data))
 
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
         self.getGasUsed(self.token.transact({
-            'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data), "basic channel")
+            'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data), "basic mchain")
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
-    def test_aggregation_channel_creation(self, storage_bytes, lifetime, max_nodes, nonce):
+    def test_aggregation_mchain_creation(self, storage_bytes, lifetime, max_nodes, nonce):
         type = 0x11
         data = type.to_bytes(1, byteorder='big') + storage_bytes.to_bytes(32, byteorder='big') + lifetime.to_bytes(32,
                             byteorder='big') + max_nodes.to_bytes(
             32, byteorder='big') + nonce.to_bytes(4, byteorder='big')
         # print(data)
-        # print(self.contract.call().fallbackCreateChannelDataConvert(data))
+        # print(self.contract.call().fallbackCreateMchainDataConvert(data))
 
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
         self.getGasUsed(self.token.transact({
             'from': self.web3.eth.accounts[0]}).transfer(self.data['node_manager_address'], 100, data),
-             "aggregation channel")
+             "aggregation mchain")
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
-    def test_withdraw_basic_channel(self):
-         #self.test_basic_channel_creation(98764, 1, 12345, 4444)
-         print(test.contract.call().getBasicChannels())
+    def test_withdraw_mchain(self):
+         #self.test_mchain_creation(98764, 1, 12345, 4444)
+         print(test.contract.call().getMchains())
          self.getGasUsed(self.contract.transact({
-            'from': self.web3.eth.accounts[0]}).withdrawFromChannels(),"withdraw from channel")
+            'from': self.web3.eth.accounts[0]}).withdrawFromMchains(),"withdraw from mchain")
          print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
              self.token.call().balanceOf(self.data['node_manager_address'])))
-         print(test.contract.call().getBasicChannels())
+         print(test.contract.call().getMchains())
 
-    def test_add_basic_channel(self, aggregation_index, basic_index, nonce):
+    def test_add_mchain(self, aggregation_index, basic_index, nonce):
          self.getGasUsed(self.contract.transact({
-            'from': self.web3.eth.accounts[0]}).addToAggregationChannel(aggregation_index, basic_index, nonce ),
-             "add basic channel")
+            'from': self.web3.eth.accounts[0]}).addToAggregationMchain(aggregation_index, basic_index, nonce ),
+             "add basic mchain")
 
 
 test = TestHeartbit()
@@ -145,27 +145,27 @@ test = TestHeartbit()
 test.test_deposit("10.255.255.255", 6000, 12345)
 print(test.contract.call().getNodeIPs())
 
-test.test_basic_channel_creation(98764, 6000, 12345, 4444)
-test.test_basic_channel_creation(11111, 55, 2, 5555)
-test.test_basic_channel_creation(222, 155, 24, 53555)
+test.test_mchain_creation(98764, 6000, 12345, 4444)
+test.test_mchain_creation(11111, 55, 2, 5555)
+test.test_mchain_creation(222, 155, 24, 53555)
 
-test.test_aggregation_channel_creation(98764, 6000, 12345, 4444)
-test.test_aggregation_channel_creation(11111, 55, 2, 5555)
-test.test_aggregation_channel_creation(222, 155, 24, 53555)
+test.test_aggregation_mchain_creation(98764, 6000, 12345, 4444)
+test.test_aggregation_mchain_creation(11111, 55, 2, 5555)
+test.test_aggregation_mchain_creation(222, 155, 24, 53555)
 
 
-#test.test_basic_channel_creation(98764, 6000, 12345, 4444)
+#test.test_mchain_creation(98764, 6000, 12345, 4444)
 
-test.test_basic_channel_creation(98764, 1, 12345, 4444)
-test.test_basic_channel_creation(98643, 10000, 12345, 4443)
-test.test_basic_channel_creation(98764, 1, 12345, 4444)'''
-test.test_basic_channel_creation(98643, 1000, 12345, 4443)
-test.test_aggregation_channel_creation(222, 6000, 24, 53555)
-test.test_add_basic_channel(1, 1, 53555)
-print(test.contract.call().getBasicChannelListFromAggregationChannel(1))
+test.test_mchain_creation(98764, 1, 12345, 4444)
+test.test_mchain_creation(98643, 10000, 12345, 4443)
+test.test_mchain_creation(98764, 1, 12345, 4444)'''
+test.test_mchain_creation(98643, 1000, 12345, 4443)
+test.test_aggregation_mchain_creation(222, 6000, 24, 53555)
+test.test_add_mchain(1, 1, 53555)
+print(test.contract.call().getMchainListFromAggregationMchain(1))
 '''
-print(test.contract.call().getBasicChannels())
+print(test.contract.call().getMchains())
 time.sleep(5)
-test.test_withdraw_basic_channel()
-print(test.contract.call().getBasicChannels())
+test.test_withdraw_mchain()
+print(test.contract.call().getMchains())
 '''
