@@ -32,10 +32,11 @@ contract NodeManager {
     uint annualMint; // total reword for nodes per year
     uint dailyMint; // daily reword for nodes
 
-
+// todo get key
     struct Node {
         bytes15 ip; // todo save as number and provide function for ip check
         uint16 port;
+        bytes key; // todo size ?
         uint leavingDate; // date when node was moved to the Leaving state
         uint lastRewardDate; // date when node was rewarded last time
         uint[2] heartbits; // bitmap of heartbit signals for last 512 days
@@ -366,10 +367,10 @@ contract NodeManager {
         // since HEARTBIT_TOTAL = HEARTBIT_UNIT * 2
         // we can use % HEARTBIT_UNIT instead of % HEARTBIT_TOTAL % HEARTBIT_UNIT
         nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] =
-            nodes[nextNodeIndex].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] | (1 << (index % HEARTBIT_UNIT));
+            nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] | (1 << (index % HEARTBIT_UNIT));
         // if the last reward was more than 32 days ago - check node heartbit for this period and reward
-        if (block.timestamp - nodes[nextNodeIndex].lastRewardDate >= PAYMENT_PERIOD){
-            nodes[nextNodeIndex].lastRewardDate = block.timestamp;
+        if (block.timestamp - nodes[nodeNumber].lastRewardDate >= PAYMENT_PERIOD){
+            nodes[nodeNumber].lastRewardDate = block.timestamp;
             uint8 daysToPayFor = 0;
             for(uint8 i = 0; i < PAYMENT_DAYS; i++){
                 if (nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] &
