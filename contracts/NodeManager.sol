@@ -59,26 +59,26 @@ contract NodeManager {
         uint startDate; // date of mchain creation
         uint maxNodes; // max number of nodes associated with this mchain
         uint deposit; // value of tokens associated with this mchain
-        mapping (uint => bool) mchainsPresence; // basic mchains aggregated by this mchain
+        mapping (uint => bool) mchainsPresence; // mchains aggregated by this mchain
         uint[] mchains;
-        uint nextAggregatedMchainIndex; // index to store next basic mchain
+        uint nextAggregatedMchainIndex; // index to store next mchain
     }
 
     // mapping of node index to a node instance
     mapping (uint => Node) nodes;
-    // mapping of a basic mchain index to a basic mchain instance
+    // mapping of a mchain index to a mchain instance
     mapping (uint => Mchain) mchain;
     // mapping of an aggregation mchain index to a aggregation mchain instance
     mapping (uint => AggregationMchain) aggregationMchain;
     // mapping of owner address to node indexes associated with it
     mapping (address => mapping (uint => bool)) nodeIndexes; // todo Note: we do not delete nodes
-    // mapping of owner address to basic mchain indexes associated with it
+    // mapping of owner address to mchain indexes associated with it
     mapping (address => uint[]) mchainIndexes;
     // mapping of owner address to aggregation mchain indexes associated with it
     mapping (address => uint[]) aggregationMchainIndexes;
     // index to store next node
     uint nextNodeIndex;
-    // index to store next basic mchain
+    // index to store next mchain
     uint nextMchainIndex;
     // index to store next aggregation mchain
     uint nextAggregationMchainIndex;
@@ -162,7 +162,7 @@ contract NodeManager {
      *  Public functions
      */
 
-    /// @dev Function for adding an existed basic mchain to an existed aggregation mchain
+    /// @dev Function for adding an existed mchain to an existed aggregation mchain
     /// @param aggregationMchainID Aggregation mchain index
     /// @param mchainID Basic mchain index
     /// @param nonce Unique identifier of a current operation
@@ -175,17 +175,17 @@ contract NodeManager {
     {
         // msg.sender should be an owner of the aggregation mchain
         require(aggregationMchain[aggregationMchainID].owner == msg.sender);
-        // basic mchain should be present
+        // mchain should be present
         require(aggregationMchain[mchainID].owner != address(0));
         // aggregation mchain must be alive
         require((aggregationMchain[aggregationMchainID].startDate +
         aggregationMchain[aggregationMchainID].lifetime) > block.timestamp);
-        // basic mchain must be alive
+        // mchain must be alive
         require((mchain[mchainID].startDate + mchain[mchainID].lifetime) > block.timestamp);
-        // basic mchain must expire before aggregation mchain
+        // mchain must expire before aggregation mchain
         require((mchain[mchainID].startDate + mchain[mchainID].lifetime) <
                (aggregationMchain[aggregationMchainID].startDate + aggregationMchain[aggregationMchainID].lifetime));
-        // check that basic mchain is not present in the aggregation mchain already
+        // check that mchain is not present in the aggregation mchain already
         require(!aggregationMchain[aggregationMchainID].mchainsPresence[mchainID]);
         aggregationMchain[aggregationMchainID].mchainsPresence[mchainID] = true;
         aggregationMchain[aggregationMchainID].mchains.push(mchainID);
@@ -215,6 +215,51 @@ contract NodeManager {
         //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, depositValue);
     }
 
+    /// @dev Function withdraws deposit from a mchain with given index for msg.sender and deletes this mchain
+    /// @param index Index of mchain in the mchains list
+    function withdrawFromMchain(uint index) public {
+        require(mchainIndexes[msg.sender].length > index);
+        require(mchain[mchainIndexes[msg.sender][index]].startDate +
+            mchain[mchainIndexes[msg.sender][index]].lifetime < block.timestamp);
+        // add mchain deposit value to the total
+        uint withdraw = mchain[mchainIndexes[msg.sender][index]].deposit;
+        // last element will be moved or deleted
+        // if the element is not last
+        if(index != mchainIndexes[msg.sender].length - 1) {
+            // move the last element to the place on the current element
+            mchainIndexes[msg.sender][index] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
+        }
+        // delete mchain from the mchain list
+        delete mchain[mchainIndexes[msg.sender][index]];
+        // delete mchain from the mchain indexes list for msg.sender
+        delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
+        mchainIndexes[msg.sender].length--;
+        GeToken(tokenAddress).transfer(msg.sender, withdraw);
+    }
+
+    /// @dev Function withdraws deposit from a aggregation mchain with given index for msg.sender
+    /// and deletes this aggregation mchain
+    /// @param index Index of aggregation mchain in the aggregationMchain list
+    function withdrawFromAggregationMchain(uint index) public {
+        require(aggregationMchainIndexes[msg.sender].length > index);
+        require(aggregationMchain[aggregationMchainIndexes[msg.sender][index]].startDate +
+            aggregationMchain[aggregationMchainIndexes[msg.sender][index]].lifetime < block.timestamp);
+        // add aggregation mchain deposit value to the total
+        uint withdraw = aggregationMchain[aggregationMchainIndexes[msg.sender][index]].deposit;
+        // last element will be moved or deleted
+        // if the element is not last
+        if(index != aggregationMchainIndexes[msg.sender].length - 1) {
+            // move the last element to the place on the current element
+            aggregationMchainIndexes[msg.sender][index] =
+                aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
+        }
+        // delete aggregation mchain from the aggregation mchain list
+        delete aggregationMchain[aggregationMchainIndexes[msg.sender][index]];
+        // delete aggregation mchain from the aggregation mchain indexes list for msg.sender
+        delete aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
+        aggregationMchainIndexes[msg.sender].length--;
+        GeToken(tokenAddress).transfer(msg.sender, withdraw);
+    }
 
     /// @dev Function withdraws deposit from all finished mchains of msg.sender and deletes this mchains
     function withdrawFromMchains() public {
@@ -227,7 +272,7 @@ contract NodeManager {
             withdrawTotal = withdrawTotal + aggregationMchain[aggregationMchainIndexes[msg.sender][i]].deposit;
             // last element will be moved or deleted
             // if the element is not last
-            if(i!= aggregationMchainIndexes[msg.sender].length - 1) {
+            if(i != aggregationMchainIndexes[msg.sender].length - 1) {
                 // move the last element to the place on the current element
                 aggregationMchainIndexes[msg.sender][i] =
                 aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
@@ -249,13 +294,13 @@ contract NodeManager {
             withdrawTotal = withdrawTotal + mchain[mchainIndexes[msg.sender][i]].deposit;
             // last element will be moved or deleted
             // if the element is not last
-            if(i!= mchainIndexes[msg.sender].length - 1) {
+            if(i != mchainIndexes[msg.sender].length - 1) {
                 // move the last element to the place on the current element
                 mchainIndexes[msg.sender][i] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
             }
-            // delete mchain from the basic mchain list
+            // delete mchain from the mchain list
             delete mchain[mchainIndexes[msg.sender][i]];
-            // delete mchain from the basic mchain indexes list for msg.sender
+            // delete mchain from the mchain indexes list for msg.sender
             delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
             mchainIndexes[msg.sender].length--;
             } else {
@@ -286,8 +331,8 @@ contract NodeManager {
         }
     }
 
-    /// @dev Function returns an basic mchain indexes for msg.sender
-    /// @return basis mchain info
+    /// @dev Function returns an mchain indexes for msg.sender
+    /// @return mchain info
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
     ///      startDate Number of seconds of mchain creation
@@ -320,8 +365,8 @@ contract NodeManager {
     }
 
 
-    /// @dev Function returns basic mchain indexes array associated with the aggregation mchain
-    /// @return basic mchain indexes list
+    /// @dev Function returns mchain indexes array associated with the aggregation mchain
+    /// @return mchain indexes list
     function getMchainListFromAggregationMchain(uint index)
         public
         view
@@ -331,8 +376,8 @@ contract NodeManager {
     }
 
 
-    /// @dev Function returns basic mchain indexes array associated with  msg.sender
-    /// @return basic mchain indexes list
+    /// @dev Function returns mchain indexes array associated with  msg.sender
+    /// @return mchain indexes list
     function getMchainList()
         public
         view
@@ -408,7 +453,7 @@ contract NodeManager {
     }
 
     /// @dev Function that is called when a user or another contract wants to transfer funds.
-    ///      Fallback is called when user is making deposit to create node, basic or aggregation mchain
+    ///      Fallback is called when user is making deposit to create node, mchain or aggregation mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters
@@ -420,7 +465,7 @@ contract NodeManager {
             // create node
             createNode(_from, _value, _data);
         } else if (operationType == TransactionOperation.CreateMchain) {
-            // create basic mchain
+            // create mchain
             createMchain(_from, _value, _data);
         } else {
             // create aggregation mchain
@@ -454,7 +499,7 @@ contract NodeManager {
         nextNodeIndex = nextNodeIndex + 1;
     }
 
-    /// @dev Function for creating a basic mchain
+    /// @dev Function for creating a mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters:
