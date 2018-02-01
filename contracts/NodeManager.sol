@@ -26,7 +26,7 @@ contract NodeManager {
     uint32 constant MCHAIN_MAX_LIFETIME = 2630000;
     uint16 constant HEARTBIT_UNIT = 256;
     uint16 constant HEARTBIT_TOTAL = HEARTBIT_UNIT * 2;
-    uint constant DEPOSIT_VALUE = 100000000000000000000; //  size of a deposit to add node to the system 100 * 10 ** 18
+    uint public constant DEPOSIT_VALUE = 100000000000000000000; //  size of a deposit to add node to the system 100 * 10 ** 18
 
     address tokenAddress; // address of the token contract
     uint annualMint; // total reword for nodes per year
@@ -133,6 +133,10 @@ contract NodeManager {
         NumberEvent(num);
     }
 
+    function getNumber() public returns(uint)  {
+        return 5;
+    }
+
     event BytesEvent(bytes data);
 
     function testBytes(bytes data) public {
@@ -152,6 +156,7 @@ contract NodeManager {
         // todo implement: annualMint should be reduced by a half each N years
         tokenAddress = _token;
         annualMint = _annualMint;
+        //dailyMint = annualMint / 365;
         dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
         nextNodeIndex = 1;
         nextMchainIndex = 1;
@@ -238,7 +243,7 @@ contract NodeManager {
     }
 
     /// @dev Function withdraws deposit from a aggregation mchain with given index for msg.sender
-    /// and deletes this aggregation mchain
+    ///      and deletes this aggregation mchain
     /// @param index Index of aggregation mchain in the aggregationMchain list
     function withdrawFromAggregationMchain(uint index) public {
         require(aggregationMchainIndexes[msg.sender].length > index);
@@ -331,7 +336,25 @@ contract NodeManager {
         }
     }
 
-    /// @dev Function returns an mchain indexes for msg.sender
+    /// @dev Function returns an node info by index
+    /// @return node info
+    ///     ip IP address of node
+    ///     port TCP PORT of node
+    ///     status Node status
+    ///     key Node account public key
+    ///     lastRewardDate Date when node was rewarded last time
+    ///     leavingDate Date when node was moved to the Leaving state
+    function getNode(uint index)
+        public
+        view
+        returns (bytes15, uint16, NodeStatus, bytes, uint, uint)
+    {
+        // todo add check
+        return (nodes[index].ip, nodes[index].port, nodes[index].status, nodes[index].key,
+            nodes[index].lastRewardDate, nodes[index].leavingDate);
+    }
+
+    /// @dev Function returns an mchain info by index
     /// @return mchain info
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
@@ -343,11 +366,12 @@ contract NodeManager {
         view
         returns (address, uint, uint, uint, uint, uint)
     {
+        // todo add check
         return (mchain[index].owner, mchain[index].storageBytes, mchain[index].lifetime,
             mchain[index].startDate, mchain[index].maxNodes, mchain[index].deposit);
     }
 
-    /// @dev Function returns an aggregation mchain indexes for msg.sender
+    /// @dev Function returns an aggregation mchain info by index
     /// @return basis mchain info
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
@@ -359,6 +383,7 @@ contract NodeManager {
         view
         returns (address, uint, uint, uint, uint, uint)
     {
+        // todo add check
         return (aggregationMchain[index].owner, aggregationMchain[index].storageBytes,
             aggregationMchain[index].lifetime, aggregationMchain[index].startDate,
             aggregationMchain[index].maxNodes, aggregationMchain[index].deposit);
@@ -372,6 +397,7 @@ contract NodeManager {
         view
         returns (uint[])
     {
+        // todo add check
         return aggregationMchain[index].mchains;
     }
 
@@ -383,6 +409,7 @@ contract NodeManager {
         view
         returns (uint[])
     {
+        // todo add check
         return mchainIndexes[msg.sender];
     }
 
@@ -393,6 +420,7 @@ contract NodeManager {
         view
         returns (uint[])
     {
+        // todo add check
         return aggregationMchainIndexes[msg.sender];
     }
 
@@ -640,6 +668,7 @@ contract NodeManager {
      *  Find a leap year
      *  Taken from https://github.com/pipermerriam/ethereum-datetime
      */
+
 
     uint constant YEAR_IN_SECONDS = 31536000;
     uint constant LEAP_YEAR_IN_SECONDS = 31622400;

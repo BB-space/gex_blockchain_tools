@@ -9,8 +9,8 @@ class TestHeartbit:
     def __init__(self):
         with open('../../data.json') as data_file:
             self.data = json.load(data_file)
-        self.web3 = Web3(HTTPProvider("http://localhost:8545"))
-        # self.web3 = Web3(HTTPProvider("http://51.0.1.99:8545"))
+        #self.web3 = Web3(HTTPProvider("http://localhost:8545"))
+        self.web3 = Web3(HTTPProvider("http://51.0.1.99:8545"))
         self.contract = self.web3.eth.contract(contract_name='NodeManager', address=self.data['node_manager_address'],
                                                abi=self.data['node_manager_abi'])
         self.token = self.web3.eth.contract(contract_name='Token', address=self.data['token_address'],
@@ -35,9 +35,15 @@ class TestHeartbit:
         test2 = self.contract.on('Test2')
         test2.watch(self.test2)
 
+        test3 = self.contract.on('NumberEvent')
+        test3.watch(self.test3)
+
+
     def test2(self, result):
         print("test2")
 
+    def test3(self, result):
+        print("NumberEvent " + result['args']['num'])
 
     def test1(self, result):
         print("test1 ")
@@ -82,6 +88,7 @@ class TestHeartbit:
         type = 0x1
         data = type.to_bytes(1, byteorder='big') + port.to_bytes(4, byteorder='big') + nonce.to_bytes(4,
                     byteorder='big') + ip.encode()
+        #print(data)
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
         self.getGasUsed(self.token.transact({'from': self.web3.eth.accounts[0]}).transfer(
@@ -137,12 +144,17 @@ class TestHeartbit:
 
 
 test = TestHeartbit()
-# test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(100)
-# time.sleep(10)
+#print(test.contract.call().getNodeIPs())
 
-'''test.test_deposit("255.255.255.255", 6000, 12345)
+#print(test.contract.call().getNode(2))
+
+#test.test_deposit("255.255.255.255", 6000, 12345)
+#test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(6)
+print(test.contract.call().getNumber())
 
 test.test_deposit("10.255.255.255", 6000, 12345)
+time.sleep(180)
+'''
 print(test.contract.call().getNodeIPs())
 
 test.test_mchain_creation(98764, 6000, 12345, 4444)
@@ -158,12 +170,11 @@ test.test_aggregation_mchain_creation(222, 155, 24, 53555)
 
 test.test_mchain_creation(98764, 1, 12345, 4444)
 test.test_mchain_creation(98643, 10000, 12345, 4443)
-test.test_mchain_creation(98764, 1, 12345, 4444)'''
+test.test_mchain_creation(98764, 1, 12345, 4444)
 test.test_mchain_creation(98643, 1000, 12345, 4443)
 test.test_aggregation_mchain_creation(222, 6000, 24, 53555)
 test.test_add_mchain(1, 1, 53555)
 print(test.contract.call().getMchainListFromAggregationMchain(1))
-'''
 print(test.contract.call().getMchains())
 time.sleep(5)
 test.test_withdraw_mchain()
