@@ -3,7 +3,7 @@ version: '3.3'
 services:
   test-geth:
     container_name: test-geth
-    image: ethereum/client-go
+    image: ethereum/client-go:v1.7.3
     entrypoint: ""
     command: /shared/init_and_start.sh
     volumes:
