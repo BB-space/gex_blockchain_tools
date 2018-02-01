@@ -32,11 +32,12 @@ contract NodeManager {
     uint annualMint; // total reword for nodes per year
     uint dailyMint; // daily reword for nodes
 
-// todo get key
+// todo get key startdate
     struct Node {
         bytes15 ip; // todo save as number and provide function for ip check
         uint16 port;
         bytes key; // todo size ?
+        uint registrationDate;
         uint leavingDate; // date when node was moved to the Leaving state
         uint lastRewardDate; // date when node was rewarded last time
         uint[2] heartbits; // bitmap of heartbit signals for last 512 days
@@ -321,7 +322,7 @@ contract NodeManager {
     // todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList?
     /// @dev Function returns an ip list of all Active nodes
     /// @return ip list
-    function getNodeIPs()
+    function getActiveNodeIPs()
         public
         view
         returns (bytes15[] memory arr)
@@ -336,6 +337,35 @@ contract NodeManager {
         }
     }
 
+    function getActiveNodeIPs(uint[] id)
+        public
+        view
+        returns (bytes15[] memory arr)
+    {
+        arr = new bytes15[](nextNodeIndex -1);
+        uint j = 0;
+        for (uint i = 0; i < id.length; i++) {
+            if(nodes[id[i]].status == NodeStatus.Active){
+                arr[j] = nodes[id[i]].ip;
+                j++;
+            }
+        }
+    }
+
+    function getActiveNodeIDs()
+        public
+        view
+        returns (uint[] memory arr)
+    {
+        arr = new uint[](nextNodeIndex -1);
+        uint j = 0;
+        for (uint i = 1; i < nextNodeIndex; i++) {
+            if(nodes[i].status == NodeStatus.Active){
+                arr[j] = i;
+                j++;
+            }
+        }
+    }
     /// @dev Function returns an node info by index
     /// @return node info
     ///     ip IP address of node

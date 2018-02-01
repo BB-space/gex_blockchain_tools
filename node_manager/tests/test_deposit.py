@@ -9,8 +9,8 @@ class TestHeartbit:
     def __init__(self):
         with open('../../data.json') as data_file:
             self.data = json.load(data_file)
-        #self.web3 = Web3(HTTPProvider("http://localhost:8545"))
-        self.web3 = Web3(HTTPProvider("http://51.0.1.99:8545"))
+        self.web3 = Web3(HTTPProvider("http://localhost:8545"))
+        #self.web3 = Web3(HTTPProvider("http://51.0.1.99:8545"))
         self.contract = self.web3.eth.contract(contract_name='NodeManager', address=self.data['node_manager_address'],
                                                abi=self.data['node_manager_abi'])
         self.token = self.web3.eth.contract(contract_name='Token', address=self.data['token_address'],
@@ -150,12 +150,16 @@ test = TestHeartbit()
 
 #test.test_deposit("255.255.255.255", 6000, 12345)
 #test.contract.transact({'from': test.web3.eth.accounts[0]}).setNumber(6)
-print(test.contract.call().getNumber())
+#print(test.contract.call().getNumber())
 
-test.test_deposit("10.255.255.255", 6000, 12345)
-time.sleep(180)
+#test.test_deposit("10.255.255.255", 6000, 12345)
+#test.test_deposit("255.255.255.255", 6000, 12345)
+#time.sleep(30)
+id = test.contract.call().getActiveNodeIDs()
+print(test.contract.call().getActiveNodeIPs(id))
 '''
 print(test.contract.call().getNodeIPs())
+
 
 test.test_mchain_creation(98764, 6000, 12345, 4444)
 test.test_mchain_creation(11111, 55, 2, 5555)
