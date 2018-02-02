@@ -128,7 +128,7 @@ class TestHeartbit:
         print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
             self.token.call().balanceOf(self.data['node_manager_address'])))
 
-    def test_withdraw_mchain(self):
+    def test_withdraw_mchains(self):
          #self.test_mchain_creation(98764, 1, 12345, 4444)
          print(test.contract.call().getMchains())
          self.getGasUsed(self.contract.transact({
@@ -137,6 +137,18 @@ class TestHeartbit:
              self.token.call().balanceOf(self.data['node_manager_address'])))
          print(test.contract.call().getMchains())
 
+    def test_withdraw_mchain(self):
+        #self.test_mchain_creation(98764, 1, 12345, 4444)
+        #self.test_mchain_creation(98764, 1, 12345, 4444)
+        print(test.contract.call().getMchainList())
+        print(test.contract.call().getMchain(0))
+        print(test.contract.call().getMchain(1))
+        self.getGasUsed(self.contract.transact({
+            'from': self.web3.eth.accounts[0]}).withdrawFromMchain(0), "withdraw from mchain")
+        print(str(self.token.call().balanceOf(self.web3.eth.accounts[0])) + " " + str(
+            self.token.call().balanceOf(self.data['node_manager_address'])))
+        print(test.contract.call().getMchainList())
+
     def test_add_mchain(self, aggregation_index, basic_index, nonce):
          self.getGasUsed(self.contract.transact({
             'from': self.web3.eth.accounts[0]}).addToAggregationMchain(aggregation_index, basic_index, nonce ),
@@ -144,6 +156,13 @@ class TestHeartbit:
 
 
 test = TestHeartbit()
+
+print(test.contract.call().getMchain(0))
+print(test.contract.call().getMchain(1))
+
+test.test_withdraw_mchain()
+print(test.contract.call().getMchain(0))
+print(test.contract.call().getMchain(1))
 #print(test.contract.call().getNodeIPs())
 
 #print(test.contract.call().getNode(2))
@@ -155,9 +174,13 @@ test = TestHeartbit()
 #test.test_deposit("10.255.255.255", 6000, 12345)
 #test.test_deposit("255.255.255.255", 6000, 12345)
 #time.sleep(30)
+'''
+test.test_mchain_creation(98764, 6000, 12345, 4444) 
+
+ 
 id = test.contract.call().getActiveNodeIDs()
 print(test.contract.call().getActiveNodeIPs(id))
-'''
+
 print(test.contract.call().getNodeIPs())
 
 

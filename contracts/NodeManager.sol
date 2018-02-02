@@ -159,9 +159,9 @@ contract NodeManager {
         annualMint = _annualMint;
         //dailyMint = annualMint / 365;
         dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
-        nextNodeIndex = 1;
-        nextMchainIndex = 1;
-        nextAggregationMchainIndex = 1;
+        //nextNodeIndex = 1;
+        //nextMchainIndex = 1;
+        //nextAggregationMchainIndex = 1;
     }
 
     /*
@@ -229,14 +229,14 @@ contract NodeManager {
             mchain[mchainIndexes[msg.sender][index]].lifetime < block.timestamp);
         // add mchain deposit value to the total
         uint withdraw = mchain[mchainIndexes[msg.sender][index]].deposit;
+        // delete mchain from the mchain list
+        delete mchain[mchainIndexes[msg.sender][index]];
         // last element will be moved or deleted
         // if the element is not last
         if(index != mchainIndexes[msg.sender].length - 1) {
             // move the last element to the place on the current element
             mchainIndexes[msg.sender][index] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
         }
-        // delete mchain from the mchain list
-        delete mchain[mchainIndexes[msg.sender][index]];
         // delete mchain from the mchain indexes list for msg.sender
         delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
         mchainIndexes[msg.sender].length--;
@@ -252,6 +252,8 @@ contract NodeManager {
             aggregationMchain[aggregationMchainIndexes[msg.sender][index]].lifetime < block.timestamp);
         // add aggregation mchain deposit value to the total
         uint withdraw = aggregationMchain[aggregationMchainIndexes[msg.sender][index]].deposit;
+        // delete aggregation mchain from the aggregation mchain list
+        delete aggregationMchain[aggregationMchainIndexes[msg.sender][index]];
         // last element will be moved or deleted
         // if the element is not last
         if(index != aggregationMchainIndexes[msg.sender].length - 1) {
@@ -259,8 +261,6 @@ contract NodeManager {
             aggregationMchainIndexes[msg.sender][index] =
                 aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
         }
-        // delete aggregation mchain from the aggregation mchain list
-        delete aggregationMchain[aggregationMchainIndexes[msg.sender][index]];
         // delete aggregation mchain from the aggregation mchain indexes list for msg.sender
         delete aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
         aggregationMchainIndexes[msg.sender].length--;
@@ -276,6 +276,8 @@ contract NodeManager {
             aggregationMchain[aggregationMchainIndexes[msg.sender][i]].lifetime < block.timestamp) {
             // add mchain deposit value to the total
             withdrawTotal = withdrawTotal + aggregationMchain[aggregationMchainIndexes[msg.sender][i]].deposit;
+            // delete mchain from the aggregation mchain list
+            delete aggregationMchain[aggregationMchainIndexes[msg.sender][i]];
             // last element will be moved or deleted
             // if the element is not last
             if(i != aggregationMchainIndexes[msg.sender].length - 1) {
@@ -283,8 +285,6 @@ contract NodeManager {
                 aggregationMchainIndexes[msg.sender][i] =
                 aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
             }
-            // delete mchain from the aggregation mchain list
-            delete aggregationMchain[aggregationMchainIndexes[msg.sender][i]];
             // delete mchain from the aggregation mchain indexes list for msg.sender
             delete aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
             aggregationMchainIndexes[msg.sender].length--;
@@ -298,14 +298,14 @@ contract NodeManager {
             mchain[mchainIndexes[msg.sender][i]].lifetime < block.timestamp) {
             // add mchain deposit value to the total
             withdrawTotal = withdrawTotal + mchain[mchainIndexes[msg.sender][i]].deposit;
+            // delete mchain from the mchain list
+            delete mchain[mchainIndexes[msg.sender][i]];
             // last element will be moved or deleted
             // if the element is not last
             if(i != mchainIndexes[msg.sender].length - 1) {
                 // move the last element to the place on the current element
                 mchainIndexes[msg.sender][i] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
             }
-            // delete mchain from the mchain list
-            delete mchain[mchainIndexes[msg.sender][i]];
             // delete mchain from the mchain indexes list for msg.sender
             delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
             mchainIndexes[msg.sender].length--;
@@ -327,7 +327,7 @@ contract NodeManager {
         view
         returns (bytes15[] memory arr)
     {
-        arr = new bytes15[](nextNodeIndex -1);
+        arr = new bytes15[](nextNodeIndex); // -1);
         uint j = 0;
         for (uint i = 1; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
@@ -342,7 +342,7 @@ contract NodeManager {
         view
         returns (bytes15[] memory arr)
     {
-        arr = new bytes15[](nextNodeIndex -1);
+        arr = new bytes15[](nextNodeIndex); // -1);
         uint j = 0;
         for (uint i = 0; i < id.length; i++) {
             if(nodes[id[i]].status == NodeStatus.Active){
@@ -357,7 +357,7 @@ contract NodeManager {
         view
         returns (uint[] memory arr)
     {
-        arr = new uint[](nextNodeIndex -1);
+        arr = new uint[](nextNodeIndex); // -1);
         uint j = 0;
         for (uint i = 1; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
