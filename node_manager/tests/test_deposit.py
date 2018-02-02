@@ -156,13 +156,16 @@ class TestHeartbit:
 
 
 test = TestHeartbit()
-
+test.test_deposit("10.255.255.255", 6000, 12345)
+#print(test.contract.call().getMchainList())
+'''
 print(test.contract.call().getMchain(0))
 print(test.contract.call().getMchain(1))
 
 test.test_withdraw_mchain()
 print(test.contract.call().getMchain(0))
 print(test.contract.call().getMchain(1))
+'''
 #print(test.contract.call().getNodeIPs())
 
 #print(test.contract.call().getNode(2))

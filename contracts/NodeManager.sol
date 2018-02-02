@@ -159,9 +159,6 @@ contract NodeManager {
         annualMint = _annualMint;
         //dailyMint = annualMint / 365;
         dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
-        //nextNodeIndex = 1;
-        //nextMchainIndex = 1;
-        //nextAggregationMchainIndex = 1;
     }
 
     /*
@@ -327,7 +324,7 @@ contract NodeManager {
         view
         returns (bytes15[] memory arr)
     {
-        arr = new bytes15[](nextNodeIndex); // -1);
+        arr = new bytes15[](nextNodeIndex);
         uint j = 0;
         for (uint i = 1; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
@@ -342,7 +339,7 @@ contract NodeManager {
         view
         returns (bytes15[] memory arr)
     {
-        arr = new bytes15[](nextNodeIndex); // -1);
+        arr = new bytes15[](nextNodeIndex);
         uint j = 0;
         for (uint i = 0; i < id.length; i++) {
             if(nodes[id[i]].status == NodeStatus.Active){
@@ -357,7 +354,7 @@ contract NodeManager {
         view
         returns (uint[] memory arr)
     {
-        arr = new uint[](nextNodeIndex); // -1);
+        arr = new uint[](nextNodeIndex);
         uint j = 0;
         for (uint i = 1; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
@@ -366,6 +363,9 @@ contract NodeManager {
             }
         }
     }
+
+    //// Next methods don't have any checks - they will return empty values if not present
+
     /// @dev Function returns an node info by index
     /// @return node info
     ///     ip IP address of node
@@ -379,7 +379,6 @@ contract NodeManager {
         view
         returns (bytes15, uint16, NodeStatus, bytes, uint, uint)
     {
-        // todo add check
         return (nodes[index].ip, nodes[index].port, nodes[index].status, nodes[index].key,
             nodes[index].lastRewardDate, nodes[index].leavingDate);
     }
@@ -396,7 +395,6 @@ contract NodeManager {
         view
         returns (address, uint, uint, uint, uint, uint)
     {
-        // todo add check
         return (mchain[index].owner, mchain[index].storageBytes, mchain[index].lifetime,
             mchain[index].startDate, mchain[index].maxNodes, mchain[index].deposit);
     }
@@ -413,7 +411,6 @@ contract NodeManager {
         view
         returns (address, uint, uint, uint, uint, uint)
     {
-        // todo add check
         return (aggregationMchain[index].owner, aggregationMchain[index].storageBytes,
             aggregationMchain[index].lifetime, aggregationMchain[index].startDate,
             aggregationMchain[index].maxNodes, aggregationMchain[index].deposit);
@@ -427,7 +424,6 @@ contract NodeManager {
         view
         returns (uint[])
     {
-        // todo add check
         return aggregationMchain[index].mchains;
     }
 
@@ -439,7 +435,6 @@ contract NodeManager {
         view
         returns (uint[])
     {
-        // todo add check
         return mchainIndexes[msg.sender];
     }
 
@@ -450,9 +445,10 @@ contract NodeManager {
         view
         returns (uint[])
     {
-        // todo add check
         return aggregationMchainIndexes[msg.sender];
     }
+
+    ////
 
     /// @dev Function stores node heartbits and rewards node
     ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
@@ -514,7 +510,7 @@ contract NodeManager {
     ///      Fallback is called when user is making deposit to create node, mchain or aggregation mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
-    /// @param _data Data containig a function signature and/or parameters
+    /// @param _data Data containing a function signature and/or parameters
     // todo make internal here and for other callback functions
     function tokenFallback(address _from, uint _value, bytes _data) public {
         require(msg.sender == tokenAddress);
@@ -534,7 +530,7 @@ contract NodeManager {
     /// @dev Function for creating a node
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
-    /// @param _data Data containig a function signature and/or parameters:
+    /// @param _data Data containing a function signature and/or parameters:
     ///      port Node port for the communication inside the system
     ///      nonce Unique identifier of a current operation
     ///      ip IPv4 address of the node
@@ -560,7 +556,7 @@ contract NodeManager {
     /// @dev Function for creating a mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
-    /// @param _data Data containig a function signature and/or parameters:
+    /// @param _data Data containing a function signature and/or parameters:
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
     ///      maxNodes Max number of nodes associated with this mchain
@@ -589,7 +585,7 @@ contract NodeManager {
     /// @dev Function for creating a aggregation mchain
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
-    /// @param _data Data containig a function signature and/or parameters:
+    /// @param _data Data containing a function signature and/or parameters:
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
     ///      maxNodes Max number of nodes associated with this mchain
@@ -617,7 +613,7 @@ contract NodeManager {
     }
 
     /// @dev Function for parsing first 2 data bytes to determine the type of the transaction operation
-    /// @param data Data containig a function signature and/or parameters
+    /// @param data Data containing a function signature and/or parameters
     /// @return type of the transaction operation
      function fallbackOperationTypeConvert(bytes data)
         //internal
@@ -628,7 +624,7 @@ contract NodeManager {
          assembly {
             operationType := mload(add(data, 0x20))
         }
-        //require(operationType != 0x0 || operationType < 0x4);
+        require(operationType == 0x1 || operationType == 0x10 || operationType == 0x11);
         if(operationType == 0x1) {
             return TransactionOperation.CreateNode;
         } else if(operationType == 0x10) {
@@ -640,7 +636,7 @@ contract NodeManager {
     }
 
     /// @dev Function for parsing data bytes to a set of parameters for node creation
-    /// @param data Data containig a function signature and/or parameters
+    /// @param data Data containing a function signature and/or parameters
     /// @return parsed fallback parameters:
     ///      port Node port for the communication inside the system
     ///      nonce Unique identifier of a current operation
@@ -662,7 +658,7 @@ contract NodeManager {
     }
 
     /// @dev Function for parsing data bytes to a set of parameters for mchain creation
-    /// @param data Data containig a function signature and/or parameters
+    /// @param data Data containing a function signature and/or parameters
     /// @return parsed fallback parameters:
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
