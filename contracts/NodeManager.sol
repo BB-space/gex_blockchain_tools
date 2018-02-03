@@ -34,10 +34,11 @@ contract NodeManager {
 
 // todo get key startdate
     struct Node {
-        bytes15 ip; // todo save as number and provide function for ip check
+        bytes4 ip; // todo save as number and provide function for ip check
         uint16 port;
-        bytes key; // todo size ?
+        byte[64] publicKey; // todo size ?
         uint registrationDate;
+        uint startDate; // date when node was registered
         uint leavingDate; // date when node was moved to the Leaving state
         uint lastRewardDate; // date when node was rewarded last time
         uint[2] heartbits; // bitmap of heartbit signals for last 512 days
@@ -94,7 +95,7 @@ contract NodeManager {
     event NodeCreated(
         uint nodeID,
         address owner,
-        bytes15 ip,
+        bytes4 ip,
         uint16 port,
         uint16 nonce
     );
@@ -264,6 +265,7 @@ contract NodeManager {
         GeToken(tokenAddress).transfer(msg.sender, withdraw);
     }
 
+    // add withdraw event
     /// @dev Function withdraws deposit from all finished mchains of msg.sender and deletes this mchains
     function withdrawFromMchains() public {
         uint withdrawTotal = 0;
@@ -322,9 +324,9 @@ contract NodeManager {
     function getActiveNodeIPs()
         public
         view
-        returns (bytes15[] memory arr)
+        returns (bytes4[] memory arr)
     {
-        arr = new bytes15[](nextNodeIndex);
+        arr = new bytes4[](nextNodeIndex);
         uint j = 0;
         for (uint i = 1; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
@@ -334,12 +336,14 @@ contract NodeManager {
         }
     }
 
+    /// @dev Function returns an ip list of all Active nodes with given indexes
+    /// @return ip list
     function getActiveNodeIPs(uint[] id)
         public
         view
-        returns (bytes15[] memory arr)
+        returns (bytes4[] memory arr)
     {
-        arr = new bytes15[](nextNodeIndex);
+        arr = new bytes4[](nextNodeIndex);
         uint j = 0;
         for (uint i = 0; i < id.length; i++) {
             if(nodes[id[i]].status == NodeStatus.Active){
@@ -349,6 +353,25 @@ contract NodeManager {
         }
     }
 
+    //// @dev Function returns an start dates list of all Active nodes with given indexes
+    /// @return start dates  list
+    function getActiveNodeStartDates(uint[] id)
+        public
+        view
+        returns (uint[] memory arr)
+    {
+        arr = new uint[](nextNodeIndex);
+        uint j = 0;
+        for (uint i = 0; i < id.length; i++) {
+            if(nodes[id[i]].status == NodeStatus.Active){
+                arr[j] = nodes[id[i]].startDate;
+                j++;
+            }
+        }
+    }
+
+    /// @dev Function returns an indexes list of all Active nodes
+    /// @return indexes list
     function getActiveNodeIDs()
         public
         view
@@ -374,13 +397,14 @@ contract NodeManager {
     ///     key Node account public key
     ///     lastRewardDate Date when node was rewarded last time
     ///     leavingDate Date when node was moved to the Leaving state
+    ///     startDate Date when node was registered
     function getNode(uint index)
         public
         view
-        returns (bytes15, uint16, NodeStatus, bytes, uint, uint)
+        returns (bytes4, uint16, NodeStatus, byte[64], uint, uint, uint)
     {
-        return (nodes[index].ip, nodes[index].port, nodes[index].status, nodes[index].key,
-            nodes[index].lastRewardDate, nodes[index].leavingDate);
+        return (nodes[index].ip, nodes[index].port, nodes[index].status, nodes[index].publicKey,
+            nodes[index].lastRewardDate, nodes[index].leavingDate, nodes[index].startDate);
     }
 
     /// @dev Function returns an mchain info by index
@@ -537,19 +561,17 @@ contract NodeManager {
     function createNode(address _from, uint _value, bytes _data) //internal
     {
         require(_value == DEPOSIT_VALUE);
-        uint16 port;
         uint16 nonce;
-        bytes15 ip;
-        (port, nonce, ip) = fallbackCreateNodeDataConvert(_data);
-        require (ip != 0x0); // todo add ip validation
+        (nodes[nextNodeIndex].port, nonce, nodes[nextNodeIndex].ip, nodes[nextNodeIndex].publicKey) =
+                fallbackCreateNodeDataConvert(_data);
+        require (nodes[nextNodeIndex].ip != 0x0); // todo add ip validation
         //  Port number is an unsigned 16-bit integer, so 65535 will the max value
-        require (port > 0); // todo discuss port range https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
-        nodes[nextNodeIndex].ip = ip;
-        nodes[nextNodeIndex].port = port;
+        require (nodes[nextNodeIndex].port > 0); // todo discuss port range https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
         nodes[nextNodeIndex].status = NodeStatus.Active;
         nodes[nextNodeIndex].lastRewardDate = block.timestamp;
+        nodes[nextNodeIndex].startDate = block.timestamp;
         nodeIndexes[_from][nextNodeIndex] = true;
-        NodeCreated(nextNodeIndex, _from, ip, port, nonce);
+        NodeCreated(nextNodeIndex, _from, nodes[nextNodeIndex].ip, nodes[nextNodeIndex].port, nonce);
         nextNodeIndex = nextNodeIndex + 1;
     }
 
@@ -563,22 +585,18 @@ contract NodeManager {
     ///      nonce Unique identifier of a current operation
     ///      name mchain name
     function createMchain(address _from, uint _value, bytes _data) internal {
-        uint storageBytes;
-        uint lifetime;
-        uint maxNodes;
         uint16 nonce;
         bytes32 name;
-        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateMchainDataConvert(_data);
+        (mchain[nextMchainIndex].storageBytes, mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes,
+                nonce, name) = fallbackCreateMchainDataConvert(_data);
         // mchain can live max 30 days
-        require(lifetime <= MCHAIN_MAX_LIFETIME);
+        require(mchain[nextMchainIndex].lifetime <= MCHAIN_MAX_LIFETIME);
         mchain[nextMchainIndex].owner = _from;
-        mchain[nextMchainIndex].storageBytes = storageBytes;
-        mchain[nextMchainIndex].lifetime = lifetime;
-        mchain[nextMchainIndex].maxNodes = maxNodes;
         mchain[nextMchainIndex].startDate = block.timestamp;
         mchain[nextMchainIndex].deposit = _value;
         mchainIndexes[_from].push(nextMchainIndex);
-        MchainCreated(nextMchainIndex, _from, storageBytes, lifetime, maxNodes, _value, nonce, name);
+        MchainCreated(nextMchainIndex, _from, mchain[nextMchainIndex].storageBytes,
+            mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes, _value, nonce, name);
         nextMchainIndex = nextMchainIndex + 1;
     }
 
@@ -592,23 +610,22 @@ contract NodeManager {
     ///      nonce Unique identifier of a current operation
     ///      name mchain name
     function createAggregationMchain(address _from, uint _value, bytes _data) internal {
-        uint storageBytes;
-        uint lifetime;
-        uint maxNodes;
         uint16 nonce;
         bytes32 name;
-        (storageBytes, lifetime, maxNodes, nonce, name) = fallbackCreateMchainDataConvert(_data);
+        (aggregationMchain[nextAggregationMchainIndex].storageBytes,
+                aggregationMchain[nextAggregationMchainIndex].lifetime,
+                aggregationMchain[nextAggregationMchainIndex].maxNodes, nonce, name) =
+                fallbackCreateMchainDataConvert(_data);
         // mchain can live max 30 days
-        require(lifetime <= MCHAIN_MAX_LIFETIME);
+        require(aggregationMchain[nextAggregationMchainIndex].lifetime <= MCHAIN_MAX_LIFETIME);
         aggregationMchain[nextAggregationMchainIndex].owner = _from;
-        aggregationMchain[nextAggregationMchainIndex].storageBytes = storageBytes;
-        aggregationMchain[nextAggregationMchainIndex].lifetime = lifetime;
-        aggregationMchain[nextAggregationMchainIndex].maxNodes = maxNodes;
         aggregationMchain[nextAggregationMchainIndex].startDate = block.timestamp;
         aggregationMchain[nextAggregationMchainIndex].deposit = _value;
         aggregationMchainIndexes[_from].push(nextAggregationMchainIndex);
-        AggregationMchainCreated(nextAggregationMchainIndex, _from, storageBytes,
-                                    lifetime, maxNodes, _value, nonce, name);
+        AggregationMchainCreated(nextAggregationMchainIndex, _from,
+                aggregationMchain[nextAggregationMchainIndex].storageBytes,
+                aggregationMchain[nextAggregationMchainIndex].lifetime,
+                aggregationMchain[nextAggregationMchainIndex].maxNodes, _value, nonce, name);
         nextAggregationMchainIndex = nextAggregationMchainIndex + 1;
     }
 
@@ -644,17 +661,19 @@ contract NodeManager {
     function fallbackCreateNodeDataConvert(bytes data)
         //internal
         pure
-        returns (uint16, uint16, bytes15)
+        returns (uint16, uint16, bytes4, byte[64])
     {
         bytes4 port;
         bytes4 nonce;
-        bytes15 ip;
+        bytes4 ip;
+        byte[64] memory publicKey;
         assembly {
             port := mload(add(data, 0x21))
             nonce := mload(add(data, 0x25))
             ip := mload(add(data, 0x29))
+            publicKey := mload(add(publicKey, 0x33))
         }
-        return (uint16(port), uint16(nonce), ip);
+        return (uint16(port), uint16(nonce), ip, publicKey);
     }
 
     /// @dev Function for parsing data bytes to a set of parameters for mchain creation
