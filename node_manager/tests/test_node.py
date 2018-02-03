@@ -1,5 +1,5 @@
 from node_manager.tests.basic import Basic
-
+import socket
 
 class TestNode(Basic):
 
@@ -9,7 +9,7 @@ class TestNode(Basic):
     def test_deposit(self, ip, port, nonce, publicKey):
         type = 0x1
         data = type.to_bytes(1, byteorder='big') + port.to_bytes(4, byteorder='big') + \
-               nonce.to_bytes(4, byteorder='big') + ip.encode()
+               nonce.to_bytes(4, byteorder='big') + socket.inet_aton(ip) + bytearray.fromhex(publicKey)
 
         # print(data)
 
@@ -24,9 +24,9 @@ class TestNode(Basic):
 
 test = TestNode()
 hex_str = "f6c5ff277e7a050dcb8083e4952b238fd514a8692f3a25a8c60cd1aa15faaa31c3e40672cc1232e2c95204e106ffc61ea76f53ebb92ae0c05f1a27c8cc3c5fdf"
-hex_data= hex_str.decode("hex")
-print(len(hex_data))
-#test.test_deposit("10.255.255.255", 6000, 12345, hex_str)
+# back to ip string
+# socket.inet_ntoa(ip_bytes)
+test.test_deposit("10.255.255.255", 6000, 12345, hex_str)
 '''
 print(test.contract.call().getNodeIPs())
 print(test.contract.call().getNode(2))
