@@ -32,7 +32,7 @@ contract GexBot {
     uint40 public previousTime;
     uint24 constant private DAY = 85800;
     address private gexAddress;
-    address public owner;
+    address private owner;
 
     mapping (address => Cell) public applications;
     mapping (uint40 => address) private addresses;
@@ -70,28 +70,6 @@ contract GexBot {
         selfdestruct(owner);
     }
 
-    //converting functions
-    function stringToUint(bytes _data) private pure returns (uint) {
-        uint answer;
-        uint step = 1;
-        for (uint i = _data.length; i > 0; i--) {
-            if ((uint(_data[i - 1]) >= 48 && uint(_data[i - 1]) <= 57)) {
-                answer += (uint(_data[i - 1]) - 48) * step;
-                step *= 10;
-            } else return 0;
-        }
-        return answer;
-    }
-
-    function bytesToUint(bytes _data) public pure returns (uint x) {
-        require(_data.length <= 32);
-        uint step = 1;
-        for (uint i = _data.length; i > 0; i--) {
-            x += (uint(_data[i - 1]) % 16 + (uint(_data[i - 1]) / 16) * 16) * step;
-            step *= 256;
-        }
-    }
-
     //Fallback function
     function () public payable { depositEth(""); }
 
@@ -106,7 +84,7 @@ contract GexBot {
         require(msg.sender == gexAddress);
         require(_value > 0);
         if (_data.length == 0) {
-            depositGex(_sender, uint88(_value), 0);
+            depositGex(_sender, uint88(_value));
         } else {
             bytes26 flag;
             bytes26 addReserveKey = bytes26("addgalacticexchangereserve");
@@ -116,7 +94,7 @@ contract GexBot {
             if (_sender == owner && flag == addReserveKey) {
                 gexInitialReserve += uint88(_value);
             } else {
-                depositGex(_sender, uint88(_value), uint88(bytesToUint(_data)));
+                depositGex(_sender, uint88(_value));
             }
         }
     }
@@ -124,7 +102,6 @@ contract GexBot {
     //Public functions
     function depositEth(bytes _data) public payable {
         require(previousTime + DAY > block.timestamp);
-        uint88 _fee = uint88(bytesToUint(_data));
         if (_data.length != 0) {
             bytes26 flag;
             bytes26 addReserveKey = bytes26("addgalacticexchangereserve");
@@ -137,7 +114,6 @@ contract GexBot {
             }
         }
         uint88 amountEth = uint88(msg.value);
-        require(amountEth >= _fee);
         int88 debt = -applications[msg.sender].sendEth;
         if (debt > 0) {
             if (amountEth >= uint88(debt)) {
@@ -160,15 +136,10 @@ contract GexBot {
                 addresses[index] = msg.sender;
                 numberOfAddresses++;
             }
-            //amountEth -= fee(amountEth, true);
-            if (lazyFee(amountEth, _fee, true)) {
-                amountEth -= _fee;
-            } else {
-                amountEth -= fee(amountEth,true);
-            }
+            amountEth -= fee(amountEth, true);
             applications[msg.sender].amountEth += amountEth;
             currentEth += uint88(amountEth);
-            uint88 amount = uint88((uint256((amountEth * 80) / 100) *
+            uint88 amount = uint88((uint256((amountEth * 4) / 5) *
                 uint256(previousGex + currentGex)) /
                 uint256(previousEth + currentEth));
             applications[msg.sender].loanGex += amount;
@@ -247,9 +218,8 @@ contract GexBot {
     }
 
     //Private functions
-    function depositGex(address _sender, uint88 _amount, uint88 _fee) private {
+    function depositGex(address _sender, uint88 _amount) private {
         require(previousTime + DAY > block.timestamp);
-        require(_amount >= _fee);
         uint88 amountGex = _amount;
         int88 debt = -applications[_sender].sendGex;
         if (debt > 0) {
@@ -269,15 +239,10 @@ contract GexBot {
                 addresses[index] = _sender;
                 numberOfAddresses++;
             }
-            //amountGex -= fee(amountGex, false);
-            if (lazyFee(amountGex, _fee, false)) {
-                amountGex -= _fee;
-            } else {
-                amountGex -= fee(amountGex, false);
-            }
+            amountGex -= fee(amountGex, false);
             applications[_sender].amountGex += uint88(amountGex);
             currentGex += uint88(amountGex);
-            uint88 amount = uint88((uint256((amountGex * 80) / 100) *
+            uint88 amount = uint88((uint256((amountGex * 4) / 5) *
                 uint256(previousEth + currentEth)) /
                 uint256(previousGex + currentGex));
             applications[_sender].loanEth += uint88(amount);
@@ -289,41 +254,6 @@ contract GexBot {
         } else {
             Message("Order is not accepted", _sender, 0);
         }
-    }
-
-    function lazyFee(
-        uint88 _amount,
-        uint88 _fee,
-        bool _ethCur
-    )
-        private
-        view
-        returns (bool)
-    {
-        uint88 amountToOrder = _amount - _fee;
-        uint88 reserve;
-        uint88 up;
-        uint88 down;
-        uint88 initialReserve;
-        uint88 stateReserve;
-        if (_ethCur) {
-            up = previousGex + currentGex;
-            down = previousEth + currentEth;
-            initialReserve = gexInitialReserve;
-            stateReserve = uint88(Token1(gexAddress).balanceOf(address(this)));
-        } else {
-            up = previousEth + currentEth;
-            down = previousGex + currentGex;
-            initialReserve = ethInitialReserve;
-            stateReserve = uint88(this.balance);
-        }
-        reserve = stateReserve -
-            uint88((uint256(amountToOrder * 80) / 100 *
-            uint256(up)) / uint256(down + amountToOrder));
-        uint88 formula = uint88((uint256(initialReserve) *
-            uint256(initialReserve - reserve) * uint256(amountToOrder)) /
-            (4 * uint256(reserve) * uint256(reserve)));
-        return _amount >= amountToOrder + formula;
     }
 
     function fee(       //up to 30 000 gas
@@ -354,7 +284,7 @@ contract GexBot {
         for (uint8 step = 0; step < 20; step++) {
             amountToOrderPrevious = amountToOrder;
             reserve = stateReserve -
-                uint88((uint256(amountToOrderPrevious * 80) / 100 *
+                uint88((uint256(amountToOrderPrevious * 4) / 5 *
                 uint256(up)) / uint256(down + amountToOrderPrevious));
             if (reserve >= initialReserve) {
                 amountToOrder = _amount;
@@ -370,7 +300,7 @@ contract GexBot {
             }
         }
         reserve = stateReserve -
-                uint88((uint256(amountToOrder * 80) / 100 *
+                uint88((uint256(amountToOrder * 4) / 5 *
                 uint256(up)) / uint256(down + amountToOrder));
         if (reserve >= initialReserve) {
             amountToOrder = 0;
