@@ -1,9 +1,11 @@
 import json
+import socket
+
 from populus_utils import *
 from web3 import HTTPProvider
 
-class Basic:
 
+class Basic:
     def __init__(self):
         with open('../../data.json') as data_file:
             self.data = json.load(data_file)
@@ -43,7 +45,8 @@ class Basic:
         print("NumberEvent " + result['args']['num'])
 
     def test1(self, result):
-        print("test1 ")
+        print("test1!!!!!!!!!!! ")
+        print(str(result['args']['a']) + " " + str(result['args']['b']))
 
     def approval_callback(self, result):
         print("Approval. owner: " + result['args']['_owner'] + " spender: " + result['args'][
@@ -55,8 +58,10 @@ class Basic:
               + " data: " + str(result['args']['_data']))
 
     def node_created_callback(self, result):
-        print("Node Created. nodeID: " + str(result['args']['nodeID']) + " nodeIP: " + result['args'][
-            'ip'] + " port: " + str(result['args']['port']) + " nonce: " + str(result['args']['nonce']))
+        # socket.inet_ntoa(list(result['args']['ip']))
+        print("Node Created. nodeID: " + str(result['args']['nodeID']) + " nodeIP: " + socket.inet_ntoa(
+            bytes.fromhex(self.web3.fromAscii(result['args']['ip'])[2:])) + " port: " + str(result['args']['port']) +
+              " nonce: " + str(result['args']['nonce']))
 
     def mchain_created_callback(self, result):
         print("Basic mchain created. mchainID: " + str(result['args']['mchainID']) + " owner: " + result['args'][

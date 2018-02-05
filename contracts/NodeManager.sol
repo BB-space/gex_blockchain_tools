@@ -36,7 +36,7 @@ contract NodeManager {
     struct Node {
         bytes4 ip; // todo save as number and provide function for ip check
         uint16 port;
-        byte[64] publicKey; // todo size ?
+        bytes publicKey; // todo size ?
         uint registrationDate;
         uint startDate; // date when node was registered
         uint leavingDate; // date when node was moved to the Leaving state
@@ -52,6 +52,7 @@ contract NodeManager {
         uint startDate; // date of mchain creation
         uint maxNodes; // max number of nodes associated with this mchain
         uint deposit; // value of tokens associated with this mchain
+        bytes32 name; // mchain name
     }
 
     struct AggregationMchain {
@@ -61,6 +62,7 @@ contract NodeManager {
         uint startDate; // date of mchain creation
         uint maxNodes; // max number of nodes associated with this mchain
         uint deposit; // value of tokens associated with this mchain
+        bytes32 name; // mchain name
         mapping (uint => bool) mchainsPresence; // mchains aggregated by this mchain
         uint[] mchains;
         uint nextAggregatedMchainIndex; // index to store next mchain
@@ -89,7 +91,7 @@ contract NodeManager {
      *  Events
      */
 
-    event Test1();
+    event Test1(bytes32 a, bytes32 b);
     event Test2();
 
     event NodeCreated(
@@ -318,6 +320,7 @@ contract NodeManager {
         }
     }
 
+    // todo return leaving
     // todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList?
     /// @dev Function returns an ip list of all Active nodes
     /// @return ip list
@@ -401,7 +404,7 @@ contract NodeManager {
     function getNode(uint index)
         public
         view
-        returns (bytes4, uint16, NodeStatus, byte[64], uint, uint, uint)
+        returns (bytes4, uint16, NodeStatus, bytes, uint, uint, uint)
     {
         return (nodes[index].ip, nodes[index].port, nodes[index].status, nodes[index].publicKey,
             nodes[index].lastRewardDate, nodes[index].leavingDate, nodes[index].startDate);
@@ -409,6 +412,8 @@ contract NodeManager {
 
     /// @dev Function returns an mchain info by index
     /// @return mchain info
+    ///      owner Mchain owner address
+    ///      name Mchain name
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
     ///      startDate Number of seconds of mchain creation
@@ -417,14 +422,16 @@ contract NodeManager {
     function getMchain(uint index)
         public
         view
-        returns (address, uint, uint, uint, uint, uint)
+        returns (address, bytes32, uint, uint, uint, uint, uint)
     {
-        return (mchain[index].owner, mchain[index].storageBytes, mchain[index].lifetime,
+        return (mchain[index].owner, mchain[index].name, mchain[index].storageBytes, mchain[index].lifetime,
             mchain[index].startDate, mchain[index].maxNodes, mchain[index].deposit);
     }
 
     /// @dev Function returns an aggregation mchain info by index
     /// @return basis mchain info
+    ///      owner Mchain owner address
+    ///      name Mchain name
     ///      storageBytes Number of bytes this mchain can store
     ///      lifetime Number of seconds this mchain will be considered as alive
     ///      startDate Number of seconds of mchain creation
@@ -433,11 +440,11 @@ contract NodeManager {
     function getAggregationMchain(uint index)
         public
         view
-        returns (address, uint, uint, uint, uint, uint)
+        returns (address, bytes32, uint, uint, uint, uint, uint)
     {
-        return (aggregationMchain[index].owner, aggregationMchain[index].storageBytes,
-            aggregationMchain[index].lifetime, aggregationMchain[index].startDate,
-            aggregationMchain[index].maxNodes, aggregationMchain[index].deposit);
+        return (aggregationMchain[index].owner, aggregationMchain[index].name, aggregationMchain[index].storageBytes,
+            aggregationMchain[index].lifetime, aggregationMchain[index].startDate, aggregationMchain[index].maxNodes,
+            aggregationMchain[index].deposit);
     }
 
 
@@ -586,9 +593,8 @@ contract NodeManager {
     ///      name mchain name
     function createMchain(address _from, uint _value, bytes _data) internal {
         uint16 nonce;
-        bytes32 name;
         (mchain[nextMchainIndex].storageBytes, mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes,
-                nonce, name) = fallbackCreateMchainDataConvert(_data);
+                nonce, mchain[nextMchainIndex].name) = fallbackCreateMchainDataConvert(_data);
         // mchain can live max 30 days
         require(mchain[nextMchainIndex].lifetime <= MCHAIN_MAX_LIFETIME);
         mchain[nextMchainIndex].owner = _from;
@@ -596,7 +602,8 @@ contract NodeManager {
         mchain[nextMchainIndex].deposit = _value;
         mchainIndexes[_from].push(nextMchainIndex);
         MchainCreated(nextMchainIndex, _from, mchain[nextMchainIndex].storageBytes,
-            mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes, _value, nonce, name);
+            mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes, _value,
+            nonce, mchain[nextMchainIndex].name);
         nextMchainIndex = nextMchainIndex + 1;
     }
 
@@ -611,10 +618,10 @@ contract NodeManager {
     ///      name mchain name
     function createAggregationMchain(address _from, uint _value, bytes _data) internal {
         uint16 nonce;
-        bytes32 name;
         (aggregationMchain[nextAggregationMchainIndex].storageBytes,
                 aggregationMchain[nextAggregationMchainIndex].lifetime,
-                aggregationMchain[nextAggregationMchainIndex].maxNodes, nonce, name) =
+                aggregationMchain[nextAggregationMchainIndex].maxNodes, nonce,
+                aggregationMchain[nextAggregationMchainIndex].name) =
                 fallbackCreateMchainDataConvert(_data);
         // mchain can live max 30 days
         require(aggregationMchain[nextAggregationMchainIndex].lifetime <= MCHAIN_MAX_LIFETIME);
@@ -625,7 +632,8 @@ contract NodeManager {
         AggregationMchainCreated(nextAggregationMchainIndex, _from,
                 aggregationMchain[nextAggregationMchainIndex].storageBytes,
                 aggregationMchain[nextAggregationMchainIndex].lifetime,
-                aggregationMchain[nextAggregationMchainIndex].maxNodes, _value, nonce, name);
+                aggregationMchain[nextAggregationMchainIndex].maxNodes, _value, nonce,
+                aggregationMchain[nextAggregationMchainIndex].name);
         nextAggregationMchainIndex = nextAggregationMchainIndex + 1;
     }
 
@@ -660,19 +668,26 @@ contract NodeManager {
     ///      ip IPv4 address of the node
     function fallbackCreateNodeDataConvert(bytes data)
         //internal
-        pure
-        returns (uint16, uint16, bytes4, byte[64])
+        //pure
+        returns (uint16, uint16, bytes4, bytes)
     {
         bytes4 port;
         bytes4 nonce;
         bytes4 ip;
-        byte[64] memory publicKey;
+        bytes memory publicKey = new bytes(64);
+        bytes32 a;
+        bytes32 b;
         assembly {
-            port := mload(add(data, 0x21))
-            nonce := mload(add(data, 0x25))
-            ip := mload(add(data, 0x29))
-            publicKey := mload(add(publicKey, 0x33))
+            port := mload(add(data, 33)) // 0x21
+            nonce := mload(add(data, 37)) // 0x25
+            ip := mload(add(data, 41)) // 0x29
+            // todo this is hotfix to get public key
+            a := mload(add(data, 45)) // 0x33
+            b := mload(add(data, 77))
         }
+        uint8 k = 0;
+        for (uint8 i = 0; i < 32; i++) publicKey[k++] = a[i];
+        for (i = 0; i < 32; i++) publicKey[k++] = b[i];
         return (uint16(port), uint16(nonce), ip, publicKey);
     }
 
