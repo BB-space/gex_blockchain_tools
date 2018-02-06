@@ -1,7 +1,7 @@
 pragma solidity ^0.4.16;
 
 interface Token1 {
-    function transfer2(
+    function transfer(
         address _to,
         uint256 _value
     )
@@ -66,9 +66,11 @@ contract GexBot {
     function destroy() public {
         require(msg.sender == owner);
         uint256 balance = Token1(gexAddress).balanceOf(address(this));
-        require(Token1(gexAddress).transfer2(owner, balance));
+        require(Token1(gexAddress).transfer(owner, balance));
         selfdestruct(owner);
     }
+
+    function AddEth () payable {} // todo: dev, remove
 
     //Fallback function
     function () public payable { depositEth(""); }
@@ -322,7 +324,7 @@ contract GexBot {
         private
     {
         Message(_message, _sender, _amount);
-        require(Token1(gexAddress).transfer2(_sender, _amount));
+        require(Token1(gexAddress).transfer(_sender, _amount));
     }
 
     function transferEth(       //up to 35 000 gas
