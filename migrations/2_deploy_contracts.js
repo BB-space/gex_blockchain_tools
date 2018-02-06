@@ -9,7 +9,7 @@ async function deploy(deployer) {
     await deployer.deploy(NodeManager, GEXToken.address, 5000000);
     GEXToken.at(GEXToken.address).transferOwnership(NodeManager.address);
 
-    await deployer.deploy(GEXBot);
+    await deployer.deploy(GEXBot, GEXToken.address);
 
     let fs = require("fs");
     let jsonObject = {
