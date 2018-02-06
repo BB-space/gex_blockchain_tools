@@ -26,18 +26,17 @@ contract NodeManager {
     uint32 constant MCHAIN_MAX_LIFETIME = 2630000;
     uint16 constant HEARTBIT_UNIT = 256;
     uint16 constant HEARTBIT_TOTAL = HEARTBIT_UNIT * 2;
-    uint public constant DEPOSIT_VALUE = 100000000000000000000; //  size of a deposit to add node to the system 100 * 10 ** 18
+    //  size of a deposit to add node to the system 100 * 10 ** 18
+    uint public constant DEPOSIT_VALUE = 100000000000000000000;
 
     address tokenAddress; // address of the token contract
     uint annualMint; // total reword for nodes per year
     uint dailyMint; // daily reword for nodes
 
-// todo get key startdate
     struct Node {
-        bytes4 ip; // todo save as number and provide function for ip check
+        bytes4 ip;
         uint16 port;
-        bytes publicKey; // todo size ?
-        uint registrationDate;
+        bytes publicKey; // ECDSA public key
         uint startDate; // date when node was registered
         uint leavingDate; // date when node was moved to the Leaving state
         uint lastRewardDate; // date when node was rewarded last time
@@ -64,7 +63,7 @@ contract NodeManager {
         uint deposit; // value of tokens associated with this mchain
         bytes32 name; // mchain name
         mapping (uint => bool) mchainsPresence; // mchains aggregated by this mchain
-        uint[] mchains;
+        uint[] mchains; // list of mchains associated with this aggregation mchain
         uint nextAggregatedMchainIndex; // index to store next mchain
     }
 
@@ -80,19 +79,18 @@ contract NodeManager {
     mapping (address => uint[]) mchainIndexes;
     // mapping of owner address to aggregation mchain indexes associated with it
     mapping (address => uint[]) aggregationMchainIndexes;
-    // index to store next node
-    uint nextNodeIndex;
-    // index to store next mchain
-    uint nextMchainIndex;
-    // index to store next aggregation mchain
-    uint nextAggregationMchainIndex;
+    uint nextNodeIndex; // index to store next node
+    uint nextMchainIndex; // index to store next mchain
+    uint nextAggregationMchainIndex; // index to store next aggregation mchain
 
     /*
      *  Events
      */
 
+    // todo remove
     event Test1(bytes32 a, bytes32 b);
     event Test2();
+    //
 
     event NodeCreated(
         uint nodeID,
@@ -130,24 +128,17 @@ contract NodeManager {
         uint16 nonce
     );
 
-    // todo remove
-    event NumberEvent(uint num);
+    event WithdrawFromMchain(
+        address owner,
+        uint deposit,
+        uint mchainID
+    );
 
-    function setNumber(uint num) public {
-        NumberEvent(num);
-    }
-
-    function getNumber() public returns(uint)  {
-        return 5;
-    }
-
-    event BytesEvent(bytes data);
-
-    function testBytes(bytes data) public {
-        BytesEvent(data);
-    }
-
-    //
+    event WithdrawFromAggregationMchain(
+        address owner,
+        uint deposit,
+        uint mchainID
+    );
 
     /*
      *  Constructor
@@ -231,6 +222,8 @@ contract NodeManager {
         uint withdraw = mchain[mchainIndexes[msg.sender][index]].deposit;
         // delete mchain from the mchain list
         delete mchain[mchainIndexes[msg.sender][index]];
+        // todo uncomment and move to the end on the function
+        // WithdrawFromMchain(msg.sender, withdraw, mchainIndexes[msg.sender][index]);
         // last element will be moved or deleted
         // if the element is not last
         if(index != mchainIndexes[msg.sender].length - 1) {
@@ -241,6 +234,7 @@ contract NodeManager {
         delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
         mchainIndexes[msg.sender].length--;
         GeToken(tokenAddress).transfer(msg.sender, withdraw);
+
     }
 
     /// @dev Function withdraws deposit from a aggregation mchain with given index for msg.sender
@@ -254,6 +248,8 @@ contract NodeManager {
         uint withdraw = aggregationMchain[aggregationMchainIndexes[msg.sender][index]].deposit;
         // delete aggregation mchain from the aggregation mchain list
         delete aggregationMchain[aggregationMchainIndexes[msg.sender][index]];
+        // todo uncomment and move to the end on the function
+        // WithdrawFromAggregationMchain(msg.sender, withdraw, aggregationMchainIndexes[msg.sender][index]);
         // last element will be moved or deleted
         // if the element is not last
         if(index != aggregationMchainIndexes[msg.sender].length - 1) {
@@ -267,7 +263,7 @@ contract NodeManager {
         GeToken(tokenAddress).transfer(msg.sender, withdraw);
     }
 
-    // add withdraw event
+    // todo remove this function. We have withdrawFromAggregationMchain and withdrawFromMchain instead.
     /// @dev Function withdraws deposit from all finished mchains of msg.sender and deletes this mchains
     function withdrawFromMchains() public {
         uint withdrawTotal = 0;
@@ -279,6 +275,8 @@ contract NodeManager {
             withdrawTotal = withdrawTotal + aggregationMchain[aggregationMchainIndexes[msg.sender][i]].deposit;
             // delete mchain from the aggregation mchain list
             delete aggregationMchain[aggregationMchainIndexes[msg.sender][i]];
+            // todo uncomment and move to the end on the function
+            // WithdrawFromAggregationMchain(msg.sender, withdraw, aggregationMchainIndexes[msg.sender][index]);
             // last element will be moved or deleted
             // if the element is not last
             if(i != aggregationMchainIndexes[msg.sender].length - 1) {
@@ -301,6 +299,8 @@ contract NodeManager {
             withdrawTotal = withdrawTotal + mchain[mchainIndexes[msg.sender][i]].deposit;
             // delete mchain from the mchain list
             delete mchain[mchainIndexes[msg.sender][i]];
+            // todo uncomment and move to the end on the function
+            // WithdrawFromMchain(msg.sender, withdraw, mchainIndexes[msg.sender][index]);
             // last element will be moved or deleted
             // if the element is not last
             if(i != mchainIndexes[msg.sender].length - 1) {
@@ -320,8 +320,9 @@ contract NodeManager {
         }
     }
 
-    // todo return leaving
-    // todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList?
+    /* todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList? The same
+       for the methods below
+    */
     /// @dev Function returns an ip list of all Active nodes
     /// @return ip list
     function getActiveNodeIPs()
@@ -485,8 +486,8 @@ contract NodeManager {
     ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
     ///      Each bit represents one day
     /// @param nodeNumber Node index
-    // todo see warning
-    function heartbit(uint nodeNumber) public {
+    // todo THIS FUNCTION WAS NOT TESTED AT ALL. see warning and see test_heartbit.py
+    function heartbit(uint nodeNumber) private { // todo make public
         require(nodeIndexes[msg.sender][nodeNumber]);
         uint index = block.timestamp / SECONDS_TO_DAY - 1;
         if (index >= HEARTBIT_TOTAL && index % HEARTBIT_UNIT == 0) {
@@ -513,7 +514,8 @@ contract NodeManager {
             }
             // this transaction will work only if this contract is an owner of token contract
             GeToken(tokenAddress).mint(msg.sender, daysToPayFor * (dailyMint / getActiveNodesCount()));
-            //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, dayToPayFor * (dailyMint / getActiveNodesCount()));
+            //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender,
+            // dayToPayFor * (dailyMint / getActiveNodesCount()));
         }
     }
 
@@ -542,7 +544,6 @@ contract NodeManager {
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containing a function signature and/or parameters
-    // todo make internal here and for other callback functions
     function tokenFallback(address _from, uint _value, bytes _data) public {
         require(msg.sender == tokenAddress);
         TransactionOperation operationType = fallbackOperationTypeConvert(_data);
@@ -565,15 +566,15 @@ contract NodeManager {
     ///      port Node port for the communication inside the system
     ///      nonce Unique identifier of a current operation
     ///      ip IPv4 address of the node
-    function createNode(address _from, uint _value, bytes _data) //internal
-    {
+    function createNode(address _from, uint _value, bytes _data) internal {
         require(_value == DEPOSIT_VALUE);
         uint16 nonce;
         (nodes[nextNodeIndex].port, nonce, nodes[nextNodeIndex].ip, nodes[nextNodeIndex].publicKey) =
                 fallbackCreateNodeDataConvert(_data);
         require (nodes[nextNodeIndex].ip != 0x0); // todo add ip validation
         //  Port number is an unsigned 16-bit integer, so 65535 will the max value
-        require (nodes[nextNodeIndex].port > 0); // todo discuss port range https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
+        // todo discuss port range https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
+        require (nodes[nextNodeIndex].port > 0);
         nodes[nextNodeIndex].status = NodeStatus.Active;
         nodes[nextNodeIndex].lastRewardDate = block.timestamp;
         nodes[nextNodeIndex].startDate = block.timestamp;
@@ -641,7 +642,7 @@ contract NodeManager {
     /// @param data Data containing a function signature and/or parameters
     /// @return type of the transaction operation
      function fallbackOperationTypeConvert(bytes data)
-        //internal
+        internal
         pure
         returns (TransactionOperation)
     {
@@ -667,8 +668,8 @@ contract NodeManager {
     ///      nonce Unique identifier of a current operation
     ///      ip IPv4 address of the node
     function fallbackCreateNodeDataConvert(bytes data)
-        //internal
-        //pure
+        internal
+        pure
         returns (uint16, uint16, bytes4, bytes)
     {
         bytes4 port;
@@ -681,7 +682,7 @@ contract NodeManager {
             port := mload(add(data, 33)) // 0x21
             nonce := mload(add(data, 37)) // 0x25
             ip := mload(add(data, 41)) // 0x29
-            // todo this is hotfix to get public key
+            // todo this is hotfix to get public key with length 64 bytes
             a := mload(add(data, 45)) // 0x33
             b := mload(add(data, 77))
         }
