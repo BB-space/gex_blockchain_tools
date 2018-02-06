@@ -27,9 +27,9 @@ class TestNode(Basic):
 test = TestNode()
 hex_str = "f6c5ff277e7a050dcb8083e4952b238fd514a8692f3a25a8c60cd1aa15faaa31c3e40672cc1232e2c95204e106ffc61ea76f53ebb92ae0c05f1a27c8cc3c5fdf"
 #test.test_deposit("10.255.255.255", 6000, 12345, hex_str)
-#time.sleep(10)
-ip, port, status, publicKey, lastRewardDate, leavingDate, startDate = test.contract.call().getNode(0)
-print(test.web3.fromAscii(publicKey)[2:])
+time.sleep(300)
+#ip, port, status, publicKey, lastRewardDate, leavingDate, startDate = test.contract.call().getNode(0)
+#print(test.web3.fromAscii(publicKey)[2:])
 
 '''
 print(test.contract.call().getNodeIPs())
