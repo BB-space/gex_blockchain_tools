@@ -9,7 +9,7 @@ interface GeToken {
 /// @title Node Manager contract
 contract NodeManager {
 
-    enum NodeStatus {Active, Leaving, Left}
+    enum NodeStatus {Active, Leaving, Left} // todo add DOWN
 
     enum TransactionOperation {CreateNode, CreateMchain, CreateAggregationMchain}
 
