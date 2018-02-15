@@ -46,6 +46,7 @@ contract NodeManager {
 
     struct Mchain {
         address owner; // mchain owner
+        uint indexInOwnerList; // index in the mchainIndexes array
         uint storageBytes; // number of bytes this mchain can store
         uint lifetime;  // number of seconds this mchain will be considered as alive
         uint startDate; // date of mchain creation
@@ -212,29 +213,13 @@ contract NodeManager {
         //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, depositValue);
     }
 
-    /// @dev Function withdraws deposit from a mchain with given index for msg.sender and deletes this mchain
-    /// @param index Index of mchain in the mchains list
-    function withdrawFromMchain(uint index) public {
-        require(mchainIndexes[msg.sender].length > index);
-        require(mchain[mchainIndexes[msg.sender][index]].startDate +
-            mchain[mchainIndexes[msg.sender][index]].lifetime < block.timestamp);
-        // add mchain deposit value to the total
-        uint withdraw = mchain[mchainIndexes[msg.sender][index]].deposit;
-        // delete mchain from the mchain list
-        delete mchain[mchainIndexes[msg.sender][index]];
-        // todo uncomment and move to the end on the function
-        // WithdrawFromMchain(msg.sender, withdraw, mchainIndexes[msg.sender][index]);
-        // last element will be moved or deleted
-        // if the element is not last
-        if(index != mchainIndexes[msg.sender].length - 1) {
-            // move the last element to the place on the current element
-            mchainIndexes[msg.sender][index] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
-        }
-        // delete mchain from the mchain indexes list for msg.sender
-        delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
-        mchainIndexes[msg.sender].length--;
+    /// @dev Function withdraws deposit from a mchain with given id and deletes this mchain
+    /// @param mchainId Id of mchain
+    function withdrawFromMchain(uint mchainId) public {
+        require(mchain[mchainId].startDate + mchain[mchainId].lifetime < block.timestamp);
+        uint withdraw = mchain[mchainId].deposit;
+        deleteMchain(mchainId);
         GeToken(tokenAddress).transfer(msg.sender, withdraw);
-
     }
 
     /// @dev Function withdraws deposit from a aggregation mchain with given index for msg.sender
@@ -601,11 +586,33 @@ contract NodeManager {
         mchain[nextMchainIndex].owner = _from;
         mchain[nextMchainIndex].startDate = block.timestamp;
         mchain[nextMchainIndex].deposit = _value;
+        mchain[nextMchainIndex].indexInOwnerList = mchainIndexes[_from].length;
         mchainIndexes[_from].push(nextMchainIndex);
         MchainCreated(nextMchainIndex, _from, mchain[nextMchainIndex].storageBytes,
             mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes, _value,
             nonce, mchain[nextMchainIndex].name);
         nextMchainIndex = nextMchainIndex + 1;
+    }
+
+    /// @dev Function for deleting a mchain
+    /// @param mchainId Id of mchain
+    function deleteMchain(uint mchainId) internal {
+        require(mchain[mchainId].owner == msg.sender);
+
+        uint index = mchain[mchainId].indexInOwnerList;
+
+        // if the element is not last
+        if(index != mchainIndexes[msg.sender].length - 1) {
+            // move the last element to the place on the current element
+            mchainIndexes[msg.sender][index] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
+            mchain[mchainIndexes[msg.sender][index]].indexInOwnerList = index;
+        }
+        // delete mchain from the mchain indexes list for msg.sender
+        delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
+        mchainIndexes[msg.sender].length--;
+
+        // delete mchain from the mchain list
+        delete mchain[mchainId];
     }
 
     /// @dev Function for creating a aggregation mchain
