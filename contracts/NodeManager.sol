@@ -429,7 +429,12 @@ contract NodeManager {
         return aggregationMchainIndexes[msg.sender];
     }
 
-    ////
+    /// @dev Function checks if provided mchainId exists
+    /// @param mchainId id for check
+    /// @return true if mchainId is not used
+    function isMchainIdAvailable(string mchainId) public view returns(bool) {
+        return mchain[keccak256(mchainId)].owner == address(0);
+    }
 
     // /// @dev Function stores node heartbits and rewards node
     // ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
