@@ -1,4 +1,4 @@
-pragma solidity ^0.4.19;
+pragma solidity ^0.4.17;
 
 /// Token interface declaration
 interface GeToken {
@@ -130,7 +130,7 @@ contract NodeManager {
     event WithdrawFromMchain(
         address owner,
         uint deposit,
-        uint mchainID
+        string mchainID
     );
 
     event WithdrawFromAggregationMchain(
@@ -219,6 +219,7 @@ contract NodeManager {
         uint withdraw = mchain[id].deposit;
         deleteMchain(id);
         GeToken(tokenAddress).transfer(msg.sender, withdraw);
+        WithdrawFromMchain(msg.sender, withdraw, mchainId);
     }
 
     /// @dev Function withdraws deposit from a aggregation mchain with given index for msg.sender
