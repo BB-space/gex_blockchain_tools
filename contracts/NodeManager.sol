@@ -48,6 +48,8 @@ contract NodeManager {
         address owner; // mchain owner
         uint indexInOwnerList; // index in the mchainIndexes array
         uint storageBytes; // number of bytes this mchain can store
+        uint cpu;
+        uint transactionThroughput;
         uint lifetime;  // number of seconds this mchain will be considered as alive
         uint startDate; // date of mchain creation
         uint maxNodes; // max number of nodes associated with this mchain
@@ -351,11 +353,18 @@ contract NodeManager {
     function getMchain(string mchainId)
         public
         view
-        returns (address, string, uint, uint, uint, uint, uint)
+        returns (address, string, uint, uint, uint, uint, uint, uint, uint)
     {
         bytes32 id = keccak256(mchainId);
-        return (mchain[id].owner, mchain[id].name, mchain[id].storageBytes, mchain[id].lifetime,
-            mchain[id].startDate, mchain[id].maxNodes, mchain[id].deposit);
+        return (mchain[id].owner,
+                mchain[id].name,
+                mchain[id].storageBytes,
+                mchain[id].cpu,
+                mchain[id].transactionThroughput,
+                mchain[id].lifetime,
+                mchain[id].startDate,
+                mchain[id].maxNodes,
+                mchain[id].deposit);
     }
 
     /// @dev Function returns an aggregation mchain info by index
@@ -407,11 +416,18 @@ contract NodeManager {
     }
 
     function getMchainByIndex(uint index) public view
-            returns (address, string, uint, uint, uint, uint, uint) {
+            returns (address, string, uint, uint, uint, uint, uint, uint, uint) {
         require(index < mchainIndexes[msg.sender].length);
         bytes32 id = mchainIndexes[msg.sender][index];
-        return (mchain[id].owner, mchain[id].name, mchain[id].storageBytes, mchain[id].lifetime,
-            mchain[id].startDate, mchain[id].maxNodes, mchain[id].deposit);
+        return (mchain[id].owner,
+                mchain[id].name,
+                mchain[id].storageBytes,
+                mchain[id].cpu,
+                mchain[id].transactionThroughput,
+                mchain[id].lifetime,
+                mchain[id].startDate,
+                mchain[id].maxNodes,
+                mchain[id].deposit);
     }
 
     function getMchainIdByIndex(uint index) public view returns (string) {
@@ -687,10 +703,14 @@ contract NodeManager {
         pure
         returns (Mchain _mchain, uint16 nonce)
     {
-        require(data.length > 99);
+        require(data.length > 163);
 
         uint cursor = 1 + 32;
         _mchain.storageBytes = uint(readBytes32(data, cursor));
+        cursor += 32;
+        _mchain.cpu = uint(readBytes32(data, cursor));
+        cursor += 32;
+        _mchain.transactionThroughput = uint(readBytes32(data, cursor));
         cursor += 32;
         _mchain.lifetime = uint(readBytes32(data, cursor));
         cursor += 32;
