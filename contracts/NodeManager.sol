@@ -106,6 +106,8 @@ contract NodeManager {
         string mchainID,
         address owner,
         uint storageBytes,
+        uint cpu,
+        uint transactionThroughput,
         uint lifetime,
         uint maxNodes,
         uint deposit,
@@ -581,8 +583,15 @@ contract NodeManager {
         mchain[id] = newMchain;
         mchain[id].indexInOwnerList = mchainIndexes[_from].length;
         mchainIndexes[_from].push(id);
-        MchainCreated(newMchain.name, _from, newMchain.storageBytes, newMchain.lifetime,
-            newMchain.maxNodes, _value, nonce);
+        MchainCreated(newMchain.name,
+                      _from,
+                      newMchain.storageBytes,
+                      newMchain.cpu,
+                      newMchain.transactionThroughput,
+                      newMchain.lifetime,
+                      newMchain.maxNodes,
+                      _value,
+                      nonce);
     }
 
     /// @dev Function for deleting a mchain
