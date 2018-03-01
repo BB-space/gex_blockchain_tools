@@ -706,6 +706,7 @@ contract NodeManager {
         /*if (averageDowntime <= 200) {
             GeToken(tokenAddress).mint(msg.sender, 30 * (dailyMint / getActiveNodesCount()));
         }*/
+		validation[_nodeIndex].nextIndex = 0;
         newValidate(_nodeIndex);
     }
 
