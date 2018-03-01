@@ -66,6 +66,12 @@ contract NodeManager {
         uint[] mchains; // list of mchains associated with this aggregation mchain
         uint nextAggregatedMchainIndex; // index to store next mchain
     }
+    
+    struct Validation {
+        uint[] validate;
+        uint nextIndex;
+        uint[2][21] verdicts;
+    }
 
     // mapping of node index to a node instance
     mapping (uint => Node) nodes;
@@ -79,6 +85,8 @@ contract NodeManager {
     mapping (address => uint[]) mchainIndexes;
     // mapping of owner address to aggregation mchain indexes associated with it
     mapping (address => uint[]) aggregationMchainIndexes;
+    
+    mapping (uint => Validation) validation;
     uint nextNodeIndex; // index to store next node
     uint nextMchainIndex; // index to store next mchain
     uint nextAggregationMchainIndex; // index to store next aggregation mchain
@@ -139,7 +147,9 @@ contract NodeManager {
         uint deposit,
         uint mchainID
     );
-
+    
+    event ValidatedArray(uint id, uint[21] validators);
+    
     /*
      *  Constructor
      */
@@ -579,8 +589,124 @@ contract NodeManager {
         nodes[nextNodeIndex].lastRewardDate = block.timestamp;
         nodes[nextNodeIndex].startDate = block.timestamp;
         nodeIndexes[_from][nextNodeIndex] = true;
+        newValidate(nextNodeIndex);
         NodeCreated(nextNodeIndex, _from, nodes[nextNodeIndex].ip, nodes[nextNodeIndex].port, nonce);
         nextNodeIndex = nextNodeIndex + 1;
+    }
+    
+    //Validation functions
+    
+    /*function addNewNode() public {
+        createNode(msg.sender, DEPOSIT_VALUE, "");
+    }*/
+
+    
+    function newValidate(uint _nodeIndex) private {
+        uint hash = uint(keccak256(uint(block.blockhash(block.number)), _nodeIndex));
+        bool[] memory check = new bool[](nextNodeIndex);
+        uint[21] memory validators;
+        uint len = 0;
+        //check.length = numberOfNodes;
+        uint numberOfNodesForValidation;
+        uint numberOfNodes = nextNodeIndex;
+        while (numberOfNodesForValidation < 21 && numberOfNodesForValidation < numberOfNodes) {
+            if (nodes[hash % numberOfNodes].status == NodeStatus.Active && check[hash % numberOfNodes] == false) {
+                check[hash % numberOfNodes] = true;
+                validation[hash % numberOfNodes].validate.push(_nodeIndex);
+                numberOfNodesForValidation++;
+                hash = uint(keccak256(hash, _nodeIndex, hash % numberOfNodes));
+            } else {
+                hash = uint(keccak256(hash, _nodeIndex));
+            }
+        }
+        for (uint i = 0; i < numberOfNodes; i++) {
+            if (check[i]) {
+                validators[len] = i;
+                len++;
+            }
+            delete(check[i]);
+        }
+        ValidatedArray(_nodeIndex, validators);
+    }
+    
+    function getValidatedArray(uint _nodeIndex) view returns (uint[]){
+        require(nodeIndexes[msg.sender][_nodeIndex]);
+        return validation[_nodeIndex].validate;
+    }
+    
+    function find(uint _nodeIndex, uint _validator) private view returns (bool, uint) {
+        uint[] storage arrayValidate = validation[_validator].validate;
+        for (uint i = 0; i < arrayValidate.length; i++) {
+            if (arrayValidate[i] == _nodeIndex) {
+                return (true, i + 1);
+            }
+        }
+        return (false, 0);
+    }
+    
+    function sendVerdict(uint _validator, uint _nodeIndex, uint _dowmtime, uint _latency) public {
+        require(nodeIndexes[msg.sender][_validator]);
+        bool found;
+        uint number;
+        (found, number) = find(_nodeIndex, _validator);
+        require(found);
+        validation[_nodeIndex].verdicts[validation[_nodeIndex].nextIndex][0] = _dowmtime;
+        validation[_nodeIndex].verdicts[validation[_nodeIndex].nextIndex][1] = _latency;
+        validation[_nodeIndex].nextIndex++;
+        uint size = validation[_validator].validate.length;
+        if (number != size) {
+            validation[_validator].validate[number - 1] = validation[_validator].validate[size - 1];
+        }
+        delete(validation[_validator].validate[size - 1]);
+        validation[_validator].validate.length--;
+    }
+    
+    function sort(uint[2][21] storage _data, uint _size) private {
+        uint[] memory arr1 = new uint[](_size);
+        uint[] memory arr2 = new uint[](_size);
+        for (uint i = 0; i < _size; i++) {
+            arr1[i] = _data[i][0];
+            arr2[i] = _data[i][1];
+        }
+        for (i = 0; i < _size - 1; i++) {
+            for (uint j = 1; j < _size - i; j++) {
+                if (arr1[j - 1] > arr1[j]) {
+                    (arr1[j - 1], arr1[j]) = (arr1[j], arr1[j - 1]);
+                }
+                if (arr2[j - 1] > arr2[j]) {
+                    (arr2[j - 1], arr2[j]) = (arr2[j], arr2[j - 1]);
+                }
+            }
+        }
+        for (i = 0; i < _size; i++) {
+            _data[i][0] = arr1[i];
+            _data[i][1] = arr2[i];
+        }
+    }
+    
+    function getBounty(uint _nodeIndex) public {
+        require(nodeIndexes[msg.sender][_nodeIndex]);
+        uint[2][21] storage arrayVerdicts = validation[_nodeIndex].verdicts;
+        uint size = validation[_nodeIndex].nextIndex;
+        if (size > 0) {
+            sort(arrayVerdicts, size);
+        }
+        uint start;
+        uint finish = size;
+        if (size > 14) {
+            start = ((size - 14) + (size - 14) % 2) / 2;
+            finish = 14;
+        }
+        uint averageDowntime;
+        uint averageLatency;
+        for (uint i = 0; i < finish; i++) {
+            averageDowntime = arrayVerdicts[start + i][0];
+            averageLatency = arrayVerdicts[start + i][1];
+        }
+        /*if (averageDowntime <= 200) {
+            GeToken(tokenAddress).mint(msg.sender, 30 * (dailyMint / getActiveNodesCount()));
+        }*/
+        newValidate(_nodeIndex);
     }
 
     /// @dev Function for creating a mchain
