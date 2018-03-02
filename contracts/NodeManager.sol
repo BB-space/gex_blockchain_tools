@@ -629,9 +629,38 @@ contract NodeManager {
         ValidatedArray(_nodeIndex, validators);
     }
     
-    function getValidatedArray(uint _nodeIndex) view returns (uint[]){
+    function getBytes(uint _nodeIndex) private view returns (bytes b) {
+        b = new bytes(32);
+        bytes memory a = new bytes(32);
+        assembly {
+            mstore(add(a, 32), _nodeIndex)
+        }
+        bytes memory c = new bytes(32);
+        uint time = nodes[_nodeIndex].startDate + 2588400;
+        assembly {
+            mstore(add(c, 32), time)
+        }
+        for (uint i = 0; i < 32; i++) {
+            if (i < 14) {
+                b[i] = a[i + 32 - 14];
+            } else if (i < 28) {
+                b[i] = c[i - 14 + 32 - 14];
+            } else {
+                b[i] = nodes[_nodeIndex].ip[i - 28];
+            }
+        }
+    }
+    
+    function getValidatedArray(uint _nodeIndex) public view returns (bytes data){
         require(nodeIndexes[msg.sender][_nodeIndex]);
-        return validation[_nodeIndex].validate;
+        data = new bytes(32 * validation[_nodeIndex].validate.length);
+        bytes memory b;
+        for (uint i = 0; i < validation[_nodeIndex].validate.length; i++) {
+            b = getBytes(_nodeIndex);
+            for (uint j = 0; j < 32; j++) {
+                data[j + i * 32] = b[j];
+            }
+        }
     }
     
     function find(uint _nodeIndex, uint _validator) private view returns (bool, uint) {
@@ -706,7 +735,8 @@ contract NodeManager {
         /*if (averageDowntime <= 200) {
             GeToken(tokenAddress).mint(msg.sender, 30 * (dailyMint / getActiveNodesCount()));
         }*/
-		validation[_nodeIndex].nextIndex = 0;
+        validation[_nodeIndex].nextIndex = 0;
+        nodes[_nodeIndex].lastRewardDate = block.timestamp;
         newValidate(_nodeIndex);
     }
 
