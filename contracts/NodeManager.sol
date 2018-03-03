@@ -674,6 +674,7 @@ contract NodeManager {
     }
     
     function sendVerdict(uint _validator, uint _nodeIndex, uint _dowmtime, uint _latency) public {
+		//require(nodes[_nodeIndex].lastRewardDate + 2588400 <= block.timestamp && nodes[_nodeIndex].lastRewardDate + 2592000 >= block.timestamp);
         require(nodeIndexes[msg.sender][_validator]);
         bool found;
         uint number;
@@ -713,6 +714,10 @@ contract NodeManager {
         }
     }
     
+	function ManageBounty(address _sender, uint _nodeIndex, uint _downtime, uint _latency) private {
+        nodes[_nodeIndex].lastRewardDate = block.timestamp;
+    }
+
     function getBounty(uint _nodeIndex) public {
         require(nodeIndexes[msg.sender][_nodeIndex]);
         uint[2][21] storage arrayVerdicts = validation[_nodeIndex].verdicts;
@@ -732,11 +737,12 @@ contract NodeManager {
             averageDowntime = arrayVerdicts[start + i][0];
             averageLatency = arrayVerdicts[start + i][1];
         }
-        /*if (averageDowntime <= 200) {
-            GeToken(tokenAddress).mint(msg.sender, 30 * (dailyMint / getActiveNodesCount()));
-        }*/
+		for (i = 0; i < size; i++) {
+            delete(validation[_nodeIndex].verdicts[i][0]);
+            delete(validation[_nodeIndex].verdicts[i][1]);
+        }
         validation[_nodeIndex].nextIndex = 0;
-        nodes[_nodeIndex].lastRewardDate = block.timestamp;
+		//ManageBounty(msg.sender, _nodeIndex, averageDowntime, averageLatency);
         newValidate(_nodeIndex);
     }
 
