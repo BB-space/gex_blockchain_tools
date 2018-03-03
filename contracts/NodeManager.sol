@@ -555,7 +555,7 @@ contract NodeManager {
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containing a function signature and/or parameters
     function tokenFallback(address _from, uint _value, bytes _data) public {
-        require(msg.sender == tokenAddress);
+        irequire(msg.sender == tokenAddress);
         TransactionOperation operationType = fallbackOperationTypeConvert(_data);
         if(operationType == TransactionOperation.CreateNode) {
             // create node
@@ -656,7 +656,7 @@ contract NodeManager {
         data = new bytes(32 * validation[_nodeIndex].validate.length);
         bytes memory b;
         for (uint i = 0; i < validation[_nodeIndex].validate.length; i++) {
-            b = getBytes(_nodeIndex);
+            b = getBytes(validation[_nodeIndex].validate[i]);
             for (uint j = 0; j < 32; j++) {
                 data[j + i * 32] = b[j];
             }
