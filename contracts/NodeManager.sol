@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.4.17;
 
 /// Token interface declaration
 interface GeToken {
@@ -46,12 +46,15 @@ contract NodeManager {
 
     struct Mchain {
         address owner; // mchain owner
+        uint indexInOwnerList; // index in the mchainIndexes array
         uint storageBytes; // number of bytes this mchain can store
+        uint cpu;
+        uint transactionThroughput;
         uint lifetime;  // number of seconds this mchain will be considered as alive
         uint startDate; // date of mchain creation
         uint maxNodes; // max number of nodes associated with this mchain
         uint deposit; // value of tokens associated with this mchain
-        bytes32 name; // mchain name
+        string name; // mchain name
     }
 
     struct AggregationMchain {
@@ -77,19 +80,18 @@ contract NodeManager {
     // mapping of node index to a node instance
     mapping (uint => Node) nodes;
     // mapping of a mchain index to a mchain instance
-    mapping (uint => Mchain) mchain;
+    mapping (bytes32 => Mchain) mchain;
     // mapping of an aggregation mchain index to a aggregation mchain instance
     mapping (uint => AggregationMchain) aggregationMchain;
     // mapping of owner address to node indexes associated with it
     mapping (address => mapping (uint => bool)) nodeIndexes; // todo Note: we do not delete nodes
     // mapping of owner address to mchain indexes associated with it
-    mapping (address => uint[]) mchainIndexes;
+    mapping (address => bytes32[]) mchainIndexes;
     // mapping of owner address to aggregation mchain indexes associated with it
     mapping (address => uint[]) aggregationMchainIndexes;
     
     mapping (uint => Validation) validation;
     uint nextNodeIndex; // index to store next node
-    uint nextMchainIndex; // index to store next mchain
     uint nextAggregationMchainIndex; // index to store next aggregation mchain
 
     /*
@@ -110,14 +112,15 @@ contract NodeManager {
     );
 
     event MchainCreated(
-        uint mchainID,
+        string mchainID,
         address owner,
         uint storageBytes,
+        uint cpu,
+        uint transactionThroughput,
         uint lifetime,
         uint maxNodes,
         uint deposit,
-        uint16 nonce,
-        bytes32 name
+        uint16 nonce
     );
 
     event AggregationMchainCreated(
@@ -140,7 +143,7 @@ contract NodeManager {
     event WithdrawFromMchain(
         address owner,
         uint deposit,
-        uint mchainID
+        string mchainID
     );
 
     event WithdrawFromAggregationMchain(
@@ -170,36 +173,36 @@ contract NodeManager {
      *  Public functions
      */
 
-    /// @dev Function for adding an existed mchain to an existed aggregation mchain
-    /// @param aggregationMchainID Aggregation mchain index
-    /// @param mchainID Basic mchain index
-    /// @param nonce Unique identifier of a current operation
-    function addToAggregationMchain(
-        uint aggregationMchainID,
-        uint mchainID,
-        uint16 nonce
-    )
-    public
-    {
-        // msg.sender should be an owner of the aggregation mchain
-        require(aggregationMchain[aggregationMchainID].owner == msg.sender);
-        // mchain should be present
-        require(aggregationMchain[mchainID].owner != address(0));
-        // aggregation mchain must be alive
-        require((aggregationMchain[aggregationMchainID].startDate +
-        aggregationMchain[aggregationMchainID].lifetime) > block.timestamp);
-        // mchain must be alive
-        require((mchain[mchainID].startDate + mchain[mchainID].lifetime) > block.timestamp);
-        // mchain must expire before aggregation mchain
-        require((mchain[mchainID].startDate + mchain[mchainID].lifetime) <
-               (aggregationMchain[aggregationMchainID].startDate + aggregationMchain[aggregationMchainID].lifetime));
-        // check that mchain is not present in the aggregation mchain already
-        require(!aggregationMchain[aggregationMchainID].mchainsPresence[mchainID]);
-        aggregationMchain[aggregationMchainID].mchainsPresence[mchainID] = true;
-        aggregationMchain[aggregationMchainID].mchains.push(mchainID);
-        aggregationMchain[aggregationMchainID].nextAggregatedMchainIndex += 1;
-        MchainAdded(aggregationMchainID, mchainID, nonce);
-    }
+    // /// @dev Function for adding an existed mchain to an existed aggregation mchain
+    // /// @param aggregationMchainID Aggregation mchain index
+    // /// @param mchainID Basic mchain index
+    // /// @param nonce Unique identifier of a current operation
+    // function addToAggregationMchain(
+    //     uint aggregationMchainID,
+    //     uint mchainID,
+    //     uint16 nonce
+    // )
+    // public
+    // {
+    //     // msg.sender should be an owner of the aggregation mchain
+    //     require(aggregationMchain[aggregationMchainID].owner == msg.sender);
+    //     // mchain should be present
+    //     require(aggregationMchain[mchainID].owner != address(0));
+    //     // aggregation mchain must be alive
+    //     require((aggregationMchain[aggregationMchainID].startDate +
+    //     aggregationMchain[aggregationMchainID].lifetime) > block.timestamp);
+    //     // mchain must be alive
+    //     require((mchain[mchainID].startDate + mchain[mchainID].lifetime) > block.timestamp);
+    //     // mchain must expire before aggregation mchain
+    //     require((mchain[mchainID].startDate + mchain[mchainID].lifetime) <
+    //           (aggregationMchain[aggregationMchainID].startDate + aggregationMchain[aggregationMchainID].lifetime));
+    //     // check that mchain is not present in the aggregation mchain already
+    //     require(!aggregationMchain[aggregationMchainID].mchainsPresence[mchainID]);
+    //     aggregationMchain[aggregationMchainID].mchainsPresence[mchainID] = true;
+    //     aggregationMchain[aggregationMchainID].mchains.push(mchainID);
+    //     aggregationMchain[aggregationMchainID].nextAggregatedMchainIndex += 1;
+    //     MchainAdded(aggregationMchainID, mchainID, nonce);
+    // }
 
     /// @dev Function marks node as Leaving. After that node cannot participate in any new mchains
     /// @param nodeNumber Node index
@@ -223,29 +226,15 @@ contract NodeManager {
         //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, depositValue);
     }
 
-    /// @dev Function withdraws deposit from a mchain with given index for msg.sender and deletes this mchain
-    /// @param index Index of mchain in the mchains list
-    function withdrawFromMchain(uint index) public {
-        require(mchainIndexes[msg.sender].length > index);
-        require(mchain[mchainIndexes[msg.sender][index]].startDate +
-            mchain[mchainIndexes[msg.sender][index]].lifetime < block.timestamp);
-        // add mchain deposit value to the total
-        uint withdraw = mchain[mchainIndexes[msg.sender][index]].deposit;
-        // delete mchain from the mchain list
-        delete mchain[mchainIndexes[msg.sender][index]];
-        // todo uncomment and move to the end on the function
-        // WithdrawFromMchain(msg.sender, withdraw, mchainIndexes[msg.sender][index]);
-        // last element will be moved or deleted
-        // if the element is not last
-        if(index != mchainIndexes[msg.sender].length - 1) {
-            // move the last element to the place on the current element
-            mchainIndexes[msg.sender][index] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
-        }
-        // delete mchain from the mchain indexes list for msg.sender
-        delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
-        mchainIndexes[msg.sender].length--;
+    /// @dev Function withdraws deposit from a mchain with given id and deletes this mchain
+    /// @param mchainId Id of mchain
+    function withdrawFromMchain(string mchainId) public {
+        bytes32 id = keccak256(mchainId);
+        require(mchain[id].startDate + mchain[id].lifetime < block.timestamp);
+        uint withdraw = mchain[id].deposit;
+        deleteMchain(id);
         GeToken(tokenAddress).transfer(msg.sender, withdraw);
-
+        WithdrawFromMchain(msg.sender, withdraw, mchainId);
     }
 
     /// @dev Function withdraws deposit from a aggregation mchain with given index for msg.sender
@@ -272,63 +261,6 @@ contract NodeManager {
         delete aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
         aggregationMchainIndexes[msg.sender].length--;
         GeToken(tokenAddress).transfer(msg.sender, withdraw);
-    }
-
-    // todo remove this function. We have withdrawFromAggregationMchain and withdrawFromMchain instead.
-    /// @dev Function withdraws deposit from all finished mchains of msg.sender and deletes this mchains
-    function withdrawFromMchains() public {
-        uint withdrawTotal = 0;
-        uint i = 0;
-        while(i < aggregationMchainIndexes[msg.sender].length){
-            if(aggregationMchain[aggregationMchainIndexes[msg.sender][i]].startDate +
-            aggregationMchain[aggregationMchainIndexes[msg.sender][i]].lifetime < block.timestamp) {
-            // add mchain deposit value to the total
-            withdrawTotal = withdrawTotal + aggregationMchain[aggregationMchainIndexes[msg.sender][i]].deposit;
-            // delete mchain from the aggregation mchain list
-            delete aggregationMchain[aggregationMchainIndexes[msg.sender][i]];
-            // todo uncomment and move to the end on the function
-            // WithdrawFromAggregationMchain(msg.sender, withdraw, aggregationMchainIndexes[msg.sender][index]);
-            // last element will be moved or deleted
-            // if the element is not last
-            if(i != aggregationMchainIndexes[msg.sender].length - 1) {
-                // move the last element to the place on the current element
-                aggregationMchainIndexes[msg.sender][i] =
-                aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
-            }
-            // delete mchain from the aggregation mchain indexes list for msg.sender
-            delete aggregationMchainIndexes[msg.sender][aggregationMchainIndexes[msg.sender].length - 1];
-            aggregationMchainIndexes[msg.sender].length--;
-            } else {
-                 i++;
-            }
-        }
-        i = 0;
-        while(i<mchainIndexes[msg.sender].length){
-            if(mchain[mchainIndexes[msg.sender][i]].startDate +
-            mchain[mchainIndexes[msg.sender][i]].lifetime < block.timestamp) {
-            // add mchain deposit value to the total
-            withdrawTotal = withdrawTotal + mchain[mchainIndexes[msg.sender][i]].deposit;
-            // delete mchain from the mchain list
-            delete mchain[mchainIndexes[msg.sender][i]];
-            // todo uncomment and move to the end on the function
-            // WithdrawFromMchain(msg.sender, withdraw, mchainIndexes[msg.sender][index]);
-            // last element will be moved or deleted
-            // if the element is not last
-            if(i != mchainIndexes[msg.sender].length - 1) {
-                // move the last element to the place on the current element
-                mchainIndexes[msg.sender][i] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
-            }
-            // delete mchain from the mchain indexes list for msg.sender
-            delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
-            mchainIndexes[msg.sender].length--;
-            } else {
-                 i++;
-            }
-        }
-        if(withdrawTotal > 0) {
-            GeToken(tokenAddress).transfer(msg.sender, withdrawTotal);
-            //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender, withdrawValue);
-        }
     }
 
     /* todo result array may be huge and contain a lot of 0 because of non active nodes. Use DoublyLinkedList? The same
@@ -431,13 +363,21 @@ contract NodeManager {
     ///      startDate Number of seconds of mchain creation
     ///      maxNodes Max number of nodes associated with this mchain
     ///      deposit Value of tokens associated with this mchain
-    function getMchain(uint index)
+    function getMchain(string mchainId)
         public
         view
-        returns (address, bytes32, uint, uint, uint, uint, uint)
+        returns (address, string, uint, uint, uint, uint, uint, uint, uint)
     {
-        return (mchain[index].owner, mchain[index].name, mchain[index].storageBytes, mchain[index].lifetime,
-            mchain[index].startDate, mchain[index].maxNodes, mchain[index].deposit);
+        bytes32 id = keccak256(mchainId);
+        return (mchain[id].owner,
+                mchain[id].name,
+                mchain[id].storageBytes,
+                mchain[id].cpu,
+                mchain[id].transactionThroughput,
+                mchain[id].lifetime,
+                mchain[id].startDate,
+                mchain[id].maxNodes,
+                mchain[id].deposit);
     }
 
     /// @dev Function returns an aggregation mchain info by index
@@ -471,14 +411,41 @@ contract NodeManager {
     }
 
 
-    /// @dev Function returns mchain indexes array associated with  msg.sender
-    /// @return mchain indexes list
-    function getMchainList()
-        public
-        view
-        returns (uint[])
-    {
-        return mchainIndexes[msg.sender];
+    // /// @dev Function returns mchain ids associated with  msg.sender
+    // /// @return mchain ids list
+    // function getMchainList()
+    //     public
+    //     view
+    //     returns (string[] ids)
+    // {
+    //     ids = new string[](mchainIndexes[msg.sender].length);
+    //     for (uint i = 0; i < ids.length; ++i) {
+    //         ids[i] = mchain[mchainIndexes[msg.sender][i]].name;
+    //     }
+    // }
+
+    function getMchainListSize() public view returns (uint size) {
+        return mchainIndexes[msg.sender].length;
+    }
+
+    function getMchainByIndex(uint index) public view
+            returns (address, string, uint, uint, uint, uint, uint, uint, uint) {
+        require(index < mchainIndexes[msg.sender].length);
+        bytes32 id = mchainIndexes[msg.sender][index];
+        return (mchain[id].owner,
+                mchain[id].name,
+                mchain[id].storageBytes,
+                mchain[id].cpu,
+                mchain[id].transactionThroughput,
+                mchain[id].lifetime,
+                mchain[id].startDate,
+                mchain[id].maxNodes,
+                mchain[id].deposit);
+    }
+
+    function getMchainIdByIndex(uint index) public view returns (string) {
+        require(index < mchainIndexes[msg.sender].length);
+        return mchain[mchainIndexes[msg.sender][index]].name;
     }
 
     /// @dev Function returns aggregation mchain indexes array associated with msg.sender
@@ -491,44 +458,49 @@ contract NodeManager {
         return aggregationMchainIndexes[msg.sender];
     }
 
-    ////
-
-    /// @dev Function stores node heartbits and rewards node
-    ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
-    ///      Each bit represents one day
-    /// @param nodeNumber Node index
-    // todo THIS FUNCTION WAS NOT TESTED AT ALL. see warning and see test_heartbit.py
-    function heartbit(uint nodeNumber) private { // todo make public
-        require(nodeIndexes[msg.sender][nodeNumber]);
-        uint index = block.timestamp / SECONDS_TO_DAY - 1;
-        if (index >= HEARTBIT_TOTAL && index % HEARTBIT_UNIT == 0) {
-            nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] = 0;
-        }
-        // since HEARTBIT_TOTAL = HEARTBIT_UNIT * 2
-        // we can use % HEARTBIT_UNIT instead of % HEARTBIT_TOTAL % HEARTBIT_UNIT
-        nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] =
-            nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] | (1 << (index % HEARTBIT_UNIT));
-        // if the last reward was more than 32 days ago - check node heartbit for this period and reward
-        if (block.timestamp - nodes[nodeNumber].lastRewardDate >= PAYMENT_PERIOD){
-            nodes[nodeNumber].lastRewardDate = block.timestamp;
-            uint8 daysToPayFor = 0;
-            for(uint8 i = 0; i < PAYMENT_DAYS; i++){
-                if (nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] &
-                (1 * 2 ** (index % HEARTBIT_UNIT)) != 0) {
-                    daysToPayFor = daysToPayFor + 1;
-                     // if node was absent more than 2 days - don't pay for whole payment period
-                    if(i - daysToPayFor > ABSENT_DAYS){
-                        return;
-                    }
-                    index = index - 1;
-                }
-            }
-            // this transaction will work only if this contract is an owner of token contract
-            GeToken(tokenAddress).mint(msg.sender, daysToPayFor * (dailyMint / getActiveNodesCount()));
-            //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender,
-            // dayToPayFor * (dailyMint / getActiveNodesCount()));
-        }
+    /// @dev Function checks if provided mchainId exists
+    /// @param mchainId id for check
+    /// @return true if mchainId is not used
+    function isMchainIdAvailable(string mchainId) public view returns(bool) {
+        return mchain[keccak256(mchainId)].owner == address(0);
     }
+
+    // /// @dev Function stores node heartbits and rewards node
+    // ///      Heartbits is a bitmap which stores information about presence of a node in the system for last 512 days
+    // ///      Each bit represents one day
+    // /// @param nodeNumber Node index
+    // // todo THIS FUNCTION WAS NOT TESTED AT ALL. see warning and see test_heartbit.py
+    // function heartbit(uint nodeNumber) private { // todo make public
+    //     require(nodeIndexes[msg.sender][nodeNumber]);
+    //     uint index = block.timestamp / SECONDS_TO_DAY - 1;
+    //     if (index >= HEARTBIT_TOTAL && index % HEARTBIT_UNIT == 0) {
+    //         nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] = 0;
+    //     }
+    //     // since HEARTBIT_TOTAL = HEARTBIT_UNIT * 2
+    //     // we can use % HEARTBIT_UNIT instead of % HEARTBIT_TOTAL % HEARTBIT_UNIT
+    //     nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] =
+    //         nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] | (1 << (index % HEARTBIT_UNIT));
+    //     // if the last reward was more than 32 days ago - check node heartbit for this period and reward
+    //     if (block.timestamp - nodes[nodeNumber].lastRewardDate >= PAYMENT_PERIOD){
+    //         nodes[nodeNumber].lastRewardDate = block.timestamp;
+    //         uint8 daysToPayFor = 0;
+    //         for(uint8 i = 0; i < PAYMENT_DAYS; i++){
+    //             if (nodes[nodeNumber].heartbits[index % HEARTBIT_TOTAL / HEARTBIT_UNIT] &
+    //             (1 * 2 ** (index % HEARTBIT_UNIT)) != 0) {
+    //                 daysToPayFor = daysToPayFor + 1;
+    //                  // if node was absent more than 2 days - don't pay for whole payment period
+    //                 if(i - daysToPayFor > ABSENT_DAYS){
+    //                     return;
+    //                 }
+    //                 index = index - 1;
+    //             }
+    //         }
+    //         // this transaction will work only if this contract is an owner of token contract
+    //         GeToken(tokenAddress).mint(msg.sender, daysToPayFor * (dailyMint / getActiveNodesCount()));
+    //         //tokenAddress.call(bytes4(sha3("transfer(address, uint)")), msg.sender,
+    //         // dayToPayFor * (dailyMint / getActiveNodesCount()));
+    //     }
+    // }
 
      /*
      *  Private functions
@@ -564,10 +536,11 @@ contract NodeManager {
         } else if (operationType == TransactionOperation.CreateMchain) {
             // create mchain
             createMchain(_from, _value, _data);
-        } else {
-            // create aggregation mchain
-            createAggregationMchain(_from, _value, _data);
         }
+        // } else {
+        //     // create aggregation mchain
+        //     createAggregationMchain(_from, _value, _data);
+        // }
     }
 
     /// @dev Function for creating a node
@@ -751,49 +724,83 @@ contract NodeManager {
     ///      name mchain name
     function createMchain(address _from, uint _value, bytes _data) internal {
         uint16 nonce;
-        (mchain[nextMchainIndex].storageBytes, mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes,
-                nonce, mchain[nextMchainIndex].name) = fallbackCreateMchainDataConvert(_data);
+        Mchain memory newMchain;
+        (newMchain, nonce) = fallbackCreateMchainDataConvert(_data);
         // mchain can live max 30 days
-        require(mchain[nextMchainIndex].lifetime <= MCHAIN_MAX_LIFETIME);
-        mchain[nextMchainIndex].owner = _from;
-        mchain[nextMchainIndex].startDate = block.timestamp;
-        mchain[nextMchainIndex].deposit = _value;
-        mchainIndexes[_from].push(nextMchainIndex);
-        MchainCreated(nextMchainIndex, _from, mchain[nextMchainIndex].storageBytes,
-            mchain[nextMchainIndex].lifetime, mchain[nextMchainIndex].maxNodes, _value,
-            nonce, mchain[nextMchainIndex].name);
-        nextMchainIndex = nextMchainIndex + 1;
+        require(newMchain.lifetime <= MCHAIN_MAX_LIFETIME);
+
+        // name must be unique
+        bytes32 id = keccak256(newMchain.name);
+        require(mchain[id].owner == address(0));
+
+        newMchain.owner = _from;
+        newMchain.startDate = block.timestamp;
+        newMchain.deposit = _value;
+
+        mchain[id] = newMchain;
+        mchain[id].indexInOwnerList = mchainIndexes[_from].length;
+        mchainIndexes[_from].push(id);
+        MchainCreated(newMchain.name,
+                      _from,
+                      newMchain.storageBytes,
+                      newMchain.cpu,
+                      newMchain.transactionThroughput,
+                      newMchain.lifetime,
+                      newMchain.maxNodes,
+                      _value,
+                      nonce);
     }
 
-    /// @dev Function for creating a aggregation mchain
-    /// @param _from Transaction initiator, analogue of msg.sender
-    /// @param _value Number of tokens to transfer.
-    /// @param _data Data containing a function signature and/or parameters:
-    ///      storageBytes Number of bytes this mchain can store
-    ///      lifetime Number of seconds this mchain will be considered as alive
-    ///      maxNodes Max number of nodes associated with this mchain
-    ///      nonce Unique identifier of a current operation
-    ///      name mchain name
-    function createAggregationMchain(address _from, uint _value, bytes _data) internal {
-        uint16 nonce;
-        (aggregationMchain[nextAggregationMchainIndex].storageBytes,
-                aggregationMchain[nextAggregationMchainIndex].lifetime,
-                aggregationMchain[nextAggregationMchainIndex].maxNodes, nonce,
-                aggregationMchain[nextAggregationMchainIndex].name) =
-                fallbackCreateMchainDataConvert(_data);
-        // mchain can live max 30 days
-        require(aggregationMchain[nextAggregationMchainIndex].lifetime <= MCHAIN_MAX_LIFETIME);
-        aggregationMchain[nextAggregationMchainIndex].owner = _from;
-        aggregationMchain[nextAggregationMchainIndex].startDate = block.timestamp;
-        aggregationMchain[nextAggregationMchainIndex].deposit = _value;
-        aggregationMchainIndexes[_from].push(nextAggregationMchainIndex);
-        AggregationMchainCreated(nextAggregationMchainIndex, _from,
-                aggregationMchain[nextAggregationMchainIndex].storageBytes,
-                aggregationMchain[nextAggregationMchainIndex].lifetime,
-                aggregationMchain[nextAggregationMchainIndex].maxNodes, _value, nonce,
-                aggregationMchain[nextAggregationMchainIndex].name);
-        nextAggregationMchainIndex = nextAggregationMchainIndex + 1;
+    /// @dev Function for deleting a mchain
+    /// @param mchainId Id of mchain
+    function deleteMchain(bytes32 mchainId) internal {
+        require(mchain[mchainId].owner == msg.sender);
+
+        uint index = mchain[mchainId].indexInOwnerList;
+
+        // if the element is not last
+        if(index != mchainIndexes[msg.sender].length - 1) {
+            // move the last element to the place on the current element
+            mchainIndexes[msg.sender][index] = mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
+            mchain[mchainIndexes[msg.sender][index]].indexInOwnerList = index;
+        }
+        // delete mchain from the mchain indexes list for msg.sender
+        delete mchainIndexes[msg.sender][mchainIndexes[msg.sender].length - 1];
+        mchainIndexes[msg.sender].length--;
+
+        // delete mchain from the mchain list
+        delete mchain[mchainId];
     }
+
+    // /// @dev Function for creating a aggregation mchain
+    // /// @param _from Transaction initiator, analogue of msg.sender
+    // /// @param _value Number of tokens to transfer.
+    // /// @param _data Data containing a function signature and/or parameters:
+    // ///      storageBytes Number of bytes this mchain can store
+    // ///      lifetime Number of seconds this mchain will be considered as alive
+    // ///      maxNodes Max number of nodes associated with this mchain
+    // ///      nonce Unique identifier of a current operation
+    // ///      name mchain name
+    // function createAggregationMchain(address _from, uint _value, bytes _data) internal {
+    //     uint16 nonce;
+    //     (aggregationMchain[nextAggregationMchainIndex].storageBytes,
+    //             aggregationMchain[nextAggregationMchainIndex].lifetime,
+    //             aggregationMchain[nextAggregationMchainIndex].maxNodes, nonce,
+    //             aggregationMchain[nextAggregationMchainIndex].name) =
+    //             fallbackCreateMchainDataConvert(_data);
+    //     // mchain can live max 30 days
+    //     require(aggregationMchain[nextAggregationMchainIndex].lifetime <= MCHAIN_MAX_LIFETIME);
+    //     aggregationMchain[nextAggregationMchainIndex].owner = _from;
+    //     aggregationMchain[nextAggregationMchainIndex].startDate = block.timestamp;
+    //     aggregationMchain[nextAggregationMchainIndex].deposit = _value;
+    //     aggregationMchainIndexes[_from].push(nextAggregationMchainIndex);
+    //     AggregationMchainCreated(nextAggregationMchainIndex, _from,
+    //             aggregationMchain[nextAggregationMchainIndex].storageBytes,
+    //             aggregationMchain[nextAggregationMchainIndex].lifetime,
+    //             aggregationMchain[nextAggregationMchainIndex].maxNodes, _value, nonce,
+    //             aggregationMchain[nextAggregationMchainIndex].name);
+    //     nextAggregationMchainIndex = nextAggregationMchainIndex + 1;
+    // }
 
     /// @dev Function for parsing first 2 data bytes to determine the type of the transaction operation
     /// @param data Data containing a function signature and/or parameters
@@ -860,21 +867,41 @@ contract NodeManager {
     function fallbackCreateMchainDataConvert(bytes data)
         internal
         pure
-        returns (uint, uint, uint, uint16, bytes32)
+        returns (Mchain _mchain, uint16 nonce)
     {
-        bytes32 storageBytes;
-        bytes32 lifetime;
-        bytes32 maxNodes;
-        bytes4 nonce;
-        bytes32 name;
-        assembly {
-            storageBytes := mload(add(data, 33))
-            lifetime := mload(add(data, 65))
-            maxNodes := mload(add(data, 97))
-            nonce := mload(add(data, 129))
-            name := mload(add(data, 133))
+        require(data.length > 163);
+
+        uint cursor = 1 + 32;
+        _mchain.storageBytes = uint(readBytes32(data, cursor));
+        cursor += 32;
+        _mchain.cpu = uint(readBytes32(data, cursor));
+        cursor += 32;
+        _mchain.transactionThroughput = uint(readBytes32(data, cursor));
+        cursor += 32;
+        _mchain.lifetime = uint(readBytes32(data, cursor));
+        cursor += 32;
+        _mchain.maxNodes = uint(readBytes32(data, cursor));
+        cursor += 32;
+        nonce = uint16(readBytes2(data, cursor));
+        cursor += 2;
+
+        uint index = cursor - 32;
+        _mchain.name = new string(data.length - index);
+        for (uint i = 0; i < bytes(_mchain.name).length; ++i) {
+            bytes(_mchain.name)[i] = data[index + i];
         }
-        return (uint(storageBytes), uint(lifetime), uint(maxNodes), uint16(nonce), name);
+    }
+
+    function readBytes32(bytes data, uint cursor) internal pure returns (bytes32 result) {
+        assembly {
+            result := mload(add(data, cursor))
+        }
+    }
+
+    function readBytes2(bytes data, uint cursor) internal pure returns (bytes2 result) {
+        assembly {
+            result := mload(add(data, cursor))
+        }
     }
 
         /*
