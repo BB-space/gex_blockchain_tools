@@ -71,7 +71,6 @@ contract NodeManager {
     }
     
     struct Validation {
-        uint[] validate;
 		bytes32[] validatedNodes;
         uint nextIndex;
         uint[2][21] verdicts;
@@ -586,7 +585,7 @@ contract NodeManager {
         while (numberOfNodesForValidation < 21 && numberOfNodesForValidation < numberOfNodes) {
             if (nodes[hash % numberOfNodes].status == NodeStatus.Active && check[hash % numberOfNodes] == false) {
                 check[hash % numberOfNodes] = true;
-                validation[hash % numberOfNodes].validate.push(_nodeIndex);
+                //validation[hash % numberOfNodes].validate.push(_nodeIndex);
 				validation[hash % numberOfNodes].validatedNodes.push(getBytes(_nodeIndex));
                 numberOfNodesForValidation++;
                 hash = uint(keccak256(hash, _nodeIndex, hash % numberOfNodes));
@@ -616,6 +615,16 @@ contract NodeManager {
             f := mload(add(b, 32))
         }
     }
+
+	function bytesToUint(bytes32 _f) private pure returns (uint id) {
+        bytes memory a = new bytes(32);
+        bytes14 b;
+        assembly {
+            mstore(add(a, 32), _f)
+            b := mload(add(a, 32))
+        }
+        id = uint(b);
+    }
     
     function getValidatedArray(uint _nodeIndex) public view returns (bytes32[]){
         require(nodeIndexes[msg.sender][_nodeIndex]);
@@ -631,9 +640,9 @@ contract NodeManager {
     }
     
     function find(uint _nodeIndex, uint _validator) private view returns (bool, uint) {
-        uint[] storage arrayValidate = validation[_validator].validate;
+        bytes32[] storage arrayValidate = validation[_validator].validatedNodes;
         for (uint i = 0; i < arrayValidate.length; i++) {
-            if (arrayValidate[i] == _nodeIndex) {
+            if (bytesToUint(arrayValidate[i]) == _nodeIndex) {
                 return (true, i + 1);
             }
         }
@@ -650,12 +659,12 @@ contract NodeManager {
         validation[_nodeIndex].verdicts[validation[_nodeIndex].nextIndex][0] = _dowmtime;
         validation[_nodeIndex].verdicts[validation[_nodeIndex].nextIndex][1] = _latency;
         validation[_nodeIndex].nextIndex++;
-        uint size = validation[_validator].validate.length;
+        uint size = validation[_validator].validatedNodes.length;
         if (number != size) {
-            validation[_validator].validate[number - 1] = validation[_validator].validate[size - 1];
+            validation[_validator].validatedNodes[number - 1] = validation[_validator].validatedNodes[size - 1];
         }
-        delete(validation[_validator].validate[size - 1]);
-        validation[_validator].validate.length--;
+        delete(validation[_validator].validatedNodes[size - 1]);
+        validation[_validator].validatedNodes.length--;
     }
     
     function sort(uint[2][21] storage _data, uint _size) private {
