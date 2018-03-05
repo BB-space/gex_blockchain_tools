@@ -527,7 +527,7 @@ contract NodeManager {
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containing a function signature and/or parameters
     function tokenFallback(address _from, uint _value, bytes _data) public {
-        irequire(msg.sender == tokenAddress);
+        require(msg.sender == tokenAddress);
         TransactionOperation operationType = fallbackOperationTypeConvert(_data);
         if(operationType == TransactionOperation.CreateNode) {
             // create node
