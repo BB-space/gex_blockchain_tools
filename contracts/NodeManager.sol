@@ -69,6 +69,7 @@ contract NodeManager {
     
     struct Validation {
         uint[] validate;
+		bytes32[] validatedNodes;
         uint nextIndex;
         uint[2][21] verdicts;
     }
@@ -555,7 +556,7 @@ contract NodeManager {
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containing a function signature and/or parameters
     function tokenFallback(address _from, uint _value, bytes _data) public {
-        irequire(msg.sender == tokenAddress);
+        require(msg.sender == tokenAddress);
         TransactionOperation operationType = fallbackOperationTypeConvert(_data);
         if(operationType == TransactionOperation.CreateNode) {
             // create node
@@ -613,6 +614,7 @@ contract NodeManager {
             if (nodes[hash % numberOfNodes].status == NodeStatus.Active && check[hash % numberOfNodes] == false) {
                 check[hash % numberOfNodes] = true;
                 validation[hash % numberOfNodes].validate.push(_nodeIndex);
+				validation[hash % numberOfNodes].validatedNodes.push(getBytes(_nodeIndex));
                 numberOfNodesForValidation++;
                 hash = uint(keccak256(hash, _nodeIndex, hash % numberOfNodes));
             } else {
@@ -629,38 +631,30 @@ contract NodeManager {
         ValidatedArray(_nodeIndex, validators);
     }
     
-    function getBytes(uint _nodeIndex) private view returns (bytes b) {
-        b = new bytes(32);
-        bytes memory a = new bytes(32);
+    function getBytes(uint _nodeIndex) private view returns (bytes32 f) {
+        bytes memory b = new bytes(32);
+        bytes14 a = bytes14(_nodeIndex);
+		bytes14 c = bytes14(nodes[_nodeIndex].startDate + 2588400);
+		bytes4 d = nodes[_nodeIndex].ip;
         assembly {
-            mstore(add(a, 32), _nodeIndex)
-        }
-        bytes memory c = new bytes(32);
-        uint time = nodes[_nodeIndex].startDate + 2588400;
-        assembly {
-            mstore(add(c, 32), time)
-        }
-        for (uint i = 0; i < 32; i++) {
-            if (i < 14) {
-                b[i] = a[i + 32 - 14];
-            } else if (i < 28) {
-                b[i] = c[i - 14 + 32 - 14];
-            } else {
-                b[i] = nodes[_nodeIndex].ip[i - 28];
-            }
+            mstore(add(b, 32), a)
+            mstore(add(b, 46), c)
+            mstore(add(b, 60), d)
+            f := mload(add(b, 32))
         }
     }
     
-    function getValidatedArray(uint _nodeIndex) public view returns (bytes data){
+    function getValidatedArray(uint _nodeIndex) public view returns (bytes32[]){
         require(nodeIndexes[msg.sender][_nodeIndex]);
-        data = new bytes(32 * validation[_nodeIndex].validate.length);
+        /*data = new bytes(32 * validation[_nodeIndex].validate.length);
         bytes memory b;
         for (uint i = 0; i < validation[_nodeIndex].validate.length; i++) {
             b = getBytes(validation[_nodeIndex].validate[i]);
             for (uint j = 0; j < 32; j++) {
                 data[j + i * 32] = b[j];
             }
-        }
+        }*/
+		return validation[_nodeIndex].validatedNodes;
     }
     
     function find(uint _nodeIndex, uint _validator) private view returns (bool, uint) {
