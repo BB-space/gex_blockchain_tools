@@ -691,6 +691,20 @@ contract NodeManager {
     }
     
 	function ManageBounty(address _sender, uint _nodeIndex, uint _downtime, uint _latency) private {
+		uint diffTime;
+	    uint BOUNTY = 1000000000;
+	    if (block.timestamp > nodes[_nodeIndex].lastRewardDate + 2595600) {
+	        diffTime = block.timestamp - nodes[_nodeIndex].lastRewardDate + 2595600;
+	    }
+	    uint diffBounty;
+	    if (_downtime > 200) {
+	        diffBounty = ((_downtime + diffTime) * BOUNTY) / 21600;
+	    }
+	    uint bounty = BOUNTY - diffBounty;
+	    if (_latency > 150) {
+	        bounty = (150 * bounty) / _latency;
+	    }
+	    //GeToken(tokenAddress).mint(msg.sender, bounty);
         nodes[_nodeIndex].lastRewardDate = block.timestamp;
     }
 
