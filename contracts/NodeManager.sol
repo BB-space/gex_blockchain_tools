@@ -667,7 +667,7 @@ contract NodeManager {
         validation[_validator].validatedNodes.length--;
     }
     
-    function sort(uint[2][21] storage _data, uint _size) private {
+    /*function sort(uint[2][21] storage _data, uint _size) private {
         uint[] memory arr1 = new uint[](_size);
         uint[] memory arr2 = new uint[](_size);
         for (uint i = 0; i < _size; i++) {
@@ -688,6 +688,24 @@ contract NodeManager {
             _data[i][0] = arr1[i];
             _data[i][1] = arr2[i];
         }
+    }*/
+	
+	function quickSort(uint _nodeIndex, uint p, uint _left, uint _right) {
+        uint il = _left;
+        uint ir = _right;
+        uint mid = validation[_nodeIndex].verdicts[(_right + _left) / 2][p];
+        while (il <= ir) {
+            while (validation[_nodeIndex].verdicts[il][p] <= mid) il++;
+            while (mid <= validation[_nodeIndex].verdicts[ir][p]) ir--;
+            if (il <= ir) {
+                (validation[_nodeIndex].verdicts[il][p], validation[_nodeIndex].verdicts[ir][p]) = (validation[_nodeIndex].verdicts[ir][p], validation[_nodeIndex].verdicts[il][p]);
+                il++;
+                ir--;
+            }
+        }
+        if (_left < ir) quickSort(_nodeIndex, p, _left, ir);
+        if (il < _right) quickSort(_nodeIndex, p, il, _right);
+        
     }
     
 	function ManageBounty(address _sender, uint _nodeIndex, uint _downtime, uint _latency) private {
@@ -710,10 +728,10 @@ contract NodeManager {
 
     function getBounty(uint _nodeIndex) public {
         require(nodeIndexes[msg.sender][_nodeIndex]);
-        uint[2][21] storage arrayVerdicts = validation[_nodeIndex].verdicts;
-        uint size = validation[_nodeIndex].nextIndex;
+		uint size = validation[_nodeIndex].nextIndex;
         if (size > 0) {
-            sort(arrayVerdicts, size);
+            quickSort(_nodeIndex, 0, 0, size - 1);
+			quickSort(_nodeIndex, 1, 0, size - 1);
         }
         uint start;
         uint finish = size;
@@ -724,8 +742,8 @@ contract NodeManager {
         uint averageDowntime;
         uint averageLatency;
         for (uint i = 0; i < finish; i++) {
-            averageDowntime = arrayVerdicts[start + i][0];
-            averageLatency = arrayVerdicts[start + i][1];
+            averageDowntime = validation[_nodeIndex].verdicts[start + i][0];
+            averageLatency = validation[_nodeIndex].verdicts[start + i][1];
         }
 		for (i = 0; i < size; i++) {
             delete(validation[_nodeIndex].verdicts[i][0]);
