@@ -1,9 +1,9 @@
 from populus import Project
 
-try:
-    from .config import *
-except SystemError:
-    from config import *
+#try:
+#    from .config import *
+#except SystemError:
+from config import *
 
 print("Unlocking account[0]")
 project = Project()
