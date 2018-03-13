@@ -274,7 +274,7 @@ contract NodeManager {
     {
         arr = new bytes4[](nextNodeIndex);
         uint j = 0;
-        for (uint i = 1; i < nextNodeIndex; i++) {
+        for (uint i = 0; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
                 arr[j] = nodes[i].ip;
                 j++;
@@ -325,7 +325,7 @@ contract NodeManager {
     {
         arr = new uint[](nextNodeIndex);
         uint j = 0;
-        for (uint i = 1; i < nextNodeIndex; i++) {
+        for (uint i = 0; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
                 arr[j] = i;
                 j++;
@@ -576,29 +576,25 @@ contract NodeManager {
     
     function newValidate(uint _nodeIndex) private {
         uint hash = uint(keccak256(uint(block.blockhash(block.number)), _nodeIndex));
-        bool[] memory check = new bool[](nextNodeIndex);
+		uint numberOfNodes = nextNodeIndex;
+        bool[] memory check = new bool[](numberOfNodes);
         uint[21] memory validators;
-        uint len = 0;
+        uint8 len = 0;
         //check.length = numberOfNodes;
-        uint numberOfNodesForValidation;
-        uint numberOfNodes = nextNodeIndex;
-        while (numberOfNodesForValidation < 21 && numberOfNodesForValidation < numberOfNodes) {
-            if (nodes[hash % numberOfNodes].status == NodeStatus.Active && check[hash % numberOfNodes] == false) {
-                check[hash % numberOfNodes] = true;
-                //validation[hash % numberOfNodes].validate.push(_nodeIndex);
-				validation[hash % numberOfNodes].validatedNodes.push(getBytes(_nodeIndex));
+        uint8 numberOfNodesForValidation;
+		uint num;
+        while (numberOfNodesForValidation < 21 && uint(numberOfNodesForValidation) < numberOfNodes) {
+			num = hash % numberOfNodes;
+            if (nodes[num].status == NodeStatus.Active && check[num] == false) {
+                check[num] = true;
+				validation[num].validatedNodes.push(getBytes(_nodeIndex));
+				validators[len] = num;
+				len++;
                 numberOfNodesForValidation++;
-                hash = uint(keccak256(hash, _nodeIndex, hash % numberOfNodes));
+                hash = uint(keccak256(hash, _nodeIndex, num));
             } else {
                 hash = uint(keccak256(hash, _nodeIndex));
             }
-        }
-        for (uint i = 0; i < numberOfNodes; i++) {
-            if (check[i]) {
-                validators[len] = i;
-                len++;
-            }
-            delete(check[i]);
         }
         ValidatedArray(_nodeIndex, validators);
     }
@@ -606,7 +602,7 @@ contract NodeManager {
     function getBytes(uint _nodeIndex) private view returns (bytes32 f) {
         bytes memory b = new bytes(32);
         bytes14 a = bytes14(_nodeIndex);
-		bytes14 c = bytes14(nodes[_nodeIndex].startDate + 2588400);
+		bytes14 c = bytes14(nodes[_nodeIndex].lastRewardDate + 2588400);
 		bytes4 d = nodes[_nodeIndex].ip;
         assembly {
             mstore(add(b, 32), a)
@@ -628,14 +624,6 @@ contract NodeManager {
     
     function getValidatedArray(uint _nodeIndex) public view returns (bytes32[]){
         require(nodeIndexes[msg.sender][_nodeIndex]);
-        /*data = new bytes(32 * validation[_nodeIndex].validate.length);
-        bytes memory b;
-        for (uint i = 0; i < validation[_nodeIndex].validate.length; i++) {
-            b = getBytes(validation[_nodeIndex].validate[i]);
-            for (uint j = 0; j < 32; j++) {
-                data[j + i * 32] = b[j];
-            }
-        }*/
 		return validation[_nodeIndex].validatedNodes;
     }
     
@@ -690,24 +678,24 @@ contract NodeManager {
         }
     }*/
 	
-	function quickSort(uint _nodeIndex, uint p, uint _left, uint _right) {
-        uint il = _left;
-        uint ir = _right;
-        uint mid = validation[_nodeIndex].verdicts[(_right + _left) / 2][p];
+	function quickSort(uint[] memory arr, uint8 _left, uint8 _right) {
+        uint8 il = _left;
+        uint8 ir = _right;
+        uint mid = arr[(_right + _left) / 2];
         while (il <= ir) {
-            while (validation[_nodeIndex].verdicts[il][p] <= mid) il++;
-            while (mid <= validation[_nodeIndex].verdicts[ir][p]) ir--;
+            while (arr[il] < mid) il++;
+            while (mid < arr[ir]) ir--;
             if (il <= ir) {
-                (validation[_nodeIndex].verdicts[il][p], validation[_nodeIndex].verdicts[ir][p]) = (validation[_nodeIndex].verdicts[ir][p], validation[_nodeIndex].verdicts[il][p]);
+                (arr[il], arr[ir]) = (arr[ir], arr[il]);
                 il++;
-                ir--;
+                ir = (ir > 0 ? ir - 1 : 0);
             }
         }
-        if (_left < ir) quickSort(_nodeIndex, p, _left, ir);
-        if (il < _right) quickSort(_nodeIndex, p, il, _right);
-        
+        if (_left < ir) quickSort(arr, _left, ir);
+        if (il < _right) quickSort(arr, il, _right);
+
     }
-    
+
 	function ManageBounty(address _sender, uint _nodeIndex, uint _downtime, uint _latency) private {
 		uint diffTime;
 	    uint BOUNTY = 1000000000;
@@ -728,29 +716,35 @@ contract NodeManager {
 
     function getBounty(uint _nodeIndex) public {
         require(nodeIndexes[msg.sender][_nodeIndex]);
-		uint size = validation[_nodeIndex].nextIndex;
-        if (size > 0) {
-            quickSort(_nodeIndex, 0, 0, size - 1);
-			quickSort(_nodeIndex, 1, 0, size - 1);
+		uint8 size = validation[_nodeIndex].nextIndex;
+        uint[] memory arr1 = new uint[](size);
+        uint[] memory arr2 = new uint[](size);
+        for (uint8 i = 0; i < size; i++) {
+            arr1[i] = validation[_nodeIndex].verdicts[i][0];
+            arr2[i] = validation[_nodeIndex].verdicts[i][1];
         }
-        uint start;
-        uint finish = size;
+        if (size > 0) {
+            quickSort(arr1, 0, size - 1);
+            quickSort(arr2, 0, size - 1);
+        }
+        uint8 start;
+        uint8 finish = size;
         if (size > 14) {
             start = ((size - 14) + (size - 14) % 2) / 2;
             finish = 14;
         }
         uint averageDowntime;
         uint averageLatency;
-        for (uint i = 0; i < finish; i++) {
-            averageDowntime = validation[_nodeIndex].verdicts[start + i][0];
-            averageLatency = validation[_nodeIndex].verdicts[start + i][1];
+        for (i = 0; i < finish; i++) {
+            averageDowntime = arr1[start + i];
+            averageLatency = arr2[start + i];
         }
 		for (i = 0; i < size; i++) {
             delete(validation[_nodeIndex].verdicts[i][0]);
             delete(validation[_nodeIndex].verdicts[i][1]);
         }
         validation[_nodeIndex].nextIndex = 0;
-		//ManageBounty(msg.sender, _nodeIndex, averageDowntime, averageLatency);
+		ManageBounty(msg.sender, _nodeIndex, averageDowntime, averageLatency);
         newValidate(_nodeIndex);
     }
 
