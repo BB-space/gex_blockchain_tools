@@ -72,7 +72,7 @@ contract NodeManager {
     
     struct Validation {
 		bytes32[] validatedNodes;
-        uint nextIndex;
+        uint8 nextIndex;
         uint[2][21] verdicts;
     }
 
@@ -580,21 +580,21 @@ contract NodeManager {
         bool[] memory check = new bool[](numberOfNodes);
         uint[21] memory validators;
         uint8 len = 0;
-        //check.length = numberOfNodes;
-        uint8 numberOfNodesForValidation;
+        uint8 finish;
 		uint num;
-        while (numberOfNodesForValidation < 21 && uint(numberOfNodesForValidation) < numberOfNodes) {
+		if (21 > numberOfNodes) {
+			finish = uint8(numberOfNodes);
+		}
+        while (finish > 0) {
 			num = hash % numberOfNodes;
             if (nodes[num].status == NodeStatus.Active && check[num] == false) {
                 check[num] = true;
 				validation[num].validatedNodes.push(getBytes(_nodeIndex));
 				validators[len] = num;
 				len++;
-                numberOfNodesForValidation++;
-                hash = uint(keccak256(hash, _nodeIndex, num));
-            } else {
-                hash = uint(keccak256(hash, _nodeIndex));
-            }
+                finish--;
+             }
+             hash = uint(keccak256(hash, num));
         }
         ValidatedArray(_nodeIndex, validators);
     }
@@ -627,24 +627,23 @@ contract NodeManager {
 		return validation[_nodeIndex].validatedNodes;
     }
     
-    function find(uint _nodeIndex, uint _validator) private view returns (bool, uint) {
-        bytes32[] storage arrayValidate = validation[_validator].validatedNodes;
-        for (uint i = 0; i < arrayValidate.length; i++) {
-            if (bytesToUint(arrayValidate[i]) == _nodeIndex) {
+    function find(uint _nodeIndex, bytes32[] memory _arrayValidate) private view returns (bool, uint) {
+        for (uint i = 0; i < _arrayValidate.length; i++) {
+            if (bytesToUint(_arrayValidate[i]) == _nodeIndex) {
                 return (true, i + 1);
             }
         }
         return (false, 0);
     }
     
-    function sendVerdict(uint _validator, uint _nodeIndex, uint _dowmtime, uint _latency) public {
+    function sendVerdict(uint _validator, uint _nodeIndex, uint _downtime, uint _latency) public {
 		//require(nodes[_nodeIndex].lastRewardDate + 2588400 <= block.timestamp && nodes[_nodeIndex].lastRewardDate + 2592000 >= block.timestamp);
         require(nodeIndexes[msg.sender][_validator]);
         bool found;
         uint number;
-        (found, number) = find(_nodeIndex, _validator);
+        (found, number) = find(_nodeIndex, validation[_validator].validatedNodes);
         require(found);
-        validation[_nodeIndex].verdicts[validation[_nodeIndex].nextIndex][0] = _dowmtime;
+        validation[_nodeIndex].verdicts[validation[_nodeIndex].nextIndex][0] = _downtime;
         validation[_nodeIndex].verdicts[validation[_nodeIndex].nextIndex][1] = _latency;
         validation[_nodeIndex].nextIndex++;
         uint size = validation[_validator].validatedNodes.length;
@@ -678,7 +677,7 @@ contract NodeManager {
         }
     }*/
 	
-	function quickSort(uint[] memory arr, uint8 _left, uint8 _right) {
+	function quickSort(uint[] memory arr, uint8 _left, uint8 _right) private {
         uint8 il = _left;
         uint8 ir = _right;
         uint mid = arr[(_right + _left) / 2];
@@ -743,7 +742,7 @@ contract NodeManager {
             delete(validation[_nodeIndex].verdicts[i][0]);
             delete(validation[_nodeIndex].verdicts[i][1]);
         }
-        validation[_nodeIndex].nextIndex = 0;
+        delete(validation[_nodeIndex].nextIndex);
 		ManageBounty(msg.sender, _nodeIndex, averageDowntime, averageLatency);
         newValidate(_nodeIndex);
     }
