@@ -333,6 +333,14 @@ contract NodeManager {
         }
     }
 
+	function getActiveNodesByAddress(address _sender) public view returns (uint[] memory arr) {
+		for (uint i = 0; i < nextNodeIndex; i++) {
+			if (nodesIndexes[_sender][i] && nodes[i].status == NodeStatus.Active) {
+				arr.push(i);
+			}
+		}
+	}
+
     //// Next methods don't have any checks - they will return empty values if not present
 
     /// @dev Function returns an node info by index
