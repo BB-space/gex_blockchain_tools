@@ -13,13 +13,14 @@ contract GEXToken is StandardToken, Ownable {
 
     uint public constant decimals = 18;
 
-    uint public constant cap = 100000 * 10 ** decimals; // the maximum amount of tokens that can ever be created
+    uint public constant cap = 5000000000 * 10 ** decimals; // the maximum amount of tokens that can ever be created
 
     event Mint(address indexed to, uint256 amount);
 
     event Burn(address indexed from, uint256 amount);
 
     function GEXToken(){
+		totalSupply = 1000000 * 10 ** decimals;
         balances[msg.sender] = 1000000 * 10 ** decimals;
         // TODO remove after testing
     }
