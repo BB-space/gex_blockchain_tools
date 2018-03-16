@@ -334,12 +334,21 @@ contract NodeManager {
     }
 
 	function getActiveNodesByAddress(address _sender) public view returns (uint[] memory arr) {
-		for (uint i = 0; i < nextNodeIndex; i++) {
-			if (nodesIndexes[_sender][i] && nodes[i].status == NodeStatus.Active) {
-				arr.push(i);
-			}
-		}
-	}
+        uint count;
+        for (uint i = 0; i < nextNodeIndex; i++) {
+            if (nodeIndexes[_sender][i] && nodes[i].status == NodeStatus.Active) {
+                count++;
+            }
+        }
+        arr = new uint[](count);
+        uint j;
+        for (i = 0; i < nextNodeIndex; i++) {
+            if (nodeIndexes[_sender][i] && nodes[i].status == NodeStatus.Active) {
+                arr[j] = i;
+                j++;
+            }
+        }
+    }
 
     //// Next methods don't have any checks - they will return empty values if not present
 
