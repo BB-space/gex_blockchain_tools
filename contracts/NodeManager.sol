@@ -171,7 +171,7 @@ contract NodeManager {
         tokenAddress = _token;
         annualMint = _annualMint;
         //dailyMint = annualMint / 365;
-        dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
+        //dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
     }
 
     /*
@@ -280,7 +280,7 @@ contract NodeManager {
     {
         arr = new bytes4[](nextNodeIndex);
         uint j = 0;
-        for (uint i = 1; i < nextNodeIndex; i++) {
+        for (uint i = 0; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
                 arr[j] = nodes[i].ip;
                 j++;
@@ -331,7 +331,7 @@ contract NodeManager {
     {
         arr = new uint[](nextNodeIndex);
         uint j = 0;
-        for (uint i = 1; i < nextNodeIndex; i++) {
+        for (uint i = 0; i < nextNodeIndex; i++) {
             if(nodes[i].status == NodeStatus.Active){
                 arr[j] = i;
                 j++;
