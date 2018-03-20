@@ -339,11 +339,11 @@ contract NodeManager {
         }
     }
 
-	function getActiveNodesByAddress(address _sender) public view returns (uint[] memory arr) {
+	function getActiveNodesByAddress() public view returns (uint[] memory arr) {
 		uint[] memory arr1 = new uint[](nextNodeIndex);
 		uint j = 0;
 		for (uint i = 0; i < nextNodeIndex; i++) {
-            if (nodeIndexes[_sender][i] && nodes[i].status == NodeStatus.Active) {
+            if (nodeIndexes[msg.sender][i] && nodes[i].status == NodeStatus.Active) {
                 arr1[j] = i;
 				j++;
             }
