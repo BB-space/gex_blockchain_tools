@@ -4,6 +4,7 @@ pragma solidity ^0.4.17;
 interface GeToken {
     function transfer(address _to, uint _value) public returns (bool);
     function mint(address _to, uint _amount) public returns (bool);
+	function cap() public constant returns (uint);
 }
 
 /// @title Node Manager contract
@@ -17,11 +18,12 @@ contract NodeManager {
     // 60 days in seconds. Time period after which user can withdraw node deposit and leave the system
     uint32 constant LEAVING_PERIOD = 5260000;
     // min term in which node can be rewarded for it's contribution
-    uint8 constant PAYMENT_DAYS = 32;
+    //uint8 constant PAYMENT_DAYS = 32;
     // paymentDays days in seconds
-    uint32 constant PAYMENT_PERIOD = PAYMENT_DAYS * SECONDS_TO_DAY;
+    //uint32 constant PAYMENT_PERIOD = PAYMENT_DAYS * SECONDS_TO_DAY;
+	uint32 SIX_YEARS = SECONDS_TO_DAY * 30 * 12 * 6;
     // permitted number of days node may not send the heartbit during the paymentPeriod
-    uint8 constant ABSENT_DAYS = 2;
+    //uint8 constant ABSENT_DAYS = 2;
     // 30 days. Max lifetime of any mchain
     uint32 constant MCHAIN_MAX_LIFETIME = 2630000;
     //uint16 constant HEARTBIT_UNIT = 256;
@@ -31,8 +33,10 @@ contract NodeManager {
 	uint8 constant NUMBER_VALIDATORS = 21;
 
     address tokenAddress; // address of the token contract
-    uint annualMint; // total reword for nodes per year
-    uint dailyMint; // daily reword for nodes
+	uint minersCap;
+	uint32 startTime;
+	uint32 stageTime;
+	uint stageNodes;
 
     struct Node {
         bytes4 ip;
@@ -165,11 +169,11 @@ contract NodeManager {
 
     /// @dev Constructor for creating the Node Manager contract
     /// @param _token The address of the token contract
-    /// @param _annualMint Amount of tokens rewarded to nodes per year. Should be specified with decimals
-    function NodeManager(address _token, uint _annualMint) public {
+    function NodeManager(address _token) public {
         // todo implement: annualMint should be reduced by a half each N years
         tokenAddress = _token;
-        annualMint = _annualMint;
+		minersCap = GeToken(tokenAddress).cap() / 3;
+        startTime = uint32(block.timestamp);
         //dailyMint = annualMint / 365;
         //dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
     }
@@ -698,9 +702,14 @@ contract NodeManager {
     
 	function ManageBounty(address _sender, uint _nodeIndex, uint _downtime, uint _latency) private {
 		uint diffTime;
-	    uint BOUNTY = 1000000000;
-	    if (block.timestamp > nodes[_nodeIndex].lastRewardDate + 2595600) {
-	        diffTime = block.timestamp - nodes[_nodeIndex].lastRewardDate + 2595600;
+		uint32 timeNow = uint32(block.timestamp);
+		if (stageTime + SECONDS_TO_DAY * 30 < timeNow) {
+			stageTime = timeNow;
+			stageNodes = getActiveNodesCount();
+		}
+	    uint BOUNTY = minersCap / ((2 ** uint8((timeNow - startTime) / SIX_YEARS + 1)) * 6 * 12 * stageNodes);
+	    if (timeNow > nodes[_nodeIndex].lastRewardDate + 2595600) {
+	        diffTime = timeNow - nodes[_nodeIndex].lastRewardDate + 2595600;
 	    }
 	    uint diffBounty;
 	    if (_downtime > 200) {
@@ -710,11 +719,12 @@ contract NodeManager {
 	    if (_latency > 150) {
 	        bounty = (150 * bounty) / _latency;
 	    }
-	    //GeToken(tokenAddress).mint(msg.sender, bounty);
+	    GeToken(tokenAddress).mint(_sender, bounty);
         nodes[_nodeIndex].lastRewardDate = uint32(block.timestamp);
     }
 
     function getBounty(uint _nodeIndex) public {
+		//require(nodes[_nodeIndex].lastRewardDate + 2592000 >= block.timestamp);
         require(nodeIndexes[msg.sender][_nodeIndex]);
 		uint8 size = nodes[_nodeIndex].nextIndex;
 		uint32[] memory arr1 = new uint32[](size);
