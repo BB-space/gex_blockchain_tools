@@ -65,6 +65,8 @@ contract NodeManager {
         uint maxNodes; // max number of nodes associated with this mchain
         uint deposit; // value of tokens associated with this mchain
         string name; // mchain name
+
+		uint[] nodes;
     }
 
     struct AggregationMchain {
@@ -106,11 +108,6 @@ contract NodeManager {
     /*
      *  Events
      */
-
-    // todo remove
-    event Test1(bytes32 a, bytes32 b);
-    event Test2();
-    //
 
     event NodeCreated(
         uint nodeID,
@@ -174,8 +171,6 @@ contract NodeManager {
         tokenAddress = _token;
 		minersCap = GeToken(tokenAddress).cap() / 3;
         startTime = uint32(block.timestamp);
-        //dailyMint = annualMint / 365;
-        //dailyMint = annualMint / getDaysInCurrentYear(); // todo getDaysInCurrentYear() is very expensive
     }
 
     /*
@@ -589,7 +584,7 @@ contract NodeManager {
         nodeIndexes[_from][nextNodeIndex] = true;
         //newValidate(nextNodeIndex);
         NodeCreated(nextNodeIndex, _from, nodes[nextNodeIndex].ip, nodes[nextNodeIndex].port, nonce);
-		ValidatedArray(nextNodeIndex, newValidate(nextNodeIndex));
+		ValidatedArray(nextNodeIndex, generate(nextNodeIndex, NUMBER_VALIDATORS, true));
         nextNodeIndex++;
     }
     
@@ -600,20 +595,24 @@ contract NodeManager {
     }*/
 
     
-    function newValidate(uint _nodeIndex) private returns (uint[] validators) {
+    function generate(uint _index, uint _amount, bool _validate) private returns (uint[] arr) {
 		uint numberOfNodes = nextNodeIndex;
-        uint hash = uint(keccak256(uint(block.blockhash(block.number)), _nodeIndex));
+        uint hash = uint(keccak256(uint(block.blockhash(block.number)), _index));
         bool[] memory check = new bool[](numberOfNodes); 
-        validators = new uint[](NUMBER_VALIDATORS > numberOfNodes ? numberOfNodes : NUMBER_VALIDATORS);
+        arr = new uint[](_amount > numberOfNodes ? numberOfNodes : _amount);
         uint8 len = 0;
-		uint8 finish = (NUMBER_VALIDATORS > numberOfNodes ? uint8(numberOfNodes) : NUMBER_VALIDATORS);
+		uint8 finish = (_amount > numberOfNodes ? uint8(numberOfNodes) : uint8(_amount));
 		uint num;
         while (finish > 0) {
 			num = hash % numberOfNodes;
             if (nodes[num].status == NodeStatus.Active && !check[num]) {
                 check[num] = true;
-				nodes[num].validatedNodes.push(getBytes(_nodeIndex));
-				validators[len] = num;
+				if (_validate) {
+					nodes[num].validatedNodes.push(getBytes(_index));
+				} else {
+					mchain[bytes32(_index)].nodes.push(num);
+				}
+				arr[len] = num;
 				len++;
                 finish--;
 			}
@@ -623,7 +622,6 @@ contract NodeManager {
 		delete(num);
 		delete(numberOfNodes);
 		delete(check);
-        //ValidatedArray(_nodeIndex, validators);
     }
     
     function getBytes(uint _nodeIndex) private constant returns (bytes32 f) {
@@ -751,7 +749,7 @@ contract NodeManager {
 		}
 		delete(nodes[_nodeIndex].nextIndex);
 		ManageBounty(msg.sender, _nodeIndex, averageDowntime, averageLatency);
-        ValidatedArray(_nodeIndex, newValidate(_nodeIndex));
+        ValidatedArray(_nodeIndex, generate(_nodeIndex, NUMBER_VALIDATORS, true));
     }
 
     /// @dev Function for creating a mchain
@@ -781,6 +779,7 @@ contract NodeManager {
         mchain[id] = newMchain;
         mchain[id].indexInOwnerList = mchainIndexes[_from].length;
         mchainIndexes[_from].push(id);
+		generate(uint(id), 6, false);
         MchainCreated(newMchain.name,
                       _from,
                       newMchain.storageBytes,
